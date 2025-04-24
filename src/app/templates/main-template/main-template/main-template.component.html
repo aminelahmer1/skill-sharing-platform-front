@@ -1,0 +1,375 @@
+<!-- src/app/templates/main-template/main-template.component.html -->
+<div *ngIf="isLoading" class="loading">
+    <p>Chargement...</p>
+  </div>
+  
+  <div *ngIf="error" class="error">{{ error }}</div>
+  
+  <div *ngIf="!isLoading && !error" class="main-container">
+    <nav class="navbar">
+      <div class="logo">
+        <span class="logo-icon">💡</span>
+        SkillShare<span>Live</span>
+      </div>
+      <div class="nav-links" [class.active]="isMenuActive">
+        <a href="#" class="active">Accueil</a>
+        <a href="#">Comment ça marche</a>
+        <a href="#">Compétences</a>
+        <a href="#" (click)="scrollToCalendar($event)">Calendrier</a>
+        <a href="#">Tarifs</a>
+      </div>
+      <div class="auth-buttons">
+        <button
+          class="btn btn-outline"
+          (mouseover)="onLoginHover()"
+          (mouseout)="onLoginHoverOut()"
+          (click)="login()"
+        >
+          {{ loginButtonText }}
+        </button>
+        <button
+          class="btn btn-primary"
+          (mouseover)="onRegisterHover()"
+          (mouseout)="onRegisterHoverOut()"
+          (click)="register()"
+        >
+          {{ registerButtonText }}
+        </button>
+      </div>
+    </nav>
+  
+    <section class="hero">
+      <div class="hero-content">
+        <h1 class="hero-title">Échangez vos <span>compétences</span> en temps réel</h1>
+        <p class="hero-subtitle">
+          SkillShare Live connecte ceux qui veulent apprendre avec ceux qui veulent enseigner.
+          Partagez vos connaissances et développez de nouvelles compétences grâce à notre plateforme collaborative.
+        </p>
+        <div class="user-cards">
+          <div class="user-card producer">
+            <div class="user-card-header">
+              <div class="user-icon">👨‍🏫</div>
+              <div>
+                <h3 class="user-title">PRODUCTEUR</h3>
+                <p class="user-subtitle">Expert qui partage son savoir</p>
+              </div>
+            </div>
+            <ul class="user-features">
+              <li>Créez des sessions live interactives</li>
+              <li>Monétisez vos compétences</li>
+              <li>Construisez votre réputation</li>
+              <li>Gérez votre calendrier</li>
+            </ul>
+            <button class="btn btn-producer" (click)="register()">Devenir Producteur</button>
+          </div>
+          <div class="user-card receiver">
+            <div class="user-card-header">
+              <div class="user-icon">👨‍🎓</div>
+              <div>
+                <h3 class="user-title">RECEVEUR</h3>
+                <p class="user-subtitle">Apprenant motivé</p>
+              </div>
+            </div>
+            <ul class="user-features">
+              <li>Accédez à des experts qualifiés</li>
+              <li>Apprenez à votre rythme</li>
+              <li>Choisissez parmi des centaines de compétences</li>
+              <li>Évaluez vos sessions</li>
+            </ul>
+            <button class="btn btn-receiver" (click)="register()">Devenir Receveur</button>
+          </div>
+        </div>
+      </div>
+      <div class="hero-image">
+        <svg class="hero-illustration" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
+          <rect width="600" height="400" fill="#f5f6fa" />
+          <circle cx="150" cy="200" r="50" fill="#fd79a8" />
+          <circle cx="140" cy="190" r="5" fill="#2d3436" />
+          <circle cx="160" cy="190" r="5" fill="#2d3436" />
+          <path d="M130 220 Q150 240 170 220" stroke="#2d3436" stroke-width="3" fill="none" />
+          <rect x="100" y="250" width="100" height="20" rx="10" fill="#74b9ff" />
+          <text x="150" y="265" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle" fill="white">LIVE</text>
+          <circle cx="450" cy="200" r="50" fill="#74b9ff" />
+          <circle cx="440" cy="190" r="5" fill="#2d3436" />
+          <circle cx="460" cy="190" r="5" fill="#2d3436" />
+          <path d="M430 220 Q450 230 470 220" stroke="#2d3436" stroke-width="3" fill="none" />
+          <rect x="400" y="250" width="100" height="20" rx="10" fill="#fd79a8" />
+          <text x="450" y="265" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle" fill="white">APPRENDRE</text>
+          <path d="M200 200 Q300 100 400 200" stroke="#6c5ce7" stroke-width="4" fill="none" stroke-dasharray="10,5" />
+          <circle cx="300" cy="100" r="15" fill="#a29bfe" />
+          <text x="300" y="105" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle" fill="white">💡</text>
+          <circle cx="50" cy="50" r="10" fill="#6c5ce7" opacity="0.6" />
+          <circle cx="550" cy="80" r="15" fill="#fd79a8" opacity="0.6" />
+          <circle cx="100" cy="350" r="12" fill="#74b9ff" opacity="0.6" />
+          <circle cx="500" cy="320" r="8" fill="#6c5ce7" opacity="0.6" />
+        </svg>
+        <div class="floating-icons">
+          <div class="floating-icon" style="top: 20%; left: 10%; font-size: 2rem;">📚</div>
+          <div class="floating-icon" style="top: 70%; left: 15%; font-size: 1.5rem;">💻</div>
+          <div class="floating-icon" style="top: 30%; right: 15%; font-size: 2.5rem;">🎨</div>
+          <div class="floating-icon" style="top: 80%; right: 10%; font-size: 1.8rem;">📱</div>
+        </div>
+      </div>
+    </section>
+  
+    <section class="section features-section">
+      <h2 class="section-title">Comment fonctionne SkillShare Live</h2>
+      <p class="section-subtitle">
+        Une plateforme simple et intuitive pour connecter les apprenants et les experts en temps réel
+      </p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🔍</div>
+          <h3 class="feature-title">Trouvez votre match</h3>
+          <p class="feature-desc">
+            Notre algorithme intelligent vous suggère les meilleurs partenaires d'apprentissage en fonction de vos compétences et intérêts.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎥</div>
+          <h3 class="feature-title">Sessions en direct</h3>
+          <p class="feature-desc">
+            Interagissez en temps réel via notre plateforme de streaming intégrée avec partage d'écran, tableau blanc et chat.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📅</div>
+          <h3 class="feature-title">Calendrier intelligent</h3>
+          <p class="feature-desc">
+            Synchronisez votre agenda, planifiez des sessions et recevez des rappels automatiques pour ne rien manquer.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💳</div>
+          <h3 class="feature-title">Paiement sécurisé</h3>
+          <p class="feature-desc">
+            Système de crédits intégré pour rémunérer les producteurs. Payez seulement pour le temps que vous utilisez.
+          </p>
+        </div>
+      </div>
+    </section>
+  
+    <section class="section calendar-section" #calendarSection>
+      <h2 class="section-title">Planifiez vos sessions d'échange</h2>
+      <p class="section-subtitle">
+        Trouvez des créneaux disponibles et réservez vos sessions d'apprentissage en quelques clics
+      </p>
+      <div class="calendar-container calendar-visible">
+        <div class="calendar-header">
+          <h3 class="calendar-title">{{ calendarTitle }}</h3>
+          <div class="calendar-nav">
+            <button (click)="prevMonth()">❮</button>
+            <button (click)="nextMonth()">❯</button>
+          </div>
+        </div>
+        <div class="calendar-grid">
+          <div class="calendar-weekdays">
+            <div class="calendar-weekday">Lun</div>
+            <div class="calendar-weekday">Mar</div>
+            <div class="calendar-weekday">Mer</div>
+            <div class="calendar-weekday">Jeu</div>
+            <div class="calendar-weekday">Ven</div>
+            <div class="calendar-weekday">Sam</div>
+            <div class="calendar-weekday">Dim</div>
+          </div>
+          <div class="calendar-days">
+            <div
+              *ngFor="let day of calendarDays"
+              class="calendar-day"
+              [class.empty]="day.isEmpty"
+              [class.today]="day.isToday"
+            >
+              <div *ngIf="!day.isEmpty">
+                <div class="calendar-day-number">{{ day.number }}</div>
+                <div class="calendar-day-events">
+                  <div
+                    *ngFor="let event of day.events"
+                    class="calendar-event"
+                    [class.producer]="event.type === 'producer'"
+                    [class.receiver]="event.type === 'receiver'"
+                    [title]="event.title + ' à ' + event.time + ' (' + event.duration + ' min)'"
+                  >
+                    {{ event.title }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div *ngIf="showCalendarError" class="calendar-message" style="color: var(--danger);">
+          Erreur lors du chargement du calendrier. Veuillez réessayer.
+        </div>
+      </div>
+    </section>
+  
+    <section class="section" style="background-color: #f9f9f9;">
+      <h2 class="section-title">Expérience d'apprentissage immersive</h2>
+      <p class="section-subtitle">
+        Découvrez comment se déroule une session live entre un producteur et un receveur
+      </p>
+      <div class="live-preview">
+        <div class="live-header">
+          <div class="live-title">Introduction au Développement Web</div>
+          <div class="live-badge">EN DIRECT</div>
+        </div>
+        <div class="live-content">
+          <div class="live-stream">
+            <div>STREAM VIDEO EN DIRECT</div>
+          </div>
+          <div class="live-chat">
+            <div class="chat-messages">
+              <div
+                *ngFor="let message of chatMessages"
+                class="message"
+                [class.producer]="message.isProducer"
+                [class.receiver]="!message.isProducer"
+              >
+                <div class="message-sender">
+                  {{ message.sender }} {{ message.isProducer ? '(Producteur)' : '(Receveur)' }}
+                </div>
+                <div class="message-content">{{ message.content }}</div>
+              </div>
+            </div>
+            <div class="static-messages">
+              <div class="static-message">
+                <div class="static-message-header">
+                  <span>Jean (Producteur)</span>
+                  <span>10:15</span>
+                </div>
+                <div class="static-message-content">
+                  Bienvenue à tous dans cette session sur les bases du développement web ! N'hésitez pas à poser vos questions dans le chat.
+                </div>
+              </div>
+              <div class="static-message">
+                <div class="static-message-header">
+                  <span>Marie (Receveur)</span>
+                  <span>10:20</span>
+                </div>
+                <div class="static-message-content">
+                  Merci pour cette session. Pour commencer, quelle est la différence entre HTML et CSS ?
+                </div>
+              </div>
+              <div class="static-message">
+                <div class="static-message-header">
+                  <span>Jean (Producteur)</span>
+                  <span>10:22</span>
+                </div>
+                <div class="static-message-content">
+                  Excellente question ! HTML est comme la structure d'une maison (murs, portes), alors que CSS c'est la décoration (peinture, meubles).
+                </div>
+              </div>
+            </div>
+            <div class="chat-input">
+              <input
+                type="text"
+                [(ngModel)]="chatInput"
+                placeholder="Envoyer un message..."
+                (keypress)="onChatKeypress($event)"
+              />
+              <button (click)="sendMessage()">➤</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  
+    <footer class="footer">
+      <div class="footer-grid">
+        <div>
+          <h3 class="footer-col-title">SkillShare Live</h3>
+          <p style="color: #b2bec3; margin-bottom: 1.5rem;">
+            La plateforme d'échange de compétences en temps réel qui connecte les passionnés.
+          </p>
+          <div style="display: flex; gap: 1rem;">
+            <a href="#" style="color: white; font-size: 1.5rem;">📱</a>
+            <a href="#" style="color: white; font-size: 1.5rem;">📘</a>
+            <a href="#" style="color: white; font-size: 1.5rem;">🐦</a>
+            <a href="#" style="color: white; font-size: 1.5rem;">📸</a>
+          </div>
+        </div>
+        <div>
+          <h3 class="footer-col-title">Compétences</h3>
+          <ul class="footer-links">
+            <li><a href="#">Développement</a></li>
+            <li><a href="#">Design</a></li>
+            <li><a href="#">Marketing</a></li>
+            <li><a href="#">Langues</a></li>
+            <li><a href="#">Musique</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="footer-col-title">Entreprise</h3>
+          <ul class="footer-links">
+            <li>
+              <a href="#" (click)="toggleInfoText($event, 'about')">À propos</a>
+              <div class="info-text" [class.active]="activeInfoText === 'about'">
+                Découvrez notre mission et notre vision pour connecter les apprenants et les experts.
+              </div>
+            </li>
+            <li>
+              <a href="#" (click)="toggleInfoText($event, 'careers')">Carrières</a>
+              <div class="info-text" [class.active]="activeInfoText === 'careers'">
+                Rejoignez notre équipe pour façonner l'avenir de l'apprentissage collaboratif.
+              </div>
+            </li>
+            <li>
+              <a href="#" (click)="toggleInfoText($event, 'blog')">Blog</a>
+              <div class="info-text" [class.active]="activeInfoText === 'blog'">
+                Lisez nos articles sur les tendances en éducation et les histoires de nos utilisateurs.
+              </div>
+            </li>
+            <li>
+              <a href="#" (click)="toggleInfoText($event, 'press')">Presse</a>
+              <div class="info-text" [class.active]="activeInfoText === 'press'">
+                Consultez nos communiqués de presse et nos apparitions dans les médias.
+              </div>
+            </li>
+            <li>
+              <a href="#" (click)="toggleInfoText($event, 'contact')">Contact</a>
+              <div class="info-text" [class.active]="activeInfoText === 'contact'">
+                Envoyez-nous vos questions ou suggestions via notre formulaire de contact.
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="footer-col-title">Support</h3>
+          <ul class="footer-links">
+            <li>
+              <a href="#" (click)="toggleInfoText($event, 'help')">Centre d'aide</a>
+              <div class="info-text" [class.active]="activeInfoText === 'help'">
+                Trouvez des réponses à vos questions dans notre base de connaissances.
+              </div>
+            </li>
+            <li>
+              <a href="#" (click)="toggleInfoText($event, 'security')">Sécurité</a>
+              <div class="info-text" [class.active]="activeInfoText === 'security'">
+                Apprenez comment nous protégeons vos données et vos sessions.
+              </div>
+            </li>
+            <li>
+              <a href="#" (click)="toggleInfoText($event, 'privacy')">Confidentialité</a>
+              <div class="info-text" [class.active]="activeInfoText === 'privacy'">
+                Consultez notre politique de confidentialité pour comprendre la gestion de vos données.
+              </div>
+            </li>
+            <li>
+              <a href="#" (click)="toggleInfoText($event, 'terms')">Conditions</a>
+              <div class="info-text" [class.active]="activeInfoText === 'terms'">
+                Lisez nos conditions d'utilisation pour utiliser notre plateforme.
+              </div>
+            </li>
+            <li>
+              <a href="#" (click)="toggleInfoText($event, 'faq')">FAQ</a>
+              <div class="info-text" [class.active]="activeInfoText === 'faq'">
+                Parcourez les questions fréquentes pour des réponses rapides.
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        © 2025 SkillShare Live. Tous droits réservés.
+      </div>
+    </footer>
+  </div>
