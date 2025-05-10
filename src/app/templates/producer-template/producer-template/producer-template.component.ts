@@ -1,10 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router, RouterModule } from '@angular/router';
 import { KeycloakService } from '../../../core/services/keycloak.service';
-import { Router } from '@angular/router';
+import { NavbarProducerComponent } from '../navbar-producer/navbar-producer.component';
+import { HeroProducerComponent } from '../hero-producer/hero-producer.component';
+import { FooterProducerComponent } from '../footer-producer/footer-producer.component';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
-interface Session {
+export interface Session {
   id: number;
   title: string;
   date: string;
@@ -16,7 +20,15 @@ interface Session {
 @Component({
   selector: 'app-producer-template',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterModule,
+    NavbarProducerComponent,
+    HeroProducerComponent,
+    FooterProducerComponent,
+    MatSnackBarModule,
+  ],
   templateUrl: './producer-template.component.html',
   styleUrls: ['./producer-template.component.css'],
 })
@@ -33,7 +45,8 @@ export class ProducerTemplateComponent implements OnInit {
 
   constructor(
     private keycloakService: KeycloakService,
-    private router: Router
+    private router: Router,
+    private snackBar: MatSnackBar
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -45,6 +58,7 @@ export class ProducerTemplateComponent implements OnInit {
       console.log('ProducerTemplateComponent: isAuthenticated=', isAuthenticated, 'roles=', roles);
       if (!isAuthenticated || !roles.includes('PRODUCER')) {
         console.warn('ProducerTemplateComponent: Access denied - redirecting to login');
+        this.snackBar.open('Accès refusé. Veuillez vous connecter.', 'Fermer', { duration: 3000 });
         await this.router.navigate(['/login']);
         return;
       }
@@ -53,6 +67,7 @@ export class ProducerTemplateComponent implements OnInit {
     } catch (error) {
       console.error('ProducerTemplateComponent: Init error:', error);
       this.error = 'Erreur lors du chargement. Veuillez réessayer.';
+      this.snackBar.open(this.error, 'Fermer', { duration: 3000 });
     } finally {
       this.isLoading = false;
     }
@@ -70,13 +85,19 @@ export class ProducerTemplateComponent implements OnInit {
     try {
       this.logoutButtonText = '👋 Déconnexion...';
       await this.keycloakService.logout();
+      this.snackBar.open('Déconnexion réussie.', 'Fermer', { duration: 3000 });
     } catch (error) {
       console.error('ProducerTemplateComponent: Logout error:', error);
       this.error = 'Erreur lors de la déconnexion. Veuillez réessayer.';
+      this.snackBar.open(this.error, 'Fermer', { duration: 3000 });
     }
   }
 
   toggleMenu(): void {
     this.isMenuActive = !this.isMenuActive;
+  }
+
+  isHomeRoute(): boolean {
+    return this.router.url === '/producer';
   }
 }

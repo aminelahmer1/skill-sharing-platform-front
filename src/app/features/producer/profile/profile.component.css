@@ -1,0 +1,121 @@
+.profile-container {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 1rem;
+  }
+  
+  .loading-card, .error-card, .profile-card {
+    margin-bottom: 2rem;
+  }
+  
+  .loading-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+  }
+  
+  .loading-text {
+    margin-top: 1rem;
+    font-size: 1.1rem;
+  }
+  
+  .error-content {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+  }
+  
+  .error-text {
+    margin-left: 0.5rem;
+  }
+  
+  .profile-header {
+    display: flex;
+    align-items: center;
+    padding: 1.5rem;
+  }
+  
+  .profile-avatar {
+    width: 80px;
+    height: 80px;
+    margin-right: 1.5rem;
+  }
+  
+  .avatar-image {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  
+  .profile-title {
+    flex: 1;
+  }
+  
+  .profile-content {
+    padding: 0 1.5rem 1.5rem;
+  }
+  
+  .profile-details {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .detail-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+  
+  .detail-icon {
+    margin-right: 0.5rem;
+    color: rgba(0, 0, 0, 0.54);
+  }
+  
+  .detail-text {
+    font-size: 1rem;
+  }
+  
+  .profile-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.12);
+  }
+  
+  .edit-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  /* ... (conservez vos styles existants) ... */
+
+/* Leaflet Map Styles */
+.map-section {
+    margin-top: 1.5rem;
+  }
+  
+  .map-title {
+    margin-bottom: 0.5rem;
+    color: #3f51b5;
+    font-weight: 500;
+  }
+  
+  .map-container {
+    margin-top: 2rem;
+    position: relative;
+    width: 100%;
+    min-height: 400px;
+  }
+  .map {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+  }
+  

@@ -46,7 +46,6 @@ export class KeycloakService {
     } catch (error) {
       console.error('KeycloakService: Initialization failed', error);
       this.authStatus.next(false);
-    
     }
   }
 
@@ -124,12 +123,54 @@ export class KeycloakService {
     }
   }
 
-  async getToken(): Promise<string> {
+  /**
+   * Méthode qui rafraîchit le token en appelant `updateToken` sur l'instance Keycloak.
+   * On effectue un cast vers `any` pour éviter les erreurs de typage.
+   */
+  // KeycloakService.ts
+  async refreshToken(minValidity: number = 30): Promise<boolean> {
     try {
-      return this.keycloak.token || '';
+      if (!this.keycloak) {
+        console.error('Keycloak instance not initialized');
+        return false;
+      }
+      
+      // Force token refresh if expired or about to expire
+      const refreshed = await this.keycloak.updateToken(minValidity);
+      console.log('Token refresh result:', refreshed);
+      
+      if (!refreshed && this.keycloak.isTokenExpired()) {
+        await this.login();
+        return false;
+      }
+      return refreshed;
     } catch (error) {
-      console.error('KeycloakService: Failed to get token', error);
-      throw error;
+      console.error('Token refresh failed:', error);
+      await this.login();
+      return false;
     }
   }
+
+
+  /**
+   * Retourne le token d'authentification (déjà rafraîchi dans refreshToken)
+   */
+  async getToken(): Promise<string> {
+    return this.keycloak.token || '';
+  }
+
+  async getUserId(): Promise<string> {
+    try {
+      // Option 1: Si vous avez déjà le token décodé dans le userProfile
+      const token = await this.getToken();
+      if (!token) throw new Error('No token available');
+      
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.sub; // sub est le standard Keycloak pour l'ID utilisateur
+    } catch (error) {
+      console.error('Failed to get user ID:', error);
+      throw error;
+    
 }
+
+}}

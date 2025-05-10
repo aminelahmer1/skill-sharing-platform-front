@@ -1,0 +1,23 @@
+<nav class="navbar">
+    <div class="logo">
+      <span class="logo-icon">💡</span>
+      SkillShare<span>Live</span>
+    </div>
+    <div class="nav-links" [class.active]="isMenuActive">
+      <a routerLink="/producer" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">Accueil</a>
+      <a routerLink="profile" [routerLinkActive]="['active']">Profil</a>
+     
+      <a routerLink="skills" [routerLinkActive]="['active']">Mes compétences</a>
+      <a routerLink="calendar" [routerLinkActive]="['active']">Calendrier</a>
+    </div>
+    <div class="auth-buttons">
+      <button
+        class="btn btn-primary"
+        (mouseover)="onLogoutHover()"
+        (mouseout)="onLogoutHoverOut()"
+        (click)="handleLogout()"
+      >
+        {{ logoutButtonText }}
+      </button>
+    </div>
+  </nav>

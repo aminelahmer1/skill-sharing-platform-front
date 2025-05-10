@@ -5,6 +5,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { KeycloakService } from './core/services/keycloak.service';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 
 export function initializeKeycloak(keycloak: KeycloakService) {
   return () => keycloak.init();
@@ -20,6 +21,6 @@ export const appConfig: ApplicationConfig = {
       useFactory: initializeKeycloak,
       deps: [KeycloakService],
       multi: true,
-    },
+    }, provideAnimationsAsync(),
   ],
 };

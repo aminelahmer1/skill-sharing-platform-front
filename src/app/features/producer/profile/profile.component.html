@@ -1,0 +1,80 @@
+<div class="profile-container">
+    <!-- État de chargement -->
+    <mat-card *ngIf="isLoading" class="loading-card mat-elevation-z4">
+      <mat-card-content class="loading-content">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p class="loading-text">Chargement du profil...</p>
+      </mat-card-content>
+    </mat-card>
+  
+    <!-- État d'erreur -->
+    <mat-card *ngIf="error && !isLoading" class="error-card mat-elevation-z4">
+      <mat-card-content class="error-content">
+        <mat-icon color="warn">error</mat-icon>
+        <span class="error-text">{{ error }}</span>
+      </mat-card-content>
+    </mat-card>
+  
+    <!-- Données du profil -->
+    <mat-card *ngIf="(profile$ | async) as profile" class="profile-card mat-elevation-z4">
+      <mat-card-header class="profile-header">
+        <div mat-card-avatar class="profile-avatar">
+          <img [src]="profile.pictureUrl || 'assets/images/default-profile.png'"
+               alt="Photo de profil"
+               class="avatar-image">
+        </div>
+        <div class="profile-title">
+          <mat-card-title>{{ profile.firstName }} {{ profile.lastName }}</mat-card-title>
+          <mat-card-subtitle>{{ profile.email }}</mat-card-subtitle>
+        </div>
+      </mat-card-header>
+  
+      <mat-card-content class="profile-content">
+        <div class="profile-details">
+          <div class="detail-row">
+            <mat-icon class="detail-icon">person</mat-icon>
+            <span class="detail-text">Nom d'utilisateur : {{ profile.username }}</span>
+          </div>
+  
+          <div class="detail-row" *ngIf="profile.phoneNumber">
+            <mat-icon class="detail-icon">phone</mat-icon>
+            <span class="detail-text">Téléphone : {{ profile.phoneNumber }}</span>
+          </div>
+  
+          <div class="detail-row" *ngIf="profile.bio">
+            <mat-icon class="detail-icon">info</mat-icon>
+            <span class="detail-text">Bio : {{ profile.bio }}</span>
+          </div>
+  
+          <div class="detail-row" *ngIf="profile.address?.city || profile.address?.country">
+            <mat-icon class="detail-icon">location_on</mat-icon>
+            <span class="detail-text">
+              Adresse : {{ profile.address?.city }}, 
+              {{ profile.address?.postalCode }}, {{ profile.address?.country }}
+            </span>
+          </div>
+  
+          <div class="detail-row">
+            <mat-icon class="detail-icon">calendar_today</mat-icon>
+            <span class="detail-text">Membre depuis : {{ profile.createdAt | date:'mediumDate' }}</span>
+          </div>
+        </div>
+
+        <!-- Conteneur de la carte -->
+        <div *ngIf="profile.address" class="map-container">
+            <h3>Localisation</h3>
+            <div #map class="map"></div>
+          </div>
+        </mat-card-content>
+  
+      <mat-card-actions class="profile-actions">
+        <button mat-raised-button 
+                color="primary" 
+                routerLink="../profile-edit"
+                class="edit-button">
+          <mat-icon>edit</mat-icon>
+          Modifier le profil
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>

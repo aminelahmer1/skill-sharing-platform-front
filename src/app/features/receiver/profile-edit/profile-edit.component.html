@@ -1,0 +1,149 @@
+<div class="edit-container">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Modifier le profil</mat-card-title>
+        <mat-card-subtitle *ngIf="isLoading">Chargement des données du profil...</mat-card-subtitle>
+      </mat-card-header>
+  
+      <mat-card-content>
+        <form [formGroup]="profileForm" (ngSubmit)="onSubmit()">
+          <div class="form-section">
+            <div class="avatar-upload">
+              <div class="avatar-preview">
+                <img 
+                  [src]="previewUrl" 
+                  alt="Photo de profil"
+                  (error)="previewUrl = 'assets/images/default-profile.png'"
+                  class="profile-image"
+                >
+                <div class="upload-overlay" *ngIf="isUploading">
+                  <mat-spinner diameter="30"></mat-spinner>
+                </div>
+              </div>
+              <input 
+                type="file" 
+                hidden 
+                (change)="onFileSelected($event)" 
+                #fileInput 
+                accept="image/*"
+                aria-label="Télécharger une photo de profil"
+              >
+              <button 
+                mat-stroked-button 
+                type="button" 
+                (click)="fileInput.click()"
+                [disabled]="isUploading"
+                color="primary"
+              >
+                <mat-icon>photo_camera</mat-icon>
+                {{ isUploading ? 'Téléchargement...' : 'Changer de photo' }}
+              </button>
+            </div>
+  
+            <div class="form-fields">
+              <mat-form-field appearance="outline">
+                <mat-label>Prénom</mat-label>
+                <input 
+                  matInput 
+                  formControlName="firstName" 
+                  required
+                  placeholder="Entrez votre prénom"
+                >
+                <mat-error *ngIf="profileForm.get('firstName')?.hasError('required')">
+                  Le prénom est obligatoire
+                </mat-error>
+              </mat-form-field>
+  
+              <mat-form-field appearance="outline">
+                <mat-label>Nom</mat-label>
+                <input 
+                  matInput 
+                  formControlName="lastName" 
+                  required
+                  placeholder="Entrez votre nom"
+                >
+                <mat-error *ngIf="profileForm.get('lastName')?.hasError('required')">
+                  Le nom est obligatoire
+                </mat-error>
+              </mat-form-field>
+  
+              <mat-form-field appearance="outline">
+                <mat-label>Téléphone</mat-label>
+                <input 
+                  matInput 
+                  formControlName="phoneNumber" 
+                  type="tel"
+                  placeholder="Entrez votre numéro de téléphone"
+                >
+                <mat-error *ngIf="profileForm.get('phoneNumber')?.hasError('pattern')">
+                  Veuillez entrer un numéro de téléphone valide
+                </mat-error>
+              </mat-form-field>
+  
+              <mat-form-field appearance="outline">
+                <mat-label>Biographie</mat-label>
+                <textarea 
+                  matInput 
+                  formControlName="bio" 
+                  rows="3"
+                  placeholder="Parlez-nous de vous"
+                  maxlength="500"
+                ></textarea>
+                <mat-hint align="end">
+                  {{ profileForm.get('bio')?.value?.length || 0 }}/500
+                </mat-hint>
+              </mat-form-field>
+  
+              <h3 class="section-title">Adresse</h3>
+              <div formGroupName="address" class="address-group">
+                <mat-form-field appearance="outline">
+                  <mat-label>Ville</mat-label>
+                  <input matInput formControlName="city" placeholder="Entrez votre ville">
+                  <mat-error *ngIf="profileForm.get('address.city')?.hasError('maxlength')">
+                    Le nom de la ville est trop long
+                  </mat-error>
+                </mat-form-field>
+  
+                <mat-form-field appearance="outline">
+                  <mat-label>Pays</mat-label>
+                  <input matInput formControlName="country" placeholder="Entrez votre pays">
+                  <mat-error *ngIf="profileForm.get('address.country')?.hasError('maxlength')">
+                    Le nom du pays est trop long
+                  </mat-error>
+                </mat-form-field>
+  
+                <mat-form-field appearance="outline">
+                  <mat-label>Code postal</mat-label>
+                  <input matInput formControlName="postalCode" placeholder="Entrez votre code postal">
+                  <mat-error *ngIf="profileForm.get('address.postalCode')?.hasError('maxlength')">
+                    Le code postal est trop long
+                  </mat-error>
+                </mat-form-field>
+              </div>
+            </div>
+          </div>
+  
+          <div class="form-actions">
+            <button 
+              mat-raised-button 
+              color="primary" 
+              type="submit" 
+              [disabled]="profileForm.invalid || isLoading"
+              aria-label="Enregistrer les modifications"
+            >
+              <mat-spinner *ngIf="isLoading" diameter="20"></mat-spinner>
+              {{ isLoading ? 'Enregistrement...' : 'Enregistrer les modifications' }}
+            </button>
+            <button 
+            mat-stroked-button 
+            type="button" 
+            (click)="navigateToProfile()"
+            class="cancel-button"
+          >
+            Annuler
+          </button>
+          </div>
+        </form>
+      </mat-card-content>
+    </mat-card>
+  </div>

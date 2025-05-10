@@ -1,154 +1,53 @@
-<!-- src/app/templates/receiver-template/receiver-template.component.html -->
 <div *ngIf="isLoading" class="loading">
-    <p>Chargement...</p>
-  </div>
-  
-  <div *ngIf="error" class="error">{{ error }}</div>
-  
-  <div *ngIf="!isLoading && !error" class="receiver-container">
-    <nav class="navbar">
-      <div class="logo">
-        <span class="logo-icon">💡</span>
-        SkillShare<span>Live</span>
-      </div>
-      <div class="nav-links" [class.active]="isMenuActive">
-        <a href="#" class="active">Accueil</a>
-        <a href="#">Profil</a>
-        <a href="#">Compétences recherchées</a>
-        <a href="#">Calendrier</a>
-      </div>
-      <div class="auth-buttons">
-        <button
-          class="btn btn-primary"
-          (mouseover)="onLogoutHover()"
-          (mouseout)="onLogoutHoverOut()"
-          (click)="logout()"
-        >
-          {{ logoutButtonText }}
-        </button>
-      </div>
-    </nav>
-  
-    <section class="hero">
-      <div class="hero-content">
-        <h1 class="hero-title">Espace <span>Receveur</span></h1>
-        <p class="hero-subtitle">
-          Trouvez des experts, planifiez des sessions et développez vos compétences.
-        </p>
-        <div class="receiver-dashboard">
-          <h2>Bienvenue, {{ userProfile?.firstName || 'Receveur' }}</h2>
-          <div class="dashboard-stats">
-            <div class="stat-card">
-              <h3>Sessions à venir</h3>
-              <p>{{ sessions.length }}</p>
-            </div>
-            <div class="stat-card">
-              <h3>Compétences recherchées</h3>
-              <p>2</p>
-            </div>
+  <p>Chargement...</p>
+</div>
+
+<div *ngIf="error" class="error">{{ error }}</div>
+
+<div *ngIf="!isLoading && !error" class="receiver-container">
+  <app-navbar-receiver 
+    [userProfile]="userProfile"
+    [isMenuActive]="isMenuActive"
+    [logoutButtonText]="logoutButtonText"
+    (logout)="logout()"
+    (menuToggled)="toggleMenu()">
+  </app-navbar-receiver>
+
+  <!-- Show hero section only on /receiver -->
+  <app-hero-receiver
+    *ngIf="isHomeRoute()"
+    [userProfile]="userProfile"
+    [sessions]="sessions">
+  </app-hero-receiver>
+
+  <section class="section content-section">
+    <!-- Show sessions and calendar side by side only on /receiver -->
+    <div *ngIf="isHomeRoute()" class="home-content">
+      <section class="features-section">
+        <h2 class="section-title">Mes sessions à venir</h2>
+        <div class="features-grid">
+          <div *ngFor="let session of sessions" class="feature-card">
+            <h3 class="feature-title">{{ session.title }}</h3>
+            <p class="feature-desc">
+              Date: {{ session.date }} à {{ session.time }}<br />
+              Durée: {{ session.duration }} min<br />
+              Producteur: {{ session.producer }}
+            </p>
           </div>
         </div>
-      </div>
-      <div class="hero-image">
-        <svg class="hero-illustration" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
-          <rect width="600" height="400" fill="#f5f6fa" />
-          <circle cx="150" cy="200" r="50" fill="#fd79a8" />
-          <circle cx="140" cy="190" r="5" fill="#2d3436" />
-          <circle cx="160" cy="190" r="5" fill="#2d3436" />
-          <path d="M130 220 Q150 240 170 220" stroke="#2d3436" stroke-width="3" fill="none" />
-          <rect x="100" y="250" width="100" height="20" rx="10" fill="#74b9ff" />
-          <text x="150" y="265" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle" fill="white">LIVE</text>
-          <circle cx="450" cy="200" r="50" fill="#74b9ff" />
-          <circle cx="440" cy="190" r="5" fill="#2d3436" />
-          <circle cx="460" cy="190" r="5" fill="#2d3436" />
-          <path d="M430 220 Q450 230 470 220" stroke="#2d3436" stroke-width="3" fill="none" />
-          <rect x="400" y="250" width="100" height="20" rx="10" fill="#fd79a8" />
-          <text x="450" y="265" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle" fill="white">APPRENDRE</text>
-          <path d="M200 200 Q300 100 400 200" stroke="#6c5ce7" stroke-width="4" fill="none" stroke-dasharray="10,5" />
-          <circle cx="300" cy="100" r="15" fill="#a29bfe" />
-          <text x="300" y="105" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle" fill="white">💡</text>
-          <circle cx="50" cy="50" r="10" fill="#6c5ce7" opacity="0.6" />
-          <circle cx="550" cy="80" r="15" fill="#fd79a8" opacity="0.6" />
-          <circle cx="100" cy="350" r="12" fill="#74b9ff" opacity="0.6" />
-          <circle cx="500" cy="320" r="8" fill="#6c5ce7" opacity="0.6" />
-        </svg>
-        <div class="floating-icons">
-          <div class="floating-icon" style="top: 20%; left: 10%; font-size: 2rem;">📚</div>
-          <div class="floating-icon" style="top: 70%; left: 15%; font-size: 1.5rem;">💻</div>
-          <div class="floating-icon" style="top: 30%; right: 15%; font-size: 2.5rem;">🎨</div>
-          <div class="floating-icon" style="top: 80%; right: 10%; font-size: 1.8rem;">📱</div>
+      </section>
+
+      <section class="calendar-section">
+        <h2 class="section-title">Mon calendrier</h2>
+        <div class="calendar-container">
+          <p>Intégration du calendrier à venir...</p>
         </div>
-      </div>
-    </section>
-  
-    <section class="section features-section">
-      <h2 class="section-title">Mes sessions à venir</h2>
-      <div class="features-grid">
-        <div *ngFor="let session of sessions" class="feature-card">
-          <h3 class="feature-title">{{ session.title }}</h3>
-          <p class="feature-desc">
-            Date: {{ session.date }} à {{ session.time }}<br />
-            Durée: {{ session.duration }} min<br />
-            Producteur: {{ session.producer }}
-          </p>
-        </div>
-      </div>
-    </section>
-  
-    <section class="section calendar-section">
-      <h2 class="section-title">Mon calendrier</h2>
-      <div class="calendar-container">
-        <p>Intégration du calendrier à venir...</p>
-      </div>
-    </section>
-  
-    <footer class="footer">
-      <div class="footer-grid">
-        <div>
-          <h3 class="footer-col-title">SkillShare Live</h3>
-          <p style="color: #b2bec3; margin-bottom: 1.5rem;">
-            La plateforme d'échange de compétences en temps réel qui connecte les passionnés.
-          </p>
-          <div style="display: flex; gap: 1rem;">
-            <a href="#" style="color: white; font-size: 1.5rem;">📱</a>
-            <a href="#" style="color: white; font-size: 1.5rem;">📘</a>
-            <a href="#" style="color: white; font-size: 1.5rem;">🐦</a>
-            <a href="#" style="color: white; font-size: 1.5rem;">📸</a>
-          </div>
-        </div>
-        <div>
-          <h3 class="footer-col-title">Compétences</h3>
-          <ul class="footer-links">
-            <li><a href="#">Développement</a></li>
-            <li><a href="#">Design</a></li>
-            <li><a href="#">Marketing</a></li>
-            <li><a href="#">Langues</a></li>
-            <li><a href="#">Musique</a></li>
-          </ul>
-        </div>
-        <div>
-          <h3 class="footer-col-title">Entreprise</h3>
-          <ul class="footer-links">
-            <li><a href="#">À propos</a></li>
-            <li><a href="#">Carrières</a></li>
-            <li><a href="#">Blog</a></li>
-            <li><a href="#">Presse</a></li>
-            <li><a href="#">Contact</a></li>
-          </ul>
-        </div>
-        <div>
-          <h3 class="footer-col-title">Support</h3>
-          <ul class="footer-links">
-            <li><a href="#">Centre d'aide</a></li>
-            <li><a href="#">Sécurité</a></li>
-            <li><a href="#">Confidentialité</a></li>
-            <li><a href="#">Conditions</a></li>
-            <li><a href="#">FAQ</a></li>
-          </ul>
-        </div>
-      </div>
-      <div class="footer-bottom">
-        © 2025 SkillShare Live. Tous droits réservés.
-      </div>
-    </footer>
-  </div>
+      </section>
+    </div>
+
+    <!-- Render child routes (profile, profile-edit) -->
+    <router-outlet></router-outlet>
+  </section>
+
+  <app-footer-receiver></app-footer-receiver>
+</div>
