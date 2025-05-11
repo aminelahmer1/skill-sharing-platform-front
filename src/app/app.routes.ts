@@ -11,6 +11,7 @@ import { ProducerProfileComponent } from './features/producer/profile/profile.co
 import { ProducerProfileEditComponent } from './features/producer/profile-edit/profile-edit.component';
 import { ProfileComponent } from './features/receiver/profile/profile.component';
 import { ProfileEditComponent } from './features/receiver/profile-edit/profile-edit.component';
+import { SkillsComponent } from './features/producer/skills/skills.component';
 
 export const routes: Routes = [
   { path: '', component: MainTemplateComponent },
@@ -22,6 +23,7 @@ export const routes: Routes = [
     children: [
       { path: 'profile', component: ProducerProfileComponent },
       { path: 'profile-edit', component: ProducerProfileEditComponent },
+      { path: 'skills', component: SkillsComponent }, 
       { path: '', redirectTo: '', pathMatch: 'full' },
     ],
   },

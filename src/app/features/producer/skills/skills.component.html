@@ -1,0 +1,58 @@
+<div class="skills-container">
+    <div class="header">
+      
+      <button mat-raised-button color="primary" (click)="openCreateDialog()" class="add-skill-btn">
+        <mat-icon>add</mat-icon> Nouvelle Compétence
+      </button>
+    </div>
+  
+    <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
+  
+    <div *ngIf="error" class="error-message">
+      <mat-icon>error</mat-icon> {{ error }}
+    </div>
+  
+    <div *ngIf="!isLoading && !error">
+      <div *ngIf="skills.length === 0" class="no-skills">
+        <img src="assets/images/default-skills.png" alt="Aucune compétence" class="empty-state-img">
+        <p>Vous n'avez pas encore ajouté de compétences à partager.</p>
+        <button mat-raised-button color="primary" (click)="openCreateDialog()">
+          <mat-icon>add</mat-icon> Créer votre première compétence
+        </button>
+      </div>
+  
+      <div class="skills-grid">
+        <mat-card *ngFor="let skill of skills" class="skill-card">
+          <div class="skill-image-container">
+            <img [src]="skill.pictureUrl || 'assets/images/default-skills.png'" alt="{{ skill.name }}" class="skill-image">
+          </div>
+          
+          <mat-card-content>
+            <h3>{{ skill.name }}</h3>
+            <span class="skill-category">{{ skill.categoryName }}</span>
+            <p class="skill-description">{{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}</p>
+            
+            <div class="skill-meta">
+              <div class="meta-item">
+                <mat-icon>people</mat-icon>
+                <span>{{ skill.nbInscrits }}/{{ skill.availableQuantity }}</span>
+              </div>
+              <div class="meta-item price">
+                <mat-icon>euro</mat-icon>
+                <span>{{ skill.price | number:'1.2-2' }}</span>
+              </div>
+            </div>
+          </mat-card-content>
+          
+          <mat-card-actions>
+            <button mat-button color="primary" class="action-btn" (click)="openUpdateDialog(skill)" type="button">
+                <mat-icon>edit</mat-icon>
+              </button>
+            <button mat-button color="warn" class="action-btn" (click)="deleteSkill(skill.id)" type="button">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      </div>
+    </div>
+  </div>

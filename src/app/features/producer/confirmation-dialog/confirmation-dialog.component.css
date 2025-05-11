@@ -1,0 +1,44 @@
+.confirmation-dialog {
+    padding: 20px;
+    max-width: 400px;
+  }
+  
+  .dialog-title {
+    color: #d32f2f;
+    font-weight: 500;
+    margin-bottom: 15px;
+  }
+  
+  .dialog-content {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  
+  .warning-icon {
+    color: #d32f2f;
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+  }
+  
+  .dialog-content p {
+    margin: 0;
+    color: #333;
+    font-size: 16px;
+  }
+  
+  .dialog-actions {
+    padding: 15px 0 0 0;
+    margin-top: 15px;
+    border-top: 1px solid #eee;
+  }
+  
+  .cancel-btn {
+    margin-right: 10px;
+  }
+  
+  .confirm-btn {
+    margin-left: 10px;
+  }

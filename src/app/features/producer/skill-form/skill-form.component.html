@@ -1,0 +1,92 @@
+<div class="skill-form-container">
+    <h2 mat-dialog-title class="dialog-title">
+      {{ isEditing ? 'Modifier la Compétence' : 'Nouvelle Compétence' }}
+      <button mat-icon-button class="close-btn" (click)="onCancel()" type="button" aria-label="Fermer la fenêtre">
+        <mat-icon>close</mat-icon>
+      </button>
+    </h2>
+  
+    <mat-dialog-content>
+      <form [formGroup]="skillForm" class="skill-form">
+        <div class="image-upload-section">
+          <div class="image-preview" *ngIf="previewUrl">
+            <img [src]="previewUrl" alt="Preview" class="preview-image">
+            <button mat-icon-button class="remove-image-btn" (click)="removeImage()" type="button" aria-label="Supprimer l'image">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+          <div class="upload-btn-wrapper" *ngIf="!previewUrl">
+            <label for="skillImage" class="upload-label">
+              <mat-icon>add_photo_alternate</mat-icon>
+              <span>Ajouter une image</span>
+            </label>
+            <input type="file" id="skillImage" accept="image/jpeg, image/png, image/gif" (change)="onFileSelected($event)" aria-label="Sélectionner une image">
+          </div>
+        </div>
+  
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Nom de la compétence</mat-label>
+          <input matInput formControlName="name" required aria-label="Nom de la compétence">
+          <mat-icon matSuffix>title</mat-icon>
+          <mat-error *ngIf="skillForm.get('name')?.hasError('required')">
+            Le nom est obligatoire
+          </mat-error>
+        </mat-form-field>
+  
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Description</mat-label>
+          <textarea matInput formControlName="description" rows="4" required aria-label="Description de la compétence"></textarea>
+          <mat-error *ngIf="skillForm.get('description')?.hasError('required')">
+            La description est obligatoire
+          </mat-error>
+        </mat-form-field>
+  
+        <div class="form-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Places disponibles</mat-label>
+            <input matInput type="number" formControlName="availableQuantity" min="1" required aria-label="Nombre de places disponibles">
+            <mat-icon matSuffix>people</mat-icon>
+            <mat-error *ngIf="skillForm.get('availableQuantity')?.hasError('required')">
+              Ce champ est obligatoire
+            </mat-error>
+          </mat-form-field>
+  
+          <mat-form-field appearance="outline">
+            <mat-label>Prix (€)</mat-label>
+            <input matInput type="number" formControlName="price" min="0" step="0.01" required aria-label="Prix de la compétence">
+            <mat-icon matSuffix>euro</mat-icon>
+            <mat-error *ngIf="skillForm.get('price')?.hasError('required')">
+              Ce champ est obligatoire
+            </mat-error>
+          </mat-form-field>
+        </div>
+  
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Catégorie</mat-label>
+          <mat-select formControlName="categoryId" required aria-label="Sélectionner une catégorie">
+            <mat-option *ngFor="let category of categories" [value]="category.id">
+              {{ category.name }}
+            </mat-option>
+          </mat-select>
+          <mat-icon matSuffix>category</mat-icon>
+          <mat-error *ngIf="skillForm.get('categoryId')?.hasError('required')">
+            Veuillez sélectionner une catégorie
+          </mat-error>
+        </mat-form-field>
+      </form>
+    </mat-dialog-content>
+  
+    <mat-dialog-actions align="end">
+      <button mat-button (click)="onCancel()" type="button">Annuler</button>
+      <button 
+        mat-raised-button 
+        color="primary" 
+        (click)="onSubmit()"
+        [disabled]="skillForm.invalid || isLoading"
+        type="button"
+      >
+        {{ isEditing ? 'Mettre à jour' : 'Créer' }}
+        <mat-spinner *ngIf="isLoading" diameter="20"></mat-spinner>
+      </button>
+    </mat-dialog-actions>
+  </div>
