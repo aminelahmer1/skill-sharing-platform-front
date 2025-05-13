@@ -1,9 +1,47 @@
 <div class="skills-container">
     <div class="header">
-      
-      <button mat-raised-button color="primary" (click)="openCreateDialog()" class="add-skill-btn">
-        <mat-icon>add</mat-icon> Nouvelle Compétence
-      </button>
+      <!-- Bouton "Nouvelle Compétence" déplacé à gauche -->
+      <div class="header-left">
+        <button mat-raised-button color="primary" (click)="openCreateDialog()" class="add-skill-btn">
+          <mat-icon>add</mat-icon> Nouvelle Compétence
+        </button>
+      </div>
+  
+      <!-- Section des filtres centrée -->
+      <div class="filters-container">
+        <div class="filters-wrapper">
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Filtrer par catégorie</mat-label>
+            <mat-select [(ngModel)]="selectedCategory" (selectionChange)="onCategoryChange()" aria-label="Filtrer par catégorie">
+              <mat-option [value]="null">Toutes</mat-option>
+              <mat-option *ngFor="let category of categories" [value]="category.id">
+                {{ category.name }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+  
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Filtrer par date</mat-label>
+            <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" (dateChange)="onDateChange()" aria-label="Filtrer par date">
+            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+            <mat-datepicker #picker></mat-datepicker>
+          </mat-form-field>
+  
+          <div class="sort-container">
+            <mat-form-field appearance="outline" class="filter-field">
+              <mat-label>Trier par nombre d'inscrits</mat-label>
+              <mat-select [(ngModel)]="sortOrder" (selectionChange)="onSortChange()" aria-label="Trier par nombre d'inscrits">
+                <mat-option value="default">Par défaut (date de création)</mat-option>
+                <mat-option value="asc">Croissant</mat-option>
+                <mat-option value="desc">Décroissant</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <button mat-icon-button color="warn" (click)="resetFilters()" class="reset-btn">
+              <mat-icon>refresh</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   
     <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
@@ -13,7 +51,7 @@
     </div>
   
     <div *ngIf="!isLoading && !error">
-      <div *ngIf="skills.length === 0" class="no-skills">
+      <div *ngIf="filteredSkills.length === 0" class="no-skills">
         <img src="assets/images/default-skills.png" alt="Aucune compétence" class="empty-state-img">
         <p>Vous n'avez pas encore ajouté de compétences à partager.</p>
         <button mat-raised-button color="primary" (click)="openCreateDialog()">
@@ -22,32 +60,46 @@
       </div>
   
       <div class="skills-grid">
-        <mat-card *ngFor="let skill of skills" class="skill-card">
+        <mat-card *ngFor="let skill of filteredSkills" class="skill-card">
           <div class="skill-image-container">
             <img [src]="skill.pictureUrl || 'assets/images/default-skills.png'" alt="{{ skill.name }}" class="skill-image">
           </div>
-          
+  
           <mat-card-content>
             <h3>{{ skill.name }}</h3>
             <span class="skill-category">{{ skill.categoryName }}</span>
             <p class="skill-description">{{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}</p>
-            
+  
             <div class="skill-meta">
-              <div class="meta-item">
-                <mat-icon>people</mat-icon>
-                <span>{{ skill.nbInscrits }}/{{ skill.availableQuantity }}</span>
+              <div class="meta-row">
+                <div class="meta-item">
+                  <mat-icon>people</mat-icon>
+                  <span>{{ skill.nbInscrits }}/{{ skill.availableQuantity }}</span>
+                </div>
+                <div class="meta-item">
+                  <mat-icon>calendar_today</mat-icon>
+                  <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
+                </div>
               </div>
-              <div class="meta-item price">
-                <mat-icon>euro</mat-icon>
-                <span>{{ skill.price | number:'1.2-2' }}</span>
+              <div style="visibility: hidden;">d</div>
+  
+              <div class="meta-row">
+                <div class="meta-item">
+                  <mat-icon>access_time</mat-icon>
+                  <span>{{ skill.streamingTime }}</span>
+                </div>
+                <div class="meta-item price">
+                  <span>TND</span>
+                  <span>{{ skill.price | number:'1.2-2' }}</span>
+                </div>
               </div>
             </div>
           </mat-card-content>
-          
+  
           <mat-card-actions>
             <button mat-button color="primary" class="action-btn" (click)="openUpdateDialog(skill)" type="button">
-                <mat-icon>edit</mat-icon>
-              </button>
+              <mat-icon>edit</mat-icon>
+            </button>
             <button mat-button color="warn" class="action-btn" (click)="deleteSkill(skill.id)" type="button">
               <mat-icon>delete</mat-icon>
             </button>

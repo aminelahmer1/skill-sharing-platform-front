@@ -13,6 +13,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { CommonModule } from '@angular/common';
 import { CategoryService } from '../../../core/services/category/category.service';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
+import { formatDate } from '@angular/common';
 
 @Component({
   selector: 'app-skill-update',
@@ -29,7 +32,9 @@ import { CategoryService } from '../../../core/services/category/category.servic
     MatOptionModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    MatDialogModule
+    MatDialogModule,
+    MatDatepickerModule,
+    MatNativeDateModule
   ]
 })
 export class SkillUpdateComponent implements OnInit {
@@ -38,6 +43,7 @@ export class SkillUpdateComponent implements OnInit {
   isLoading = false;
   selectedFile: File | null = null;
   previewUrl: string | ArrayBuffer | null = null;
+  minDate: Date;
 
   constructor(
     private fb: FormBuilder,
@@ -47,17 +53,25 @@ export class SkillUpdateComponent implements OnInit {
     private snackBar: MatSnackBar,
     @Inject(MAT_DIALOG_DATA) public data: { skill: Skill }
   ) {
+    const today = new Date();
+    this.minDate = today;
+
     this.skillForm = this.fb.group({
       name: ['', [Validators.required, Validators.maxLength(100)]],
       description: ['', [Validators.required]],
       availableQuantity: [1, [Validators.required, Validators.min(1)]],
       price: [0, [Validators.required, Validators.min(0)]],
       categoryId: ['', [Validators.required]],
-      pictureUrl: ['']
+      pictureUrl: [''],
+      streamingDate: [today, [Validators.required, this.dateValidator.bind(this)]],
+      streamingTime: ['09:00', [Validators.required]]
     });
 
     if (this.data.skill) {
-      this.skillForm.patchValue(this.data.skill);
+      this.skillForm.patchValue({
+        ...this.data.skill,
+        streamingDate: new Date(this.data.skill.streamingDate)
+      });
       this.previewUrl = this.data.skill.pictureUrl || null;
     }
   }
@@ -68,47 +82,51 @@ export class SkillUpdateComponent implements OnInit {
 
   loadCategories(): void {
     this.categoryService.getAllCategories().subscribe({
-      next: (categories) => {
-        this.categories = categories;
-      },
-      error: (err) => {
-        this.snackBar.open('Erreur lors du chargement des catégories', 'Fermer', { duration: 3000 });
-      }
+      next: (categories) => this.categories = categories,
+      error: () => this.snackBar.open('Erreur lors du chargement des catégories', 'Fermer', { duration: 3000 })
     });
+  }
+
+  dateValidator(control: any): { [key: string]: boolean } | null {
+    const selectedDate = new Date(control.value);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return selectedDate < today ? { 'invalidDate': true } : null;
   }
 
   onSubmit(): void {
     if (this.skillForm.invalid) return;
-  
+
     this.isLoading = true;
-    const skillData = this.skillForm.value;
-  
+    let skillData = this.skillForm.value;
+
+    if (skillData.streamingDate) {
+      skillData.streamingDate = formatDate(skillData.streamingDate, 'yyyy-MM-dd', 'en');
+    }
+
     if (this.selectedFile) {
-      // Si nouvelle image sélectionnée
       this.skillService.updateSkillWithPicture(this.data.skill.id, skillData, this.selectedFile).subscribe({
         next: () => this.handleSuccess(),
-        error: (err) => this.handleError('la mise à jour avec image')
+        error: () => this.handleError('la mise à jour avec image')
       });
     } else if (this.previewUrl === null && this.data.skill.pictureUrl) {
-      // Si image supprimée (previewUrl null mais il y avait une image avant)
       this.skillService.removeSkillPicture(this.data.skill.id).subscribe({
         next: () => this.handleSuccess(),
-        error: (err) => this.handleError('la suppression d\'image')
+        error: () => this.handleError('la suppression d\'image')
       });
     } else {
-      // Mise à jour simple sans changement d'image
       this.skillService.updateSkill(this.data.skill.id, skillData).subscribe({
         next: () => this.handleSuccess(),
-        error: (err) => this.handleError('la mise à jour')
+        error: () => this.handleError('la mise à jour')
       });
     }
   }
-  
+
   private handleSuccess(): void {
     this.dialogRef.close('success');
     this.snackBar.open('Compétence mise à jour avec succès', 'Fermer', { duration: 3000 });
   }
-  
+
   private handleError(action: string): void {
     this.isLoading = false;
     this.snackBar.open(`Erreur lors de ${action}`, 'Fermer', { duration: 3000 });
@@ -121,23 +139,17 @@ export class SkillUpdateComponent implements OnInit {
   onFileSelected(event: any): void {
     const file = event.target.files[0];
     if (file) {
-      // Validation du fichier
       if (file.size > 5 * 1024 * 1024) {
         this.snackBar.open('La taille de l\'image ne doit pas dépasser 5MB', 'Fermer', { duration: 3000 });
         return;
       }
-
       if (!file.type.match(/image\/(jpeg|png|jpg|gif)/)) {
         this.snackBar.open('Format d\'image non supporté', 'Fermer', { duration: 3000 });
         return;
       }
-
       this.selectedFile = file;
-      
       const reader = new FileReader();
-      reader.onload = () => {
-        this.previewUrl = reader.result;
-      };
+      reader.onload = () => this.previewUrl = reader.result;
       reader.readAsDataURL(file);
     }
   }

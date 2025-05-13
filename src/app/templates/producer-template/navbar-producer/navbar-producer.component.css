@@ -228,7 +228,7 @@ body {
     display: flex;
     align-items: center;
     padding: 0 5%;
-    margin-top: 80px;
+    margin-top: 0px;
     background: linear-gradient(-45deg, #f5f6fa, #dfe6e9, #f5f6fa);
     background-size: 400% 400%;
     animation: gradientBG 15s ease infinite;

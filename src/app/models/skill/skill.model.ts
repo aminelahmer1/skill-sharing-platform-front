@@ -10,6 +10,11 @@ export interface Skill {
     categoryDescription?: string;
     userId: number;
     pictureUrl?: string;
+    streamingDate: string;
+    streamingTime:string;
+    createdAt: string;
+
+
  
   }
   
@@ -21,7 +26,8 @@ export interface Skill {
     price: number;
     categoryId: number;
     pictureUrl?: string;
- 
+    streamingDate: string;
+    streamingTime:string;
   }
   
   export interface Category {

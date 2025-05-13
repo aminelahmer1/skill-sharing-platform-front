@@ -13,6 +13,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { CommonModule } from '@angular/common';
 import { CategoryService } from '../../../core/services/category/category.service';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
+import { formatDate } from '@angular/common';
 
 @Component({
   selector: 'app-skill-form',
@@ -29,7 +32,9 @@ import { CategoryService } from '../../../core/services/category/category.servic
     MatOptionModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    MatDialogModule
+    MatDialogModule,
+    MatDatepickerModule, // Ajout pour le sélecteur de date
+    MatNativeDateModule  // Ajout pour le support natif des dates
   ]
 })
 export class SkillFormComponent implements OnInit {
@@ -39,6 +44,7 @@ export class SkillFormComponent implements OnInit {
   isEditing = false;
   selectedFile: File | null = null;
   previewUrl: string | ArrayBuffer | null = null;
+  minDate: Date; // Date minimale (aujourd'hui)
 
   constructor(
     private fb: FormBuilder,
@@ -50,17 +56,25 @@ export class SkillFormComponent implements OnInit {
   ) {
     this.isEditing = data.mode === 'edit';
     
+    const today = new Date();
+    this.minDate = today; // Date minimale pour mat-date-picker
+
     this.skillForm = this.fb.group({
       name: ['', [Validators.required, Validators.maxLength(100)]],
       description: ['', [Validators.required]],
       availableQuantity: [1, [Validators.required, Validators.min(1)]],
       price: [0, [Validators.required, Validators.min(0)]],
       categoryId: ['', [Validators.required]],
-      pictureUrl: ['']
+      pictureUrl: [''],
+      streamingDate: [today, [Validators.required, this.dateValidator.bind(this)]], // Date par défaut : aujourd'hui
+      streamingTime: ['09:00', [Validators.required]] // Heure par défaut : 09:00
     });
 
     if (this.isEditing && data.skill) {
-      this.skillForm.patchValue(data.skill);
+      this.skillForm.patchValue({
+        ...data.skill,
+        streamingDate: new Date(data.skill.streamingDate) // Convertir en objet Date
+      });
       this.previewUrl = data.skill.pictureUrl || null;
     }
   }
@@ -71,61 +85,50 @@ export class SkillFormComponent implements OnInit {
 
   loadCategories(): void {
     this.categoryService.getAllCategories().subscribe({
-      next: (categories) => {
-        this.categories = categories;
-      },
-      error: (err) => {
-        this.snackBar.open('Erreur lors du chargement des catégories', 'Fermer', { duration: 3000 });
-      }
+      next: (categories) => this.categories = categories,
+      error: (err) => this.snackBar.open('Erreur lors du chargement des catégories', 'Fermer', { duration: 3000 })
     });
+  }
+
+  // Validateur personnalisé pour interdire les dates passées
+  dateValidator(control: any): { [key: string]: boolean } | null {
+    const selectedDate = new Date(control.value);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Réinitialiser l'heure pour comparaison
+    return selectedDate < today ? { 'invalidDate': true } : null;
   }
 
   onSubmit(): void {
     if (this.skillForm.invalid) return;
 
     this.isLoading = true;
-    const skillData: SkillRequest = this.skillForm.value;
+    let skillData: SkillRequest = this.skillForm.value;
 
-    if (this.isEditing) {
-      // Logique de mise à jour
-      const operation = this.selectedFile 
+    // Formatter la date en YYYY-MM-DD
+    if (skillData.streamingDate) {
+      skillData.streamingDate = formatDate(skillData.streamingDate, 'yyyy-MM-dd', 'en');
+    }
+
+    const operation = this.isEditing
+      ? this.selectedFile 
         ? this.skillService.updateSkillWithPicture(this.data.skill.id, skillData, this.selectedFile)
-        : this.skillService.updateSkill(this.data.skill.id, skillData);
-
-      operation.subscribe({
-        next: () => {
-          this.dialogRef.close('success');
-          this.snackBar.open('Compétence mise à jour avec succès', 'Fermer', { duration: 3000 });
-        },
-        error: (err) => {
-          this.handleError('la mise à jour');
-        }
-      });
-    } else {
-      // Logique de création
-      const operation = this.selectedFile 
+        : this.skillService.updateSkill(this.data.skill.id, skillData)
+      : this.selectedFile 
         ? this.skillService.createSkillWithPicture(skillData, this.selectedFile)
         : this.skillService.createSkill(skillData);
 
-      operation.subscribe({
-        next: () => {
-          this.dialogRef.close('success');
-          this.snackBar.open('Compétence créée avec succès', 'Fermer', { duration: 3000 });
-        },
-        error: (err) => {
-          this.handleError('la création');
-        }
-      });
-    }
+    operation.subscribe({
+      next: () => {
+        this.dialogRef.close('success');
+        this.snackBar.open(`Compétence ${this.isEditing ? 'mise à jour' : 'créée'} avec succès`, 'Fermer', { duration: 3000 });
+      },
+      error: () => this.handleError(this.isEditing ? 'la mise à jour' : 'la création')
+    });
   }
 
   private handleError(action: string): void {
     this.isLoading = false;
-    this.snackBar.open(
-      `Erreur lors de ${action}`,
-      'Fermer',
-      { duration: 3000 }
-    );
+    this.snackBar.open(`Erreur lors de ${action}`, 'Fermer', { duration: 3000 });
   }
 
   onCancel(): void {
@@ -135,24 +138,17 @@ export class SkillFormComponent implements OnInit {
   onFileSelected(event: any): void {
     const file = event.target.files[0];
     if (file) {
-      // Validation du fichier
-      if (file.size > 5 * 1024 * 1024) { // 5MB max
+      if (file.size > 5 * 1024 * 1024) {
         this.snackBar.open('La taille de l\'image ne doit pas dépasser 5MB', 'Fermer', { duration: 3000 });
         return;
       }
-
       if (!file.type.match(/image\/(jpeg|png|jpg|gif)/)) {
-        this.snackBar.open('Format d\'image non supporté (seuls JPEG, PNG et GIF sont acceptés)', 'Fermer', { duration: 3000 });
+        this.snackBar.open('Format d\'image non supporté', 'Fermer', { duration: 3000 });
         return;
       }
-
       this.selectedFile = file;
-      
-      // Création de la prévisualisation
       const reader = new FileReader();
-      reader.onload = () => {
-        this.previewUrl = reader.result;
-      };
+      reader.onload = () => this.previewUrl = reader.result;
       reader.readAsDataURL(file);
     }
   }
