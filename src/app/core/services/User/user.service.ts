@@ -1,11 +1,11 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, from, of, throwError, concat } from 'rxjs';
 import { catchError, switchMap, reduce } from 'rxjs/operators';
 import { KeycloakService } from '../keycloak.service';
-import { UserProfileResponse, UserResponse, UserProfileUpdate } from '../../../models/user/user';
+import { User, UserProfileResponse, UserProfileUpdate } from '../../../models/user/user';
 import { AddressUpdateRequest } from '../../../models/address-update-request';
-
+import { UserResponse } from '../../../models/user/user';
 @Injectable({ providedIn: 'root' })
 export class UserService {
   private http = inject(HttpClient);
@@ -119,4 +119,50 @@ uploadProfilePicture(file: File, keycloakId: string): Observable<UserResponse> {
     console.error(`🔴 ${message}:`, error);
     return throwError(() => new Error(message));
   }
+
+  getUserById(id: number): Observable<UserResponse> { // Changez à UserResponse
+    return this.getValidToken().pipe(
+      switchMap(token => {
+        const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+        return this.http.get<UserResponse>(`${this.apiUrl}/${id}`, { headers });
+      }),
+      catchError(error => this.handleError('Erreur de récupération de l\'utilisateur', error))
+    );
+}
+
+
+// New method to get user by Keycloak ID
+getUserByKeycloakId(keycloakId: string): Observable<User> {
+  const params = new HttpParams().set('keycloakId', keycloakId);
+  return this.http.get<User>(`${this.apiUrl}/by-keycloak-id`, { params }).pipe(
+    catchError(error => {
+      console.error('🔴 Erreur de récupération de l’utilisateur par Keycloak ID:', {
+        keycloakId,
+        status: error.status,
+        error: error.error
+      });
+      return throwError(() => new Error(`Erreur de récupération de l’utilisateur par Keycloak ID: ${error.statusText || 'Unknown error'}`));
+    })
+  );
+}
+
+async register(userData: any): Promise<void> {
+  return this.http.post<void>(
+    `${this.apiUrl}/users/register`,
+    userData
+  ).toPromise();
+}
+
+async resendVerificationEmail(email: string): Promise<void> {
+  return this.http.post<void>(
+    `${this.apiUrl}/auth/resend-verification`,
+    { email }
+  ).toPromise();
+}
+
+
+
+
+
+
 }

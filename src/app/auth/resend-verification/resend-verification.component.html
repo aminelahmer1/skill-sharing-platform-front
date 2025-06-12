@@ -1,0 +1,27 @@
+<!-- src/app/auth/resend-verification/resend-verification.component.html -->
+<div class="resend-container">
+    <div class="resend-card">
+      <h1 class="resend-title">Renvoyer l'email de vérification</h1>
+      <form (ngSubmit)="onResend()">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input
+            type="email"
+            id="email"
+            [(ngModel)]="email"
+            name="email"
+            placeholder="Entrez votre email"
+            required
+          />
+        </div>
+        <button type="submit" class="btn btn-primary" [disabled]="loading">
+          {{ loading ? 'Envoi en cours...' : 'Renvoyer' }}
+        </button>
+      </form>
+      <p *ngIf="error" class="error">{{ error }}</p>
+      <p *ngIf="success" class="success">{{ success }}</p>
+      <p>
+        <a (click)="goToLogin()" class="login-link">Retour à la connexion</a>
+      </p>
+    </div>
+  </div>

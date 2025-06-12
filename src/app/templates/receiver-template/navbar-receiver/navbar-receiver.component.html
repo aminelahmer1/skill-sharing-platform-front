@@ -1,24 +1,31 @@
-
 <nav class="navbar">
-    <div class="logo">
-      <span class="logo-icon">💡</span>
-      SkillShare<span>Live</span>
+  <div class="logo">
+    <span class="logo-icon">💡</span>
+    SkillShare<span>Live</span>
+  </div>
+  <div class="nav-links" [class.active]="isMenuActive">
+    <a routerLink="/receiver" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">Accueil</a>
+    <a routerLink="profile" [routerLinkActive]="['active']">Profil</a>
+    <a routerLink="skills" [routerLinkActive]="['active']">Compétences recherchées</a>
+    <a routerLink="/calendar" [routerLinkActive]="['active']">Calendrier</a>
+  </div>
+  <div class="auth-buttons">
+    <div class="notification-icon" (click)="toggleNotifications()">
+      🔔
+      <span *ngIf="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
     </div>
-    
-    <div class="nav-links" [class.active]="isMenuActive">
-      <a routerLink="/receiver" class="active">Accueil</a>
-      <a routerLink="profile" routerLinkActive="active">Profil</a>
-      
-      <a routerLink="/skills">Compétences recherchées</a>
-      <a routerLink="/calendar">Calendrier</a>
-    </div>
-  
-    <div class="auth-buttons">
-      <button class="btn btn-primary"
-              (mouseover)="onLogoutHover()"
-              (mouseout)="onLogoutHoverOut()"
-              (click)="handleLogout()">
-        {{ logoutButtonText }}
-      </button>
-    </div>
-  </nav>
+    <button
+      class="btn btn-primary"
+      (mouseover)="onLogoutHover()"
+      (mouseout)="onLogoutHoverOut()"
+      (click)="handleLogout()"
+    >
+      {{ logoutButtonText }}
+    </button>
+  </div>
+  <app-notification-dropdown
+    *ngIf="showNotifications"
+    [userId]="userId"
+    (unreadCountChange)="updateUnreadCount($event)"
+  ></app-notification-dropdown>
+</nav>

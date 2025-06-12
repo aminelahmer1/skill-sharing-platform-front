@@ -12,6 +12,9 @@ import { ProducerProfileEditComponent } from './features/producer/profile-edit/p
 import { ProfileComponent } from './features/receiver/profile/profile.component';
 import { ProfileEditComponent } from './features/receiver/profile-edit/profile-edit.component';
 import { SkillsComponent } from './features/producer/skills/skills.component';
+import { ReceiverskillsComponent } from './features/receiver/receiverskills/receiverskills.component';
+import { ResendVerificationComponent } from './auth/resend-verification/resend-verification.component';
+import { ProducerRequestsComponent } from './features/producer/producer-requests/producer-requests.component';
 
 export const routes: Routes = [
   { path: '', component: MainTemplateComponent },
@@ -24,6 +27,7 @@ export const routes: Routes = [
       { path: 'profile', component: ProducerProfileComponent },
       { path: 'profile-edit', component: ProducerProfileEditComponent },
       { path: 'skills', component: SkillsComponent }, 
+      { path: 'requests', component: ProducerRequestsComponent }, 
       { path: '', redirectTo: '', pathMatch: 'full' },
     ],
   },
@@ -35,11 +39,13 @@ export const routes: Routes = [
     children: [
       { path: 'profile', component: ProfileComponent },
       { path: 'profile-edit', component: ProfileEditComponent },
+      { path: 'skills', component: ReceiverskillsComponent },
       { path: '', redirectTo: '', pathMatch: 'full' },
     ],
   },
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
   { path: 'unauthorized', component: UnauthorizedComponent },
+  { path: 'resend-verification', component: ResendVerificationComponent },
   { path: '**', redirectTo: '', pathMatch: 'full' },
 ];

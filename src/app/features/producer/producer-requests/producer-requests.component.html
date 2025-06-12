@@ -1,0 +1,51 @@
+
+<div class="main-container">
+  <div *ngIf="isLoading" class="loading">
+    <mat-progress-bar mode="indeterminate" color="primary"></mat-progress-bar>
+  </div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+  <section *ngIf="!isLoading && !error" class="section requests-section">
+    <h2 class="section-title">Demandes en attente</h2>
+    <p class="section-subtitle">Gérez les demandes de sessions pour vos compétences</p>
+    <div class="requests-grid">
+      <mat-card *ngFor="let skillName of objectKeys(pendingRequestsBySkill)" class="request-card">
+        <mat-card-header>
+          <mat-card-title>{{ skillName }}</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <table mat-table [dataSource]="pendingRequestsBySkill[skillName]" class="requests-table">
+            <ng-container matColumnDef="receiverName">
+              <th mat-header-cell *matHeaderCellDef>Receveur</th>
+              <td mat-cell *matCellDef="let request">{{ request.receiverName }}</td>
+            </ng-container>
+            <ng-container matColumnDef="createdAt">
+              <th mat-header-cell *matHeaderCellDef>Date</th>
+              <td mat-cell *matCellDef="let request">{{ request.createdAt | date:'medium' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Actions</th>
+              <td mat-cell *matCellDef="let request">
+                <button mat-raised-button class="btn btn-receiver" 
+                        [disabled]="!request.canAccept" 
+                        (click)="acceptRequest(request.id)"
+                        [matTooltip]="!request.canAccept ? 'Aucun slot disponible pour cette compétence' : ''"
+                        matTooltipPosition="above">
+                  Accepter
+                </button>
+                <button mat-raised-button class="btn btn-producer reject-button" 
+                        (click)="rejectRequest(request.id)">
+                  Refuser
+                </button>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          </table>
+        </mat-card-content>
+      </mat-card>
+      <div *ngIf="objectKeys(pendingRequestsBySkill).length === 0" class="no-requests">
+        Aucune demande en attente.
+      </div>
+    </div>
+  </section>
+</div>

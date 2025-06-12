@@ -1,10 +1,12 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLinkActive, RouterModule } from '@angular/router';
+import { RouterModule } from '@angular/router';
+import { NotificationDropdownComponent } from '../../../features/shared/notification-dropdown/notification-dropdown.component';
+
 @Component({
   selector: 'app-navbar-receiver',
   standalone: true,
-  imports: [CommonModule,RouterModule,RouterLinkActive],
+  imports: [CommonModule, RouterModule, NotificationDropdownComponent],
   templateUrl: './navbar-receiver.component.html',
   styleUrls: ['./navbar-receiver.component.css']
 })
@@ -15,7 +17,13 @@ export class NavbarReceiverComponent {
   @Output() logout = new EventEmitter<void>();
   @Output() menuToggled = new EventEmitter<void>();
 
-  // Ajoutez ces méthodes
+  showNotifications = false;
+  unreadCount = 0;
+
+  get userId(): string {
+    return this.userProfile?.sub || ''; // Utilise 'sub' (UUID de Keycloak) au lieu de 'id'
+  }
+
   onLogoutHover() {
     this.logoutButtonText = '🚪 Déconnexion';
   }
@@ -30,5 +38,13 @@ export class NavbarReceiverComponent {
 
   toggleMenu() {
     this.menuToggled.emit();
+  }
+
+  toggleNotifications() {
+    this.showNotifications = !this.showNotifications;
+  }
+
+  updateUnreadCount(count: number) {
+    this.unreadCount = count;
   }
 }

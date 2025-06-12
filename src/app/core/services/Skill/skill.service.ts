@@ -24,7 +24,9 @@ export class SkillService {
       })
     );
   }
-
+  getAllSkills(): Observable<Skill[]> {
+    return this.http.get<Skill[]>(`${this.apiUrl}`);
+  }
   
 
   createSkill(skill: SkillRequest): Observable<Skill> {

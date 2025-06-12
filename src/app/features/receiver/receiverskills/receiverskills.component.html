@@ -1,0 +1,65 @@
+<div class="skills-container">
+  <h2>Compétences disponibles</h2>
+  <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
+  <div *ngIf="error" class="error-message">
+    <mat-icon>error</mat-icon> {{ error }}
+  </div>
+  <div *ngIf="!isLoading && !error">
+    <div *ngIf="skills.length === 0" class="no-skills">
+      <p>Aucune compétence disponible pour le moment.</p>
+    </div>
+    <div class="skills-grid">
+      <mat-card *ngFor="let skill of skills" class="skill-card">
+        <div class="skill-image-container">
+          <img [src]="skill.pictureUrl || 'assets/images/default-skills.png'" alt="{{ skill.name }}" class="skill-image">
+        </div>
+        <mat-card-content>
+          <h3>{{ skill.name }}</h3>
+          <span class="skill-category">{{ skill.categoryName }}</span>
+          <p class="skill-description">{{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}</p>
+          <div class="skill-meta">
+            <div class="meta-row">
+              <div class="meta-item">
+                <mat-icon>people</mat-icon>
+                <span>{{ skill.nbInscrits }}/{{ skill.availableQuantity }}</span>
+              </div>
+              <div class="meta-item">
+                <mat-icon>calendar_today</mat-icon>
+                <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
+              </div>
+            </div>
+            <div class="meta-row">
+              <div class="meta-item">
+                <mat-icon>access_time</mat-icon>
+                <span>{{ skill.streamingTime }}</span>
+              </div>
+              <div class="meta-item price">
+                <span>TND</span>
+                <span>{{ skill.price | number:'1.2-2' }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="producer-info">
+            <span>Proposé par : </span>
+            <a (click)="openProducerProfile(skill.userId)" class="producer-link">{{ getProducerName(skill.userId) }}</a>
+          </div>
+        </mat-card-content>
+        <mat-card-actions>
+          <ng-container *ngIf="getExchangeStatusForSkill(skill.id); else reserveButton">
+            <span class="exchange-status">{{ getExchangeStatusForSkill(skill.id) }}</span>
+          </ng-container>
+          <ng-template #reserveButton>
+            <button 
+              mat-raised-button 
+              color="primary" 
+              (click)="reserveSkill(skill)" 
+              [disabled]="isLoading || skill.nbInscrits >= skill.availableQuantity"
+            >
+              Réserver
+            </button>
+          </ng-template>
+        </mat-card-actions>
+      </mat-card>
+    </div>
+  </div>
+</div>

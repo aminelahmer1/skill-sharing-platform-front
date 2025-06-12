@@ -1,0 +1,31 @@
+<div class="notification-dropdown">
+    <div class="notification-header">
+      <h3>Notifications</h3>
+      <span class="unread-count">{{ unreadCount }}</span>
+    </div>
+    <ul class="notification-list">
+      <li *ngFor="let notification of notifications">
+        <div class="notification-type-icon">{{ getNotificationIcon(notification.type) }}</div>
+        <div class="notification-message">{{ notification.message }}</div>
+        <div class="notification-time">{{ notification.createdAt | date:'short' }}</div>
+        <button *ngIf="!notification.read" (click)="markAsRead(notification)" class="mark-read-btn">Marquer comme lu</button>
+      </li>
+      <li *ngIf="notifications.length === 0">Vous n'avez aucune nouvelle notification</li>
+    </ul>
+    <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
+  </div>
+  
+  <style>
+    .mark-read-btn {
+      margin-left: 10px;
+      padding: 2px 5px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .mark-read-btn:hover {
+      background-color: #45a049;
+    }
+  </style>

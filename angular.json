@@ -16,33 +16,23 @@
             "outputPath": "dist/skill-sharing-platform-front2",
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "polyfills": [
-              "zone.js"
-            ],
+            "polyfills": ["zone.js"],
             "tsConfig": "tsconfig.app.json",
-            "assets": [
-              "src/favicon.ico",
-              "src/assets"
-            ],
+            "assets": ["src/favicon.ico", "src/assets"],
             "styles": [
-              "src/custom-theme.scss",
+              "node_modules/@angular/material/prebuilt-themes/indigo-pink.css",
               "src/styles.css"
             ],
-            "scripts": []
+            "scripts": [],
+            "stylePreprocessorOptions": {
+              "includePaths": ["node_modules"]
+            }
           },
           "configurations": {
             "production": {
               "budgets": [
-                {
-                  "type": "initial",
-                  "maximumWarning": "500kb",
-                  "maximumError": "1mb"
-                },
-                {
-                  "type": "anyComponentStyle",
-                  "maximumWarning": "2kb",
-                  "maximumError": "4kb"
-                }
+                {"type": "initial", "maximumWarning": "500kb", "maximumError": "1mb"},
+                {"type": "anyComponentStyle", "maximumWarning": "2kb", "maximumError": "4kb"}
               ],
               "outputHashing": "all"
             },
@@ -60,33 +50,21 @@
             "proxyConfig": "proxy.conf.json"
           },
           "configurations": {
-            "production": {
-              "buildTarget": "skill-sharing-platform-front2:build:production"
-            },
-            "development": {
-              "buildTarget": "skill-sharing-platform-front2:build:development"
-            }
+            "production": {"buildTarget": "skill-sharing-platform-front2:build:production"},
+            "development": {"buildTarget": "skill-sharing-platform-front2:build:development"}
           },
           "defaultConfiguration": "development"
         },
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
-          "options": {
-            "buildTarget": "skill-sharing-platform-front2:build"
-          }
+          "options": {"buildTarget": "skill-sharing-platform-front2:build"}
         },
         "test": {
           "builder": "@angular-devkit/build-angular:karma",
           "options": {
-            "polyfills": [
-              "zone.js",
-              "zone.js/testing"
-            ],
+            "polyfills": ["zone.js", "zone.js/testing"],
             "tsConfig": "tsconfig.spec.json",
-            "assets": [
-              "src/favicon.ico",
-              "src/assets"
-            ],
+            "assets": ["src/favicon.ico", "src/assets"],
             "styles": [
               "src/styles.css",
               "src/assets/css/bootstrap.min.css",

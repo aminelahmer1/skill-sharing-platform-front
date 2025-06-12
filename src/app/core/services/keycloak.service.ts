@@ -130,27 +130,15 @@ export class KeycloakService {
   // KeycloakService.ts
   async refreshToken(minValidity: number = 30): Promise<boolean> {
     try {
-      if (!this.keycloak) {
-        console.error('Keycloak instance not initialized');
-        return false;
-      }
-      
-      // Force token refresh if expired or about to expire
       const refreshed = await this.keycloak.updateToken(minValidity);
-      console.log('Token refresh result:', refreshed);
-      
-      if (!refreshed && this.keycloak.isTokenExpired()) {
-        await this.login();
-        return false;
-      }
+      console.log('Token refreshed successfully:', refreshed);
       return refreshed;
     } catch (error) {
-      console.error('Token refresh failed:', error);
-      await this.login();
+      console.error('Failed to refresh token:', error);
+      await this.keycloak.login(); // Redirection vers la page de connexion en cas d'échec
       return false;
     }
   }
-
 
   /**
    * Retourne le token d'authentification (déjà rafraîchi dans refreshToken)
@@ -173,4 +161,43 @@ export class KeycloakService {
     
 }
 
-}}
+}
+
+
+
+
+
+
+
+
+async initWithToken(token: string): Promise<void> {
+  try {
+    await this.keycloak.init({
+      token,
+      refreshToken: '',
+      onLoad: 'check-sso',
+      checkLoginIframe: false
+    });
+    
+    await this.loadUserProfile();
+    this.updateRoles();
+    this.authStatus.next(true);
+  } catch (error) {
+    console.error('Token initialization failed', error);
+    throw error;
+  }
+
+
+
+}
+async updateToken(minValidity: number): Promise<boolean> {
+  try {
+    const refreshed = await this.keycloak.updateToken(minValidity);
+    console.log('Token refreshed successfully:', refreshed);
+    return refreshed;
+  } catch (error) {
+    console.error('Token refresh failed:', error);
+    return false;
+  }
+}
+}

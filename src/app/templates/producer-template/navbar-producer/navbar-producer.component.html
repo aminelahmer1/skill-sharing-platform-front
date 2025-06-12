@@ -1,23 +1,32 @@
 <nav class="navbar">
-    <div class="logo">
-      <span class="logo-icon">💡</span>
-      SkillShare<span>Live</span>
+  <div class="logo">
+    <span class="logo-icon">💡</span>
+    SkillShare<span>Live</span>
+  </div>
+  <div class="nav-links" [class.active]="isMenuActive">
+    <a routerLink="/producer" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">Accueil</a>
+    <a routerLink="profile" [routerLinkActive]="['active']">Profil</a>
+    <a routerLink="/producer/skills" [routerLinkActive]="['active']">Mes compétences</a>
+    <a routerLink="requests" [routerLinkActive]="['active']">Demandes</a>
+    <a routerLink="calendar" [routerLinkActive]="['active']">Calendrier</a>
+  </div>
+  <div class="auth-buttons">
+    <div class="notification-icon" [class.disabled]="!userId" (click)="userId && toggleNotifications()" role="button" aria-label="Notifications" tabindex="0">
+      🔔
+      <span *ngIf="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
     </div>
-    <div class="nav-links" [class.active]="isMenuActive">
-      <a routerLink="/producer" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">Accueil</a>
-      <a routerLink="profile" [routerLinkActive]="['active']">Profil</a>
-     
-      <a routerLink="/producer/skills" [routerLinkActive]="['active']">Mes compétences</a>
-      <a routerLink="calendar" [routerLinkActive]="['active']">Calendrier</a>
-    </div>
-    <div class="auth-buttons">
-      <button
-        class="btn btn-primary"
-        (mouseover)="onLogoutHover()"
-        (mouseout)="onLogoutHoverOut()"
-        (click)="handleLogout()"
-      >
-        {{ logoutButtonText }}
-      </button>
-    </div>
-  </nav>
+    <button
+      class="btn btn-primary"
+      (mouseover)="onLogoutHover()"
+      (mouseout)="onLogoutHoverOut()"
+      (click)="handleLogout()"
+    >
+      {{ logoutButtonText }}
+    </button>
+  </div>
+  <app-notification-dropdown
+    *ngIf="showNotifications && userId"
+    [userId]="userId"
+    (unreadCountChange)="updateUnreadCount($event)"
+  ></app-notification-dropdown>
+</nav>

@@ -52,7 +52,7 @@ export interface UserResponse {
   email: string;
   firstName?: string;
   lastName?: string;
-  city?: string;
+  city?: string; 
   country?: string;
   postalCode?: string;
   pictureUrl?: string;
