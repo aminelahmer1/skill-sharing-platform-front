@@ -1,99 +1,166 @@
-import { Injectable, inject, OnDestroy } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { KeycloakService } from '../keycloak.service';
-import { Observable, from, BehaviorSubject, of, Subject } from 'rxjs';
-import { switchMap, catchError, takeUntil } from 'rxjs/operators';
-import { Client, IFrame, IMessage } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
+import { BehaviorSubject, Observable, Subject, from, throwError } from 'rxjs';
+import { catchError, switchMap, tap } from 'rxjs/operators';
+import { Client, IMessage } from '@stomp/stompjs';
 import { Notification } from '../../../models/Notification/notification.model';
 
-@Injectable({ providedIn: 'root' })
+@Injectable({
+  providedIn: 'root'
+})
 export class NotificationService implements OnDestroy {
-  private http = inject(HttpClient);
-  private keycloakService = inject(KeycloakService);
   private apiUrl = 'http://localhost:8822/api/v1/notifications';
-  private stompClient: Client = new Client();
+  private stompClient: Client | null = null;
   private notificationsSubject = new BehaviorSubject<Notification[]>([]);
   private destroy$ = new Subject<void>();
-  private isConnected = false;
-  private reconnectAttempts = 0;
+  private connectionStatus = new BehaviorSubject<'CONNECTED' | 'DISCONNECTED' | 'CONNECTING'>('DISCONNECTED');
   private maxReconnectAttempts = 5;
+  private reconnectAttempts = 0;
+  private reconnectDelay = 5000;
+  private refreshIntervalId: any;
+  private userId: string | null = null;
 
-  constructor() {
-    this.initializeWebSocketConnection();
+  notifications$ = this.notificationsSubject.asObservable();
+  connectionStatus$ = this.connectionStatus.asObservable();
+
+  constructor(
+    private http: HttpClient,
+    private keycloakService: KeycloakService
+  ) {
+    this.initializeConnection();
   }
 
-  private initializeWebSocketConnection(): void {
+  private async initializeConnection(): Promise<void> {
+    this.connectionStatus.next('CONNECTING');
+    try {
+      this.userId = await this.keycloakService.getUserId();
+      const token = await this.keycloakService.getToken();
+
+      if (!token || !this.userId) {
+        console.error('User ID or token missing');
+        return;
+      }
+
+      this.createStompClient(token);
+      this.stompClient?.activate();
+      this.startTokenRefresh();
+    } catch (error) {
+      console.error('Initial WebSocket connection failed:', error);
+      this.attemptReconnection();
+    }
+  }
+
+  private createStompClient(token: string): void {
+    if (this.stompClient && this.stompClient.connected) {
+      this.stompClient.deactivate();
+    }
+
+    const wsUrl = `ws://localhost:8822/ws/notifications?token=${encodeURIComponent(token)}`;
+
     this.stompClient = new Client({
-      webSocketFactory: () => new SockJS('http://localhost:8822/ws/notifications'),
-      debug: (str: string) => console.debug(str),
+      brokerURL: wsUrl,
+      connectHeaders: { Authorization: `Bearer ${token}` },
+      debug: (str) => console.debug('[STOMP] ' + str),
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
-      onConnect: this.onWebSocketConnect.bind(this),
-      onStompError: this.onWebSocketError.bind(this),
-      onDisconnect: this.onWebSocketDisconnect.bind(this),
+      onConnect: () => this.onConnect(),
+      onStompError: (frame) => {
+        console.error('STOMP error:', frame.headers['message']);
+        this.handleConnectionError();
+      },
+      onDisconnect: () => this.handleConnectionError()
     });
-
-    this.stompClient.activate();
   }
 
-  private onWebSocketConnect(frame: IFrame): void {
-    console.log('WebSocket connected');
-    this.isConnected = true;
+  private onConnect(): void {
+    console.log('✅ WebSocket connected');
+    this.connectionStatus.next('CONNECTED');
     this.reconnectAttempts = 0;
 
-    this.keycloakService.getUserId().then(userId => {
-      if (userId) {
-        this.stompClient.subscribe(`/user/${userId}/queue/notifications`, (message: IMessage) => {
-          try {
-            const notification: Notification = JSON.parse(message.body);
-            const currentNotifications = this.notificationsSubject.value;
-            this.notificationsSubject.next([...currentNotifications, notification]);
-          } catch (e) {
-            console.error('Error parsing notification:', e);
-          }
-        });
-      } else {
-        console.error('No userId available for WebSocket subscription');
+    if (this.userId && this.stompClient) {
+      this.stompClient.subscribe(`/user/${this.userId}/queue/notifications`, (message: IMessage) => {
+        this.processNotification(message);
+      });
+    }
+  }
+
+  private processNotification(message: IMessage): void {
+    try {
+      const notification: Notification = JSON.parse(message.body);
+      console.log('📬 New notification:', notification);
+
+      // Add to beginning of list
+      const current = this.notificationsSubject.value;
+      this.notificationsSubject.next([notification, ...current]);
+
+      // Play sound for unread notifications
+      if (!notification.read) {
+        this.playNotificationSound();
       }
-    }).catch(err => console.error('Failed to get userId:', err));
+    } catch (e) {
+      console.error('Error parsing notification:', e);
+    }
   }
 
-  private onWebSocketDisconnect(): void {
-    console.log('WebSocket disconnected');
-    this.isConnected = false;
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-      setTimeout(() => this.stompClient.activate(), 5000);
-    } else {
+  private playNotificationSound(): void {
+    const audio = new Audio('assets/sounds/notification.mp3');
+    audio.play().catch(e => console.warn('Sound play failed:', e));
+  }
+
+  private handleConnectionError(): void {
+    this.connectionStatus.next('DISCONNECTED');
+    this.attemptReconnection();
+  }
+
+  private attemptReconnection(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('Max reconnection attempts reached');
+      return;
+    }
+
+    this.reconnectAttempts++;
+    const delayMs = this.reconnectAttempts * this.reconnectDelay;
+
+    console.log(`Reconnecting in ${delayMs}ms...`);
+    setTimeout(async () => {
+      try {
+        const token = await this.keycloakService.getToken();
+        this.createStompClient(token);
+        this.stompClient?.activate();
+      } catch (error) {
+        this.attemptReconnection();
+      }
+    }, delayMs);
+  }
+
+  private async refreshToken(): Promise<void> {
+    try {
+      const refreshed = await this.keycloakService.refreshToken(30);
+      if (refreshed) {
+        const newToken = await this.keycloakService.getToken();
+        this.createStompClient(newToken);
+        this.stompClient?.activate();
+      }
+    } catch (error) {
+      console.error('Token refresh failed:', error);
     }
   }
 
-  private onWebSocketError(error: any): void {
-    console.error('WebSocket error:', error);
-    if (!this.isConnected && this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      console.log(`Attempting to reconnect after error (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-      setTimeout(() => this.stompClient.activate(), 5000);
-    }
+  private startTokenRefresh(): void {
+    this.refreshIntervalId = setInterval(() => {
+      this.refreshToken().catch(console.error);
+    }, 4 * 60 * 1000);
   }
 
-  getNotifications(userId: string): Observable<Notification[]> {
+  getNotifications(): Observable<Notification[]> {
     return from(this.keycloakService.getToken()).pipe(
       switchMap(token => {
         const headers = { Authorization: `Bearer ${token}` };
-        return this.http.get<Notification[]>(`${this.apiUrl}/user/${userId}`, { headers }).pipe(
-          catchError(err => {
-            console.error('Failed to fetch notifications:', err);
-            if (err.status === 401) {
-              console.warn('Unauthorized, redirecting to login...');
-              this.keycloakService.login(); // Redirige vers Keycloak si token invalide
-            }
-            return of([]);
-          })
+        return this.http.get<Notification[]>(`${this.apiUrl}/user/${this.userId}`, { headers }).pipe(
+          tap(notifications => this.notificationsSubject.next(notifications)),
+          catchError(this.handleHttpError)
         );
       })
     );
@@ -104,28 +171,45 @@ export class NotificationService implements OnDestroy {
       switchMap(token => {
         const headers = { Authorization: `Bearer ${token}` };
         return this.http.put<void>(`${this.apiUrl}/${notificationId}/read`, null, { headers }).pipe(
-          catchError(err => {
-            console.error('Failed to mark notification as read:', err);
-            if (err.status === 401) {
-              console.warn('Unauthorized, redirecting to login...');
-              this.keycloakService.login();
-            }
-            return of(undefined);
-          })
+          tap(() => {
+            const notifications = this.notificationsSubject.value.map(n => 
+              n.id === notificationId ? { ...n, read: true } : n
+            );
+            this.notificationsSubject.next(notifications);
+          }),
+          catchError(this.handleHttpError)
         );
       })
     );
   }
 
-  getRealTimeNotifications(): Observable<Notification[]> {
-    return this.notificationsSubject.asObservable();
+  markAllAsRead(): Observable<void> {
+    return from(this.keycloakService.getToken()).pipe(
+      switchMap(token => {
+        const headers = { Authorization: `Bearer ${token}` };
+        return this.http.put<void>(`${this.apiUrl}/user/${this.userId}/mark-all-read`, null, { headers }).pipe(
+          tap(() => {
+            const notifications = this.notificationsSubject.value.map(n => ({ ...n, read: true }));
+            this.notificationsSubject.next(notifications);
+          }),
+          catchError(this.handleHttpError)
+        );
+      })
+    );
+  }
+
+  private handleHttpError(error: any): Observable<never> {
+    console.error('HTTP error:', error);
+    if (error.status === 401) {
+      this.keycloakService.login();
+    }
+    return throwError(() => error);
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    if (this.stompClient) {
-      this.stompClient.deactivate();
-    }
+    this.stompClient?.deactivate();
+    clearInterval(this.refreshIntervalId);
   }
 }

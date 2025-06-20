@@ -1,31 +1,46 @@
-<div class="notification-dropdown">
+<div class="notification-container">
+  <div class="notification-toggle" (click)="toggleDropdown()">
+    <span class="notification-icon">🔔</span>
+    <span *ngIf="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
+  </div>
+
+  <div *ngIf="showDropdown" @slideInOut class="notification-dropdown">
     <div class="notification-header">
       <h3>Notifications</h3>
-      <span class="unread-count">{{ unreadCount }}</span>
+      <button class="mark-all-read" (click)="markAllAsRead()">Tout marquer comme lu</button>
     </div>
-    <ul class="notification-list">
-      <li *ngFor="let notification of notifications">
-        <div class="notification-type-icon">{{ getNotificationIcon(notification.type) }}</div>
-        <div class="notification-message">{{ notification.message }}</div>
-        <div class="notification-time">{{ notification.createdAt | date:'short' }}</div>
-        <button *ngIf="!notification.read" (click)="markAsRead(notification)" class="mark-read-btn">Marquer comme lu</button>
-      </li>
-      <li *ngIf="notifications.length === 0">Vous n'avez aucune nouvelle notification</li>
-    </ul>
-    <div *ngIf="errorMessage" class="error-message">{{ errorMessage }}</div>
+    
+    <div class="notification-list-container">
+      <ul class="notification-list">
+        <li *ngFor="let notification of notifications" 
+            @highlightUnread 
+            [@.disabled]="notification.read"
+            [@highlightUnread]="getNotificationState(notification)"
+            [ngClass]="getNotificationClasses(notification)">
+          
+          <div class="notification-content">
+            <div class="notification-type-icon">{{ getNotificationIcon(notification.type) }}</div>
+            <div class="notification-details">
+              <p class="notification-message">{{ notification.message }}</p>
+              <small class="notification-time">{{ notification.createdAt | date:'short' }}</small>
+            </div>
+            <button *ngIf="!notification.read" 
+                    class="mark-read-btn" 
+                    (click)="markAsRead(notification); $event.stopPropagation()">
+              ✓
+            </button>
+          </div>
+          
+          <div *ngIf="notification.type === 'EXCHANGE_REJECTED' && notification.rejectionReason" 
+               class="rejection-reason">
+            <strong>Raison :</strong> {{ notification.rejectionReason }}
+          </div>
+        </li>
+        
+        <li *ngIf="notifications.length === 0" class="empty-notifications">
+          Aucune nouvelle notification
+        </li>
+      </ul>
+    </div>
   </div>
-  
-  <style>
-    .mark-read-btn {
-      margin-left: 10px;
-      padding: 2px 5px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 3px;
-      cursor: pointer;
-    }
-    .mark-read-btn:hover {
-      background-color: #45a049;
-    }
-  </style>
+</div>

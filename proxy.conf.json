@@ -1,7 +1,8 @@
 {
-    "/uploads": {
-      "target": "http://localhost:8822",
-      "secure": false,
-      "changeOrigin": true
-    }
+  "/ws/notifications": {
+    "target": "http://localhost:8822",
+    "secure": false,
+    "ws": true,
+    "logLevel": "debug"
   }
+}

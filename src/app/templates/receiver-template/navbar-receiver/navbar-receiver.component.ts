@@ -19,10 +19,10 @@ export class NavbarReceiverComponent {
 
   showNotifications = false;
   unreadCount = 0;
+get userId(): string {
+  return this.userProfile?.sub || '';
+}
 
-  get userId(): string {
-    return this.userProfile?.sub || ''; // Utilise 'sub' (UUID de Keycloak) au lieu de 'id'
-  }
 
   onLogoutHover() {
     this.logoutButtonText = '🚪 Déconnexion';
