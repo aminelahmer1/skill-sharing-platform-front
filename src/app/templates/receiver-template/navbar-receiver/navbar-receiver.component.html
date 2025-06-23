@@ -10,25 +10,30 @@
     <a routerLink="/calendar" [routerLinkActive]="['active']">Calendrier</a>
   </div>
   <div class="auth-buttons">
-    <div class="notification-icon" (click)="toggleNotifications()">
-      🔔
-      <span *ngIf="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
+    <div class="notification-container">
+      <div 
+        class="notification-icon" 
+        (click)="toggleNotificationDropdown($event)" 
+        role="button" 
+        aria-label="Notifications" 
+        tabindex="0">
+        🔔
+        <span *ngIf="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
+      </div>
+      
+      <div class="notifications-wrapper">
+        <app-notification-dropdown 
+          *ngIf="showNotificationDropdown"
+          [userId]="userId">
+        </app-notification-dropdown>
+      </div>
     </div>
+    
     <button
       class="btn btn-primary"
-      (mouseover)="onLogoutHover()"
-      (mouseout)="onLogoutHoverOut()"
       (click)="handleLogout()"
     >
       {{ logoutButtonText }}
     </button>
   </div>
-
-<div class="notifications-wrapper">
-  <app-notification-dropdown 
-    [userId]="userId"
-    (unreadCountChange)="updateUnreadCount($event)">
-  </app-notification-dropdown>
-</div>
-
 </nav>

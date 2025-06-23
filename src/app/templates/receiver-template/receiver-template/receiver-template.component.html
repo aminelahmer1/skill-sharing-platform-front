@@ -13,7 +13,6 @@
     (menuToggled)="toggleMenu()">
   </app-navbar-receiver>
 
-  <!-- Show hero section only on /receiver -->
   <app-hero-receiver
     *ngIf="isHomeRoute()"
     [userProfile]="userProfile"
@@ -21,7 +20,6 @@
   </app-hero-receiver>
 
   <section class="section content-section">
-    <!-- Show sessions and calendar side by side only on /receiver -->
     <div *ngIf="isHomeRoute()" class="home-content">
       <section class="features-section">
         <h2 class="section-title">Mes sessions à venir</h2>
@@ -45,7 +43,6 @@
       </section>
     </div>
 
-    <!-- Render child routes (profile, profile-edit) -->
     <router-outlet></router-outlet>
   </section>
 

@@ -7,5 +7,4 @@ export interface Notification {
   createdAt: string;
   sent: boolean;
   read: boolean;
-  rejectionReason?: string;
 }

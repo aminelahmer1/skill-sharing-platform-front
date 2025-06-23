@@ -1085,20 +1085,44 @@ body {
     to { transform: translateY(0) scale(1); opacity: 1; }
 }
 
+.auth-buttons {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  position: relative; /* Important pour le positionnement absolu du dropdown */
+}
+
 .notification-icon {
-    position: relative;
-    cursor: pointer;
-    font-size: 24px;
-    margin-right: 15px;
-  }
-  
-  .notification-badge {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: red;
-    color: white;
-    border-radius: 50%;
-    padding: 2px 6px;
-    font-size: 12px;
-  }
+  position: relative;
+  cursor: pointer;
+  font-size: 20px;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.notification-icon:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.notification-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background-color: #ff4d4f;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notifications-wrapper {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 1100;
+}
