@@ -29,7 +29,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     catchError(error => {
       if (error.status === 401) {
         console.log('401 Unauthorized, attempting to refresh token...');
-        return from(keycloakService.updateToken(30)).pipe(
+        return from(keycloakService.refreshToken(30)).pipe(
           switchMap(refreshed => {
             if (refreshed) {
               console.log('Token refreshed successfully: true');

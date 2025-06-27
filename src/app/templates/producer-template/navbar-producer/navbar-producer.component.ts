@@ -1,7 +1,9 @@
-import { Component, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { NotificationDropdownComponent } from '../../../features/shared/notification-dropdown/notification-dropdown.component';
+import { NotificationService } from '../../../core/services/notification/notification.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-navbar-producer',
@@ -10,7 +12,7 @@ import { NotificationDropdownComponent } from '../../../features/shared/notifica
   templateUrl: './navbar-producer.component.html',
   styleUrls: ['./navbar-producer.component.css'],
 })
-export class NavbarProducerComponent implements OnChanges {
+export class NavbarProducerComponent implements OnInit, OnDestroy {
   @Input() userProfile: any;
   @Input() isMenuActive!: boolean;
   @Input() logoutButtonText: string = 'Déconnexion';
@@ -21,13 +23,19 @@ export class NavbarProducerComponent implements OnChanges {
   unreadCount = 0;
   userId: string | undefined;
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['userProfile']) {
-      this.userId = this.userProfile?.sub;
-      if (!this.userId) {
-        console.warn('userProfile est indéfini ou n’a pas de sub');
-      }
-    }
+  private unreadCountSub?: Subscription;
+
+  constructor(private notificationService: NotificationService) {}
+
+  ngOnInit(): void {
+    // S'abonner directement au service pour les mises à jour
+    this.unreadCountSub = this.notificationService.unreadCount$.subscribe(count => {
+      this.unreadCount = count;
+    });
+  }
+
+  ngOnChanges(): void {
+    this.userId = this.userProfile?.id;
   }
 
   onLogoutHover() {
@@ -47,14 +55,10 @@ export class NavbarProducerComponent implements OnChanges {
   }
 
   toggleNotifications() {
-    if (!this.userId) {
-      console.error('Impossible d’afficher les notifications : userId est indéfini');
-      return;
-    }
     this.showNotifications = !this.showNotifications;
   }
 
-  updateUnreadCount(count: number) {
-    this.unreadCount = count;
+  ngOnDestroy(): void {
+    this.unreadCountSub?.unsubscribe();
   }
 }

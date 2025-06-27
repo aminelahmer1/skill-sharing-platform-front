@@ -11,7 +11,12 @@
     <a routerLink="calendar" [routerLinkActive]="['active']">Calendrier</a>
   </div>
   <div class="auth-buttons">
-    <div class="notification-icon" [class.disabled]="!userId" (click)=" toggleNotifications()" role="button" aria-label="Notifications" tabindex="0">
+    <div class="notification-icon" 
+         [class.disabled]="!userId" 
+         (click)="toggleNotifications()" 
+         role="button" 
+         aria-label="Notifications" 
+         tabindex="0">
       🔔
       <span *ngIf="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
     </div>
@@ -24,9 +29,10 @@
       {{ logoutButtonText }}
     </button>
   </div>
+  
+  <!-- SUPPRIMER l'événement unreadCountChange -->
   <app-notification-dropdown
     *ngIf="showNotifications && userId"
     [userId]="userId"
-    (unreadCountChange)="updateUnreadCount($event)"
   ></app-notification-dropdown>
 </nav>

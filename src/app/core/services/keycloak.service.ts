@@ -123,81 +123,72 @@ export class KeycloakService {
     }
   }
 
-  /**
-   * Méthode qui rafraîchit le token en appelant `updateToken` sur l'instance Keycloak.
-   * On effectue un cast vers `any` pour éviter les erreurs de typage.
-   */
-  // KeycloakService.ts
-  async refreshToken(minValidity: number = 30): Promise<boolean> {
-    try {
-      const refreshed = await this.keycloak.updateToken(minValidity);
-      console.log('Token refreshed successfully:', refreshed);
-      return refreshed;
-    } catch (error) {
-      console.error('Failed to refresh token:', error);
-      await this.keycloak.login(); // Redirection vers la page de connexion en cas d'échec
-      return false;
-    }
-  }
-
-  /**
-   * Retourne le token d'authentification (déjà rafraîchi dans refreshToken)
-   */
-  async getToken(): Promise<string> {
-    return this.keycloak.token || '';
-  }
-
-  async getUserId(): Promise<string> {
-    try {
-      // Option 1: Si vous avez déjà le token décodé dans le userProfile
-      const token = await this.getToken();
-      if (!token) throw new Error('No token available');
-      
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.sub; // sub est le standard Keycloak pour l'ID utilisateur
-    } catch (error) {
-      console.error('Failed to get user ID:', error);
-      throw error;
-    
-}
-
-}
-
-
-
-
-
-
-
-
-async initWithToken(token: string): Promise<void> {
+async getToken(): Promise<string> {
   try {
-    await this.keycloak.init({
-      token,
-      refreshToken: '',
-      onLoad: 'check-sso',
-      checkLoginIframe: false
-    });
-    
-    await this.loadUserProfile();
-    this.updateRoles();
-    this.authStatus.next(true);
+    const minValidity = 30; // Marge de 30 secondes avant expiration
+    if (!this.keycloak.token || this.keycloak.isTokenExpired(minValidity)) {
+      await this.refreshToken(minValidity);
+    }
+    if (!this.keycloak.token) {
+      throw new Error('Aucun token valide disponible');
+    }
+    console.log('Token obtenu :', this.keycloak.token);
+    return this.keycloak.token;
   } catch (error) {
-    console.error('Token initialization failed', error);
+    console.error('Échec de l\'obtention du token :', error);
     throw error;
   }
-
-
-
 }
-async updateToken(minValidity: number): Promise<boolean> {
+
+async refreshToken(minValidity: number = 30): Promise<boolean> {
   try {
     const refreshed = await this.keycloak.updateToken(minValidity);
-    console.log('Token refreshed successfully:', refreshed);
-    return refreshed;
+    console.log('Tentative de rafraîchissement du token, succès :', refreshed);
+    if (refreshed) {
+      await this.loadUserProfile();
+      this.updateRoles();
+      console.log('Token rafraîchi avec succès');
+      return true;
+    }
+    return false;
   } catch (error) {
-    console.error('Token refresh failed:', error);
+    console.error('Échec du rafraîchissement du token :', error);
     return false;
   }
 }
+
+  async getUserId(): Promise<string> {
+  try {
+    // Utiliser directement l'ID de Keycloak
+    if (this.keycloak.tokenParsed?.sub) {
+      return this.keycloak.tokenParsed.sub;
+    }
+    
+    // Fallback si nécessaire
+    const token = await this.getToken();
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.sub;
+  } catch (error) {
+    console.error('Failed to get user ID:', error);
+    throw error;
+  }
+}
+
+  async initWithToken(token: string): Promise<void> {
+    try {
+      await this.keycloak.init({
+        token,
+        refreshToken: '',
+        onLoad: 'check-sso',
+        checkLoginIframe: false
+      });
+      
+      await this.loadUserProfile();
+      this.updateRoles();
+      this.authStatus.next(true);
+    } catch (error) {
+      console.error('Token initialization failed', error);
+      throw error;
+    }
+  }
 }

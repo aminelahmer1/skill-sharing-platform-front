@@ -175,3 +175,16 @@
   color: #666;
   font-style: italic;
 }
+.notification-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+
+.empty-state {
+  /* Style pour l'état vide */
+  padding: 10px;
+  text-align: center;
+  color: #666;
+}

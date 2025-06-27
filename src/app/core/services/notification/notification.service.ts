@@ -1,8 +1,8 @@
-import { Injectable, OnDestroy } from '@angular/core';
+import { Injectable, NgZone, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { KeycloakService } from '../keycloak.service';
 import { BehaviorSubject, Observable, Subject, from, throwError, of } from 'rxjs';
-import { catchError, switchMap, tap, takeUntil, distinctUntilChanged, map } from 'rxjs/operators';
+import { catchError, switchMap, tap, map, distinctUntilChanged } from 'rxjs/operators';
 import { Client, IMessage } from '@stomp/stompjs';
 import { Notification } from '../../../models/Notification/notification.model';
 
@@ -13,30 +13,28 @@ export class NotificationService implements OnDestroy {
   private apiUrl = 'http://localhost:8822/api/v1/notifications';
   private stompClient: Client | null = null;
   private notificationsSubject = new BehaviorSubject<Notification[]>([]);
-  private pendingRealTimeNotifications: Notification[] = [];
   private destroy$ = new Subject<void>();
   private connectionStatus = new BehaviorSubject<'CONNECTED' | 'DISCONNECTED' | 'CONNECTING'>('DISCONNECTED');
   private userId: string | null = null;
   private tokenRefreshInterval: any;
-  private isInitialized = false;
-  private isInitialFetchDone = false;
+  private isConnected = false;
 
   notifications$ = this.notificationsSubject.asObservable();
   connectionStatus$ = this.connectionStatus.asObservable();
   unreadCount$ = this.notifications$.pipe(
-    map(notifications => notifications.filter(n => n && typeof n.read === 'boolean' && !n.read).length),
+    map(notifications => notifications.filter(n => !n.read).length),
     distinctUntilChanged()
   );
 
   constructor(
     private http: HttpClient,
-    private keycloakService: KeycloakService
+    private keycloakService: KeycloakService,
+    private ngZone: NgZone
   ) {
     this.initializeService();
   }
 
-  private async initializeService(): Promise<void> {
-    if (this.isInitialized) return;
+  async initializeService(): Promise<void> {
     try {
       this.userId = await this.keycloakService.getUserId();
       if (!this.userId) {
@@ -46,120 +44,169 @@ export class NotificationService implements OnDestroy {
       await this.connectWebSocket();
       await this.fetchInitialNotifications();
       this.startTokenRefresh();
-      this.isInitialized = true;
     } catch (error) {
       console.error('Service initialization failed:', error);
     }
   }
 
-  private async connectWebSocket(): Promise<void> {
-    this.connectionStatus.next('CONNECTING');
+async connectWebSocket(): Promise<void> {
+  console.log('Initializing WebSocket connection...');
+  this.connectionStatus.next('CONNECTING');
+  
+  try {
     const token = await this.keycloakService.getToken();
-    if (!token || !this.userId) {
+    if (!token) {
+      console.error('No token available');
+      this.connectionStatus.next('DISCONNECTED');
+      return;
+    }
+    
+    if (!this.userId) {
+      console.error('User ID not available');
       this.connectionStatus.next('DISCONNECTED');
       return;
     }
 
+    console.log('Token and user ID available, proceeding...');
+    
+    // Détruire l'ancienne connexion si elle existe
+    if (this.stompClient) {
+      this.stompClient.deactivate();
+      this.stompClient = null;
+    }
+
+    // Créer une nouvelle connexion STOMP
     this.stompClient = new Client({
-      brokerURL: `ws://localhost:8822/ws/notifications?token=${encodeURIComponent(token)}`,
-      connectHeaders: { Authorization: `Bearer ${token}` },
-      debug: (str) => console.debug('[STOMP] ' + str),
+      brokerURL: 'ws://localhost:8822/ws/notifications',
+      connectHeaders: {
+        Authorization: `Bearer ${token}`
+      },
+      debug: (str) => console.log('STOMP: ' + str),
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
-      onConnect: () => {
-        console.log('✅ WebSocket connected');
+      onConnect: (frame) => {
+        console.log('✅ WebSocket connected! Frame:', frame);
         this.connectionStatus.next('CONNECTED');
+        this.isConnected = true;
         this.subscribeToNotifications();
+        
       },
       onStompError: (frame) => {
-        console.error('STOMP error:', frame.headers['message']);
+        console.error('❌ Broker reported error:', frame.headers['message']);
+        console.error('Error details:', frame.body);
+        this.connectionStatus.next('DISCONNECTED');
+      },
+      onWebSocketError: (event) => {
+        console.error('❌ WebSocket error:', event);
         this.connectionStatus.next('DISCONNECTED');
         setTimeout(() => this.reconnectWebSocket(), 5000);
       },
       onDisconnect: () => {
+        console.warn('⚠️ WebSocket disconnected');
         this.connectionStatus.next('DISCONNECTED');
       }
     });
+
     this.stompClient.activate();
+  } catch (error) {
+    console.error('WebSocket connection failed:', error);
+    this.connectionStatus.next('DISCONNECTED');
+    setTimeout(() => this.reconnectWebSocket(), 5000);
   }
+}
 
-  private subscribeToNotifications(): void {
-    if (!this.stompClient || !this.userId) return;
-    this.stompClient.subscribe(
-      `/user/${this.userId}/queue/notifications`,
-      (message: IMessage) => this.processNotification(message)
-    );
+subscribeToNotifications(): void {
+  if (!this.stompClient || !this.userId) {
+    console.warn('Cannot subscribe: stompClient or userId missing');
+    return;
   }
-
-  private processNotification(message: IMessage): void {
-    try {
-      const notification: Notification = JSON.parse(message.body);
-      if (
-        !notification ||
-        typeof notification.id !== 'number' ||
-        typeof notification.message !== 'string' ||
-        typeof notification.read !== 'boolean' ||
-        typeof notification.userId !== 'string' ||
-        !notification.createdAt ||
-        typeof notification.type !== 'string' ||
-        typeof notification.sent !== 'boolean'
-      ) {
-        console.warn('❌ Invalid notification ignored:', message.body);
-        return;
-      }
-      console.log('📬 Received real-time notification:', notification);
-
-      const currentNotifications = this.notificationsSubject.value.filter(n => n != null);
-      if (!this.isInitialFetchDone) {
-        this.pendingRealTimeNotifications.push(notification);
-        return;
-      }
-
-      const existingIndex = currentNotifications.findIndex(n => n.id === notification.id);
-      let updatedNotifications: Notification[];
-      if (existingIndex >= 0) {
-        updatedNotifications = [...currentNotifications];
-        updatedNotifications[existingIndex] = notification;
-      } else {
-        updatedNotifications = [notification, ...currentNotifications];
-      }
-      this.notificationsSubject.next(updatedNotifications.filter(n => n != null));
-    } catch (error) {
-      console.error('Error processing notification:', error);
+  
+  // Destination CORRECTE selon la configuration Spring
+  const destination = `/user/queue/notifications`;
+  console.log(`🔔 Subscribing to: ${destination}`);
+  
+  this.stompClient.subscribe(
+    destination,
+    (message: IMessage) => {
+      console.log('📩 Message received from:', destination);
+      this.processNotification(message);
+    },
+    { 
+      id: 'user-notifications',
+      'auto-delete': 'true'
     }
+  );
+}
+
+processNotification(message: IMessage): void {
+  try {
+    console.log('📩 Raw WebSocket message:', message.body);
+    
+    let notification: Notification;
+    try {
+      notification = JSON.parse(message.body);
+    } catch (parseError) {
+      console.error('Error parsing notification:', parseError);
+      return;
+    }
+
+    // Validation améliorée
+    if (!notification || 
+        typeof notification.id !== 'number' || 
+        !notification.userId) {
+      console.warn('❌ Invalid notification structure:', notification);
+      return;
+    }
+
+    // Vérifier que la notification est pour cet utilisateur
+    if (notification.userId !== this.userId) {
+      console.warn(`🚫 Notification for different user (${notification.userId}), current user ${this.userId}`);
+      return;
+    }
+
+    this.ngZone.run(() => {
+      const currentNotifications = [...this.notificationsSubject.value];
+      const existingIndex = currentNotifications.findIndex(n => n.id === notification.id);
+      
+      if (existingIndex >= 0) {
+        // Mise à jour si déjà présente
+        currentNotifications[existingIndex] = notification;
+        console.log('🔄 Updated existing notification');
+      } else {
+        // Ajout en tête de liste
+        currentNotifications.unshift(notification);
+        console.log('✨ Added new notification');
+      }
+      
+      this.notificationsSubject.next([...currentNotifications]);
+    });
+  } catch (error) {
+    console.error('Unhandled error in processNotification:', error);
+  }
+}
+
+  private isValidNotification(notification: any): boolean {
+    return notification &&
+           typeof notification.id === 'number' &&
+           typeof notification.message === 'string' &&
+           typeof notification.read === 'boolean' &&
+           typeof notification.userId === 'string';
   }
 
-  private fetchInitialNotifications(): Promise<void> {
-    return new Promise((resolve, reject) => {
+  fetchInitialNotifications(): Promise<void> {
+    return new Promise((resolve) => {
       if (!this.userId) {
-        reject('User ID not available');
+        resolve();
         return;
       }
-      this.getNotifications().subscribe({
-        next: (notifications) => {
-          console.log('Fetched notifications:', notifications);
-          this.notificationsSubject.next(notifications.filter(n => n != null));
-          const currentNotifications = this.notificationsSubject.value;
-          this.pendingRealTimeNotifications.forEach(pending => {
-            const existingIndex = currentNotifications.findIndex(n => n.id === pending.id);
-            if (existingIndex >= 0) {
-              currentNotifications[existingIndex] = pending;
-            } else {
-              currentNotifications.unshift(pending);
-            }
-          });
-          console.log('Merged notifications:', currentNotifications);
-          this.notificationsSubject.next(currentNotifications.filter(n => n != null));
-          this.pendingRealTimeNotifications = [];
-          this.isInitialFetchDone = true;
+      this.getNotifications().subscribe(notifications => {
+        this.ngZone.run(() => {
+          // CORRECTION: Stocker les notifications initiales
+          this.notificationsSubject.next(notifications);
           resolve();
-        },
-        error: (err) => {
-          console.error('Failed to fetch notifications:', err);
-          reject(err);
-        }
-      });
+        });
+      }, () => resolve());
     });
   }
 
@@ -167,29 +214,9 @@ export class NotificationService implements OnDestroy {
     return from(this.keycloakService.getToken()).pipe(
       switchMap(token => {
         const headers = { Authorization: `Bearer ${token}` };
-        return this.http.get<Notification[]>(
-          `${this.apiUrl}/user/${this.userId}`,
-          { headers }
-        ).pipe(
-          map(notifications => {
-            console.log('Raw HTTP notifications:', notifications);
-            return notifications
-              ? notifications.filter(n => 
-                  n &&
-                  typeof n.id === 'number' &&
-                  typeof n.message === 'string' &&
-                  typeof n.read === 'boolean' &&
-                  typeof n.userId === 'string' &&
-                  n.createdAt &&
-                  typeof n.type === 'string' &&
-                  typeof n.sent === 'boolean'
-                ).reverse()
-              : [];
-          }),
-          catchError(error => {
-            console.error('HTTP error fetching notifications:', error);
-            return of([]);
-          })
+        return this.http.get<Notification[]>(`${this.apiUrl}/user/${this.userId}`, { headers }).pipe(
+          map(notifications => notifications?.reverse() || []),
+          catchError(() => of([]))
         );
       })
     );
@@ -199,21 +226,16 @@ export class NotificationService implements OnDestroy {
     return from(this.keycloakService.getToken()).pipe(
       switchMap(token => {
         const headers = { Authorization: `Bearer ${token}` };
-        return this.http.put<Notification>(
-          `${this.apiUrl}/${notificationId}/read`,
-          null,
-          { headers }
-        ).pipe(
+        return this.http.put<Notification>(`${this.apiUrl}/${notificationId}/read`, null, { headers }).pipe(
           tap(updatedNotification => {
-            const current = this.notificationsSubject.value.filter(n => n != null);
-            const updated = current.map(n =>
-              n.id === notificationId ? updatedNotification : n
-            );
-            this.notificationsSubject.next(updated);
-          }),
-          catchError(error => {
-            console.error('markAsRead failed:', error);
-            return throwError(() => error);
+            this.ngZone.run(() => {
+              const current = [...this.notificationsSubject.value];
+              const index = current.findIndex(n => n.id === notificationId);
+              if (index !== -1) {
+                current[index] = updatedNotification;
+                this.notificationsSubject.next([...current]); // Nouvelle référence
+              }
+            });
           })
         );
       })
@@ -225,61 +247,75 @@ export class NotificationService implements OnDestroy {
     return from(this.keycloakService.getToken()).pipe(
       switchMap(token => {
         const headers = { Authorization: `Bearer ${token}` };
-        return this.http.put<void>(
-          `${this.apiUrl}/user/${this.userId}/mark-all-read`,
-          null,
-          { headers }
-        ).pipe(
+        return this.http.put<void>(`${this.apiUrl}/user/${this.userId}/mark-all-read`, null, { headers }).pipe(
           tap(() => {
-            const updatedNotifications = this.notificationsSubject.value
-              .filter(n => n != null)
-              .map(n => ({ ...n, read: true }));
-            this.notificationsSubject.next(updatedNotifications);
-            if (this.stompClient?.connected) {
-              updatedNotifications.forEach(n => {
-                this.stompClient!.publish({
-                  destination: `/user/${this.userId}/queue/notifications`,
-                  body: JSON.stringify(n)
-                });
-              });
-            }
-          }),
-          catchError(error => {
-            console.error('Error marking all notifications as read:', error);
-            return throwError(() => error);
+            this.ngZone.run(() => {
+              const updatedNotifications = this.notificationsSubject.value.map(n => ({ ...n, read: true }));
+              this.notificationsSubject.next([...updatedNotifications]); // Nouvelle référence
+            });
           })
         );
       })
     );
   }
 
-  private startTokenRefresh(): void {
-    this.tokenRefreshInterval = setInterval(async () => {
-      try {
-        const refreshed = await this.keycloakService.updateToken(300);
-        if (refreshed) {
-          console.log('Token refreshed successfully');
-          await this.reconnectWebSocket();
-        }
-      } catch (error) {
-        console.error('Token refresh failed:', error);
-      }
-    }, 300000); // 5 minutes
-  }
+ private lastUsedToken: string | null = null;
 
-  private async reconnectWebSocket(): Promise<void> {
-    if (this.stompClient) {
-      this.stompClient.deactivate();
+private reconnectAttempts = 0;
+
+startTokenRefresh(): void {
+  this.tokenRefreshInterval = setInterval(async () => {
+    try {
+      const refreshed = await this.keycloakService.refreshToken(30);
+      const latestToken = await this.keycloakService.getToken();
+
+      if (refreshed) {
+        console.log('🔁 Token refreshed - reconnecting WebSocket');
+        this.reconnectAttempts = 0; // Reset les tentatives
+        await this.reconnectWebSocket();
+      } else if (latestToken !== this.lastUsedToken) {
+        console.log('🆕 Token changed - reconnecting WebSocket');
+        this.lastUsedToken = latestToken;
+        await this.reconnectWebSocket();
+      }
+    } catch (err) {
+      console.error('⛔ Token refresh failed:', err);
+      this.reconnectAttempts++;
     }
+  }, 30000); // Toutes les 30 secondes
+}
+
+
+async reconnectWebSocket(): Promise<void> {
+  console.log('Attempting WebSocket reconnection...');
+  try {
+    // Rafraîchir le token AVANT la reconnexion
+    const refreshed = await this.keycloakService.refreshToken(30);
+    if (refreshed) {
+      console.log('🔑 Token refreshed successfully');
+    }
+    
     await this.connectWebSocket();
+  } catch (error) {
+    console.error('Reconnection failed:', error);
+    // Réessayer avec backoff exponentiel
+    const delay = Math.min(30000, 5000 * Math.pow(2, this.reconnectAttempts));
+    setTimeout(() => this.reconnectWebSocket(), delay);
   }
+}
+
+  // CORRECTION: Méthode pour envoyer une notification de test
+  
 
   ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-    clearInterval(this.tokenRefreshInterval);
-    if (this.stompClient) {
-      this.stompClient.deactivate();
-    }
+  this.destroy$.next();
+  this.destroy$.complete();
+  clearInterval(this.tokenRefreshInterval);
+  
+  if (this.stompClient) {
+    this.stompClient.deactivate().then(() => {
+      console.log('WebSocket connection closed');
+    });
   }
+}
 }
