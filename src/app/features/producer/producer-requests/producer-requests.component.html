@@ -16,7 +16,7 @@
           <table mat-table [dataSource]="pendingRequestsBySkill[skillName]" class="requests-table">
             <ng-container matColumnDef="receiverName">
               <th mat-header-cell *matHeaderCellDef>Receveur</th>
-              <td mat-cell *matCellDef="let request">{{ request.receiverName }}</td>
+              <td mat-cell *matCellDef="let request" (click)="showReceiverDetails(request.receiverId)">{{ request.receiverName }}</td>
             </ng-container>
             <ng-container matColumnDef="createdAt">
               <th mat-header-cell *matHeaderCellDef>Date</th>

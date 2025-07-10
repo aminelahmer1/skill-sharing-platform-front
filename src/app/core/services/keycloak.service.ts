@@ -125,19 +125,30 @@ export class KeycloakService {
 
 async getToken(): Promise<string> {
   try {
-    const minValidity = 30; // Marge de 30 secondes avant expiration
+    const minValidity = 300; // Augmenté à 5 minutes pour plus de marge
     if (!this.keycloak.token || this.keycloak.isTokenExpired(minValidity)) {
-      await this.refreshToken(minValidity);
+      const refreshed = await this.keycloak.updateToken(minValidity);
+      if (!refreshed) {
+        throw new Error('Failed to refresh token');
+      }
     }
+    
     if (!this.keycloak.token) {
-      throw new Error('Aucun token valide disponible');
+      throw new Error('No valid token available');
     }
-    console.log('Token obtenu :', this.keycloak.token);
+
+    // Vérification supplémentaire du token
+    const tokenParts = this.keycloak.token.split('.');
+    if (tokenParts.length !== 3) {
+      throw new Error('Invalid token format');
+    }
+
     return this.keycloak.token;
   } catch (error) {
-    console.error('Échec de l\'obtention du token :', error);
+    console.error('Token error:', error);
     throw error;
   }
+
 }
 
 async refreshToken(minValidity: number = 30): Promise<boolean> {

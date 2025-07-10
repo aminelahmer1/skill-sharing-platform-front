@@ -1,0 +1,44 @@
+/* receiver-details-dialog.component.css */
+.receiver-card {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.receiver-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.receiver-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 16px;
+}
+
+.receiver-info h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.receiver-info p {
+  margin: 4px 0 0;
+  color: #666;
+}
+
+.receiver-details {
+  padding: 8px 0;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  margin: 12px 0;
+}
+
+.detail-item mat-icon {
+  margin-right: 8px;
+  color: #666;
+}

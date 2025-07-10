@@ -1,0 +1,25 @@
+<div class="livestream-container">
+  <h2>Livestream Session Management</h2>
+  
+  <div *ngIf="sessionStatus === 'SCHEDULED'" class="status-message">
+    The session is scheduled. It will start automatically at the scheduled time.
+  </div>
+  
+  <div *ngIf="sessionStatus === 'LIVE'" class="status-message">
+    <div class="session-controls">
+      <span>Session is live</span>
+      <button mat-raised-button color="warn" (click)="endSession()">
+        End Session
+      </button>
+      <span *ngIf="isRecording" class="recording-indicator">
+        ● Recording
+      </span>
+    </div>
+    
+    <div class="participant-count">
+      Participants: {{ participants.length + 1 }} (including you)
+    </div>
+  </div>
+  
+  <div #videoContainer class="video-container"></div>
+</div>

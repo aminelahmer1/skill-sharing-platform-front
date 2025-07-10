@@ -1,0 +1,38 @@
+<!-- receiver-details-dialog.component.html -->
+<h2 mat-dialog-title>Détails du participant</h2>
+<mat-dialog-content>
+  <mat-card class="receiver-card">
+    <div class="receiver-header">
+      <img [src]="data.receiver.pictureUrl || 'assets/default-avatar.png'" alt="Photo de profil" class="receiver-avatar">
+      <div class="receiver-info">
+        <h3>{{ data.receiver.firstName }} {{ data.receiver.lastName }}</h3>
+        <p>{{ data.receiver.email }}</p>
+      </div>
+    </div>
+
+    <mat-card-content>
+      <div class="receiver-details">
+        <div class="detail-item">
+          <mat-icon>phone</mat-icon>
+          <span>{{ data.receiver.phoneNumber || 'Non renseigné' }}</span>
+        </div>
+        <div class="detail-item">
+          <mat-icon>location_on</mat-icon>
+          <span *ngIf="data.receiver.city && data.receiver.country">
+            {{ data.receiver.city }}, {{ data.receiver.country }}
+          </span>
+          <span *ngIf="!data.receiver.city || !data.receiver.country">
+            Localisation non renseignée
+          </span>
+        </div>
+        <div class="detail-item">
+          <mat-icon>person</mat-icon>
+          <span>Membre depuis {{ data.receiver.createdAt | date:'MMMM yyyy' }}</span>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button (click)="closeDialog()">Fermer</button>
+</mat-dialog-actions>

@@ -1,5 +1,5 @@
 import { Component, Inject, OnInit } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { SkillService } from '../../../core/services/Skill/skill.service';
 import { Category, SkillRequest } from '../../../models/skill/skill.model';
@@ -16,7 +16,7 @@ import { CategoryService } from '../../../core/services/category/category.servic
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { formatDate } from '@angular/common';
-
+import { AcceptedReceiversDialogComponent } from '../accepted-receivers-dialog/accepted-receivers-dialog.component';
 @Component({
   selector: 'app-skill-form',
   templateUrl: './skill-form.component.html',
@@ -33,8 +33,8 @@ import { formatDate } from '@angular/common';
     MatIconModule,
     MatProgressSpinnerModule,
     MatDialogModule,
-    MatDatepickerModule, // Ajout pour le sélecteur de date
-    MatNativeDateModule  // Ajout pour le support natif des dates
+    MatDatepickerModule, 
+    MatNativeDateModule 
   ]
 })
 export class SkillFormComponent implements OnInit {
@@ -44,7 +44,7 @@ export class SkillFormComponent implements OnInit {
   isEditing = false;
   selectedFile: File | null = null;
   previewUrl: string | ArrayBuffer | null = null;
-  minDate: Date; // Date minimale (aujourd'hui)
+  minDate: Date; 
 
   constructor(
     private fb: FormBuilder,
@@ -52,12 +52,13 @@ export class SkillFormComponent implements OnInit {
     private categoryService: CategoryService,
     private dialogRef: MatDialogRef<SkillFormComponent>,
     private snackBar: MatSnackBar,
+    private dialog: MatDialog,
     @Inject(MAT_DIALOG_DATA) public data: any
   ) {
     this.isEditing = data.mode === 'edit';
     
     const today = new Date();
-    this.minDate = today; // Date minimale pour mat-date-picker
+    this.minDate = today; 
 
     this.skillForm = this.fb.group({
       name: ['', [Validators.required, Validators.maxLength(100)]],
@@ -158,4 +159,9 @@ export class SkillFormComponent implements OnInit {
     this.selectedFile = null;
     this.skillForm.patchValue({ pictureUrl: '' });
   }
+  showAcceptedReceivers(skillId: number): void {
+  this.dialog.open(AcceptedReceiversDialogComponent, {
+    width: '500px',
+    data: { skillId }
+  });}
 }

@@ -5,13 +5,9 @@
   <title>SkillSharingPlatformFront2</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  
-  <!-- Solution permanente -->
   <script>
     // Polyfill global pour tous les environnements
     window.global = window;
-    
-    // Polyfill process minimal
     if (typeof process === 'undefined') {
       window.process = {
         env: {},
@@ -20,8 +16,6 @@
         nextTick: (callback) => setTimeout(callback, 0)
       };
     }
-    
-    // Polyfill Buffer
     if (typeof Buffer === 'undefined') {
       window.Buffer = {
         isBuffer: () => false,
@@ -30,7 +24,7 @@
       };
     }
   </script>
-
+ 
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">

@@ -20,6 +20,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Observable, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { ReceiverDetailsDialogComponent } from '../receiver-details-dialog/receiver-details-dialog.component';
 
 interface PendingRequest {
   id: number;
@@ -215,4 +216,18 @@ export class ProducerRequestsComponent implements OnInit {
   objectKeys(obj: { [key: string]: any }): string[] {
     return Object.keys(obj);
   }
+
+  showReceiverDetails(receiverId: number): void {
+  this.userService.getUserById(receiverId).subscribe({
+    next: (receiver) => {
+      this.dialog.open(ReceiverDetailsDialogComponent, {
+        width: '450px',
+        data: { receiver }
+      });
+    },
+    error: (err) => {
+      this.snackBar.open('Erreur lors du chargement des détails', 'Fermer', { duration: 3000 });
+    }
+  });
+}
 }

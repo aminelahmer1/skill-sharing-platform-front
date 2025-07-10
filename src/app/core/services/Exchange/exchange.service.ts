@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, from, throwError } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 import { KeycloakService } from '../keycloak.service';
+import { UserResponse } from '../../../models/user-response';
 
 interface ExchangeRequest {
   producerId: number;
@@ -11,11 +12,20 @@ interface ExchangeRequest {
   skillId: number;
 }
 
-interface SkillResponse {
+export interface SkillResponse {
   id: number;
   name: string;
-  nbInscrits: number;
+  description: string;
   availableQuantity: number;
+  price: number;
+  nbInscrits: number;
+  categoryId: number;
+  categoryName: string;
+  categoryDescription: string;
+  userId: number;
+  pictureUrl: string;
+  streamingDate: string;
+  streamingTime: string;
 }
 
 export interface ExchangeResponse {
@@ -41,6 +51,30 @@ export class ExchangeService {
   private apiUrl = 'http://localhost:8822/api/v1/exchanges';
   private skillApiUrl = 'http://localhost:8822/api/v1/skills';
 
+  getAcceptedReceiversForSkill(skillId: number): Observable<UserResponse[]> {
+  return from(this.keycloakService.getToken()).pipe(
+    switchMap(token => {
+      const headers = { Authorization: `Bearer ${token}` };
+      return this.http.get<UserResponse[]>(`${this.apiUrl}/skill/${skillId}/accepted-receivers`, { headers });
+    }),
+    catchError(error => {
+      console.error('Error fetching accepted receivers:', error);
+      return throwError(() => new Error('Failed to fetch accepted receivers'));
+    })
+  );
+}
+  getAcceptedSkills(): Observable<SkillResponse[]> {
+  return from(this.keycloakService.getToken()).pipe(
+    switchMap(token => {
+      const headers = { Authorization: `Bearer ${token}` };
+      return this.http.get<SkillResponse[]>(`${this.apiUrl}/accepted-skills`, { headers });
+    }),
+    catchError(error => {
+      console.error('Erreur lors de la récupération des compétences acceptées :', error);
+      return throwError(() => new Error('Échec de la récupération des compétences acceptées'));
+    })
+  );
+}
   createExchange(request: ExchangeRequest): Observable<ExchangeResponse> {
     return from(this.keycloakService.getToken()).pipe(
       switchMap(token => {

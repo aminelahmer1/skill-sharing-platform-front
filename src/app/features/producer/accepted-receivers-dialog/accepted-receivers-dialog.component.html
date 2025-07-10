@@ -1,0 +1,28 @@
+<h2 mat-dialog-title>Participants inscrits</h2>
+<mat-dialog-content>
+  <div *ngIf="isLoading" class="loading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Chargement des participants...</p>
+  </div>
+  
+  <div *ngIf="error" class="error">
+    <mat-icon>error_outline</mat-icon>
+    <p>{{ error }}</p>
+  </div>
+  
+  <div *ngIf="!isLoading && !error">
+    <mat-list *ngIf="receivers.length > 0">
+      <mat-list-item *ngFor="let receiver of receivers">
+        <img matListItemAvatar [src]="receiver.pictureUrl || 'assets/default-avatar.png'" alt="avatar">
+        <div matListItemTitle>{{ receiver.firstName }} {{ receiver.lastName }}</div>
+        <div matListItemLine>{{ receiver.email }}</div>
+        <div matListItemLine>{{ receiver.city }}, {{ receiver.country }}</div>
+      </mat-list-item>
+    </mat-list>
+    
+    <p *ngIf="receivers.length === 0" class="no-data">Aucun participant inscrit pour cette session</p>
+  </div>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button (click)="closeDialog()">Fermer</button>
+</mat-dialog-actions>
