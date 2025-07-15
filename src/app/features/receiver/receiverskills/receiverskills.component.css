@@ -89,4 +89,22 @@
   .no-skills {
     text-align: center;
     padding: 20px;
-  }
+  }/* Ajoutez ces styles à votre fichier CSS existant */
+
+.exchange-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.join-button {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.exchange-status {
+  font-weight: 500;
+  color: #3f51b5;
+  text-align: center;
+}

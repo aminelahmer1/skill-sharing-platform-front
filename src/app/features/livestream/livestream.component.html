@@ -1,25 +1,52 @@
 <div class="livestream-container">
-  <h2>Livestream Session Management</h2>
-  
-  <div *ngIf="sessionStatus === 'SCHEDULED'" class="status-message">
-    The session is scheduled. It will start automatically at the scheduled time.
+  <div *ngIf="isLoading" class="loading-overlay">
+    <mat-spinner diameter="50"></mat-spinner>
+    <p>Loading livestream session...</p>
   </div>
-  
-  <div *ngIf="sessionStatus === 'LIVE'" class="status-message">
-    <div class="session-controls">
-      <span>Session is live</span>
-      <button mat-raised-button color="warn" (click)="endSession()">
-        End Session
-      </button>
-      <span *ngIf="isRecording" class="recording-indicator">
-        ● Recording
-      </span>
-    </div>
-    
-    <div class="participant-count">
-      Participants: {{ participants.length + 1 }} (including you)
-    </div>
+
+  <div *ngIf="error" class="error-message">
+    <mat-icon>error_outline</mat-icon>
+    <p>{{ error }}</p>
+    <button mat-raised-button color="primary" (click)="router.navigate(['/'])">
+      Return to Home
+    </button>
   </div>
-  
+
+  <div *ngIf="!isLoading && !error" class="livestream-content">
+    <div class="livestream-header">
+      <h2>{{ session?.roomName || 'Livestream Session' }}</h2>
+      
+      <div class="action-buttons" *ngIf="isHost">
+        <button mat-raised-button 
+                color="warn" 
+                (click)="endSession()"
+                [disabled]="!isConnected">
+          End Session
+        </button>
+        
+        <button mat-raised-button 
+                color="primary" 
+                (click)="isRecording ? stopRecording() : startRecording()"
+                [disabled]="!isConnected">
+          {{ isRecording ? 'Stop Recording' : 'Start Recording' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="video-wrapper">
   <div #videoContainer class="video-container"></div>
+</div>
+
+<button *ngIf="showStartButton" 
+        mat-raised-button 
+        color="primary"
+        (click)="startStreaming()">
+  Démarrer le streaming
+</button>
+
+    <div class="participant-count" *ngIf="isConnected">
+      <mat-icon>people</mat-icon>
+      <span>{{ participants.length + 1 }} participants</span>
+    </div>
+  </div>
 </div>

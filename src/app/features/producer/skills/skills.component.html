@@ -100,20 +100,25 @@
           </div>
         </mat-card-content>
 
-        <mat-card-actions>
-          <button mat-button color="primary" class="action-btn" (click)="openUpdateDialog(skill)" type="button">
-            <mat-icon>edit</mat-icon>
-          </button>
-          <button mat-button color="warn" class="action-btn" (click)="deleteSkill(skill.id)" type="button">
-            <mat-icon>delete</mat-icon>
-          </button>
-          <button mat-raised-button color="primary" *ngIf="!sessions[skill.id]" (click)="createLivestreamSession(skill.id)">
-            Créer Livestream
-          </button>
-          <button mat-raised-button color="accent" *ngIf="sessions[skill.id]?.status === 'SCHEDULED' || sessions[skill.id]?.status === 'LIVE'" (click)="navigateToLivestream(sessions[skill.id].id, sessions[skill.id].producerToken, sessions[skill.id].roomName)">
-            Gérer Livestream
-          </button>
-        </mat-card-actions>
+      <mat-card-actions>
+  <button mat-button color="primary" (click)="openUpdateDialog(skill)" type="button">
+    <mat-icon>edit</mat-icon>
+  </button>
+  <button mat-button color="warn" (click)="deleteSkill(skill.id)" type="button">
+    <mat-icon>delete</mat-icon>
+  </button>
+  <button mat-raised-button color="primary" 
+          *ngIf="!sessions[skill.id]" 
+          (click)="createLivestreamSession(skill.id)"
+          [disabled]="skill.nbInscrits === 0">
+    Créer Livestream
+  </button>
+  <button mat-raised-button color="primary" 
+        (click)="createLivestreamSession(skill.id)"
+        [disabled]="skill.nbInscrits === 0 || sessions[skill.id]">
+  {{ sessions[skill.id] ? 'Livestream Déjà Créé' : 'Créer Livestream' }}
+</button>
+</mat-card-actions>
       </mat-card>
     </div>
   </div>

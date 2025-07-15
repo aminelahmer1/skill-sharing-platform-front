@@ -1,176 +1,224 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, from, throwError, of } from 'rxjs';
-import { catchError, switchMap, map } from 'rxjs/operators';
+import { Observable, from, throwError, of, timer } from 'rxjs';
+import { catchError, switchMap, map, retryWhen, delayWhen, take } from 'rxjs/operators';
 import { KeycloakService } from '../keycloak.service';
 import { LivestreamSession } from '../../../models/LivestreamSession/livestream-session';
-import { RoomOptions, Room } from 'livekit-client';
+import { Room, RoomConnectOptions, RoomEvent, RemoteTrack, RemoteTrackPublication, RemoteParticipant, VideoPresets, DisconnectReason, Track, ConnectionState } from 'livekit-client';
 
 @Injectable({
   providedIn: 'root'
 })
 export class LivestreamService {
-  private apiUrl = 'http://localhost:8822/api/v1/livestream';
-  private room: Room | null = null;
+  private readonly API_URL = 'http://localhost:8822/api/v1/livestream';
+  private readonly LIVEKIT_URL = 'http://localhost:7880';
+  private readonly MAX_RETRIES = 3;
+  private readonly RETRY_DELAY = 2000;
+  
+  private activeRoom: Room | null = null;
+
   constructor(
     private http: HttpClient,
     private keycloakService: KeycloakService
   ) {}
 
-  private getHeaders(): Observable<HttpHeaders> {
+  private getAuthHeaders(): Observable<HttpHeaders> {
     return from(this.keycloakService.getToken()).pipe(
-      switchMap(token => {
-        return of(new HttpHeaders().set('Authorization', `Bearer ${token}`));
+      map(token => {
+        if (!token) {
+          throw new Error('No authentication token available');
+        }
+        return new HttpHeaders().set('Authorization', `Bearer ${token}`);
+      }),
+      catchError(error => {
+        console.error('Error getting auth token:', error);
+        return throwError(() => new Error('Authentication failed'));
       })
     );
   }
 
-  createSession(skillId: number): Observable<LivestreamSession> {
-    return this.getHeaders().pipe(
-      switchMap(headers => {
-        return this.http.post<LivestreamSession>(`${this.apiUrl}/start/${skillId}`, {}, { headers });
-      })
+  createSession(skillId: number, immediate: boolean = true): Observable<LivestreamSession> {
+    return this.getAuthHeaders().pipe(
+      switchMap(headers => this.http.post<LivestreamSession>(
+        `${this.API_URL}/start/${skillId}`,
+        { immediate },
+        { headers }
+      ).pipe(
+        retryWhen(errors => errors.pipe(
+          delayWhen((_, i) => timer(i * this.RETRY_DELAY)),
+          take(this.MAX_RETRIES)
+        )),
+        catchError(this.handleError<LivestreamSession>('Failed to create session'))
+      ))
     );
   }
 
-  getSessionDetails(sessionId: number): Observable<{ producerToken: string, roomName: string }> {
-    return this.getHeaders().pipe(
-      switchMap(headers => {
-        return this.http.get<LivestreamSession>(`${this.apiUrl}/details/${sessionId}`, { headers }).pipe(
-          map(session => ({
-            producerToken: session.producerToken,
-            roomName: session.roomName
-          })),
-          catchError(error => {
-            console.error('Error fetching session details:', error);
-            return throwError(() => new Error('Failed to get session details'));
-          })
-        );
-      })
-    );
-  }
-
-  // Nouvelle méthode ajoutée pour récupérer les détails d'une session
   getSession(sessionId: number): Observable<LivestreamSession> {
-    return this.getHeaders().pipe(
-      switchMap(headers => {
-        return this.http.get<LivestreamSession>(`${this.apiUrl}/details/${sessionId}`, { headers }).pipe(
-          catchError(error => {
-            console.error('Error fetching session:', error);
-            return throwError(() => new Error('Failed to get session'));
-          })
-        );
-      })
+    return this.getAuthHeaders().pipe(
+      switchMap(headers => this.http.get<LivestreamSession>(
+        `${this.API_URL}/details/${sessionId}`,
+        { headers }
+      ).pipe(
+        catchError(this.handleError<LivestreamSession>('Failed to get session'))
+      ))
     );
   }
 
-  joinSession(sessionId: number): Observable<string> {
-    return this.getHeaders().pipe(
-      switchMap(headers => {
-        return this.http.get<string>(`${this.apiUrl}/${sessionId}/join`, { headers });
-      })
-    );
+ joinSession(sessionId: number): Observable<string> {
+  return this.getAuthHeaders().pipe(
+    switchMap(headers => {
+      if (!sessionId) {
+        return throwError(() => new Error('Session ID is required'));
+      }
+      
+      return this.http.get(
+        `${this.API_URL}/${sessionId}/join`,
+        { 
+          headers,
+          responseType: 'text',
+          observe: 'response' // Pour obtenir toute la réponse
+        }
+      ).pipe(
+        map(response => {
+          if (!response.body) {
+            throw new Error('Empty token received from server');
+          }
+          return response.body.trim();
+        }),
+        retryWhen(errors => errors.pipe(
+          delayWhen((_, i) => timer(i * this.RETRY_DELAY)),
+          take(this.MAX_RETRIES)
+        )),
+        catchError(error => {
+          console.error('Failed to join session:', error);
+          return throwError(() => new Error(
+            error.error?.message || 
+            error.message || 
+            'Failed to join session'
+          ));
+        })
+      );
+    })
+  );
+}
+
+async connectToRoom(roomName: string, token: string): Promise<Room> {
+  const room = new Room({
+    adaptiveStream: true,
+    dynacast: true,
+    publishDefaults: {
+      simulcast: true,
+      videoCodec: 'vp8',
+    },
+    videoCaptureDefaults: {
+      resolution: VideoPresets.h720.resolution,
+    },
+  });
+
+  // Configurez les options de connexion
+  const connectOptions: RoomConnectOptions = {
+    autoSubscribe: true,
+    maxRetries: 5, // Augmentez le nombre de tentatives
+    peerConnectionTimeout: 20000, // Timeout plus long
+    websocketTimeout: 20000,
+  };
+
+  try {
+    // Ajoutez des logs pour le débogage
+    console.log('Connecting to LiveKit with:', {
+      url: 'ws://localhost:7880',
+      token,
+      roomName,
+      connectOptions
+    });
+
+    await room.connect('ws://localhost:7880', token, connectOptions);
+
+    // Vérifiez la connexion
+    if (room.state !== ConnectionState.Connected) {
+      throw new Error('Failed to connect to room');
+    }
+
+    console.log('Successfully connected to room:', room.name);
+    return room;
+  } catch (error) {
+    console.error('LiveKit connection failed:', {
+      error,
+      roomName,
+      token: token.substring(0, 10) + '...' // Log partiel du token pour sécurité
+    });
+    throw new Error('Could not connect to the room. Please check your connection and try again.');
+  }
+}
+
+  async disconnectFromRoom(): Promise<void> {
+    if (this.activeRoom) {
+      try {
+        await this.activeRoom.disconnect();
+      } catch (error) {
+        console.error('Disconnection error:', error);
+      } finally {
+        this.activeRoom = null;
+      }
+    }
   }
 
   endSession(sessionId: number): Observable<void> {
-    return this.getHeaders().pipe(
-      switchMap(headers => {
-        return this.http.post<void>(`${this.apiUrl}/end/${sessionId}`, {}, { headers });
-      })
+    return this.getAuthHeaders().pipe(
+      switchMap(headers => this.http.post<void>(
+        `${this.API_URL}/end/${sessionId}`,
+        {},
+        { headers }
+      ).pipe(
+        catchError(this.handleError<void>('Failed to end session'))
+      ))
     );
   }
 
   getSessionBySkillId(skillId: number): Observable<LivestreamSession | null> {
-    return this.getHeaders().pipe(
-      switchMap(headers => this.http.get<LivestreamSession | null>(
-        `${this.apiUrl}/skill/${skillId}`,
-        { headers, observe: 'response' }
-      )),
-      map(response => {
-        if (response.status === 204) {
-          return null;
-        }
-        return response.body;
-      }),
+  return this.getAuthHeaders().pipe(
+    switchMap(headers => this.http.get<LivestreamSession | null>(
+      `${this.API_URL}/skill/${skillId}`,
+      { headers }
+    ).pipe(
       catchError(error => {
-        if (error.status === 204) {
+        if (error.status === 403 || error.status === 404) {
           return of(null);
         }
         return throwError(() => error);
       })
+    ))
+  );
+}
+
+  startRecording(roomName: string): Observable<void> {
+    return this.getAuthHeaders().pipe(
+      switchMap(headers => this.http.post<void>(
+        `${this.API_URL}/recordings/start`,
+        { roomName },
+        { headers }
+      ).pipe(
+        catchError(this.handleError<void>('Failed to start recording'))
+      ))
     );
   }
 
-  getNewToken(sessionId: number): Observable<string> {
-    return this.getHeaders().pipe(
-      switchMap(headers => {
-        return this.http.get<string>(`${this.apiUrl}/refresh-token/${sessionId}`, { headers }).pipe(
-          catchError(error => {
-            console.error(`Erreur lors du rafraîchissement du token pour la session ${sessionId}:`, error);
-            let message = 'Erreur lors du rafraîchissement du token';
-            if (error.status === 500) {
-              message = 'Erreur serveur lors du rafraîchissement du token.';
-            } else if (error.status === 400) {
-              message = 'Identifiant de session invalide pour le rafraîchissement du token.';
-            } else if (error.status === 404) {
-              message = 'Session introuvable pour le rafraîchissement du token.';
-            }
-            return throwError(() => new Error(message));
-          })
-        );
-      })
+  stopRecording(roomName: string): Observable<void> {
+    return this.getAuthHeaders().pipe(
+      switchMap(headers => this.http.post<void>(
+        `${this.API_URL}/recordings/stop`,
+        { roomName },
+        { headers }
+      ).pipe(
+        catchError(this.handleError<void>('Failed to stop recording'))
+      ))
     );
   }
-   async connectToRoom(
-    roomName: string,
-    token: string,
-    options: RoomOptions = {}
-  ): Promise<Room> {
-    // Clean up previous connection if exists
-    if (this.room) {
-      await this.disconnectFromRoom();
-    }
 
-    this.room = new Room(options);
-    
-    try {
-      await this.room.connect(`wss://your-livekit-server`, token);
-      return this.room;
-    } catch (error) {
-      console.error('Failed to connect to LiveKit room:', error);
-      throw error;
-    }
+  private handleError<T>(message: string): (error: any) => Observable<T> {
+    return (error: any): Observable<T> => {
+      console.error(`${message}:`, error);
+      return throwError(() => new Error(`${message}. ${error.error?.message || error.message}`));
+    };
   }
-
-  async disconnectFromRoom(): Promise<void> {
-    if (this.room) {
-      await this.room.disconnect();
-      this.room = null;
-    }
-  }
-
-  async startRecording(roomName: string): Promise<void> {
-    return this.getHeaders().pipe(
-      switchMap(headers => {
-        return this.http.post<void>(
-          `${this.apiUrl}/recordings/start`,
-          { roomName },
-          { headers }
-        );
-      })
-    ).toPromise();
-  }
-
-  async stopRecording(roomName: string): Promise<void> {
-    return this.getHeaders().pipe(
-      switchMap(headers => {
-        return this.http.post<void>(
-          `${this.apiUrl}/recordings/stop`,
-          { roomName },
-          { headers }
-        );
-      })
-    ).toPromise();
-  }
-
 }

@@ -219,22 +219,46 @@ export class SkillsComponent implements OnInit {
       });
     }
   }
+// skills.component.ts
+navigateToLivestream(sessionId: number): void {
+  this.router.navigate(['/producer/livestream', sessionId]);
+}
 
-  createLivestreamSession(skillId: number): void {
-    this.livestreamService.createSession(skillId).subscribe({
-      next: (session) => {
-        this.sessions[skillId] = session;
-        this.snackBar.open(`Session de livestream créée pour la compétence ${skillId}`, 'Fermer', { duration: 3000 });
-        this.router.navigate(['/producer/livestream', session.id], {
-          state: { producerToken: session.producerToken, roomName: session.roomName }
-        });
-      },
-      error: () => {
-        this.snackBar.open('Erreur lors de la création de la session de livestream', 'Fermer', { duration: 3000 });
-      }
-    });
-  }
-  navigateToLivestream(sessionId: number, producerToken: string, roomName: string): void {
-    this.router.navigate(['/producer/livestream', sessionId], { state: { producerToken, roomName } });
-  }
+// Dans skills.component.ts
+createLivestreamSession(skillId: number): void {
+  const dialogRef = this.dialog.open(ConfirmationDialogComponent, {
+    width: '350px',
+    data: {
+      title: 'Start Livestream',
+      message: 'Do you want to start the livestream now or schedule it?',
+      confirmText: 'Start Now',
+      cancelText: 'Schedule'
+    }
+  });
+
+  dialogRef.afterClosed().subscribe(result => {
+    if (result !== undefined) {
+      const immediate = result === true;
+      this.livestreamService.createSession(skillId, immediate).subscribe({
+        next: (session) => {
+          this.sessions[skillId] = session;
+          this.snackBar.open(
+            immediate 
+              ? 'Livestream started successfully' 
+              : `Livestream scheduled for ${session.startTime}`,
+            'Close', 
+            { duration: 5000 }
+          );
+          if (immediate) {
+            this.navigateToLivestream(session.id);
+          }
+        },
+        error: (err) => {
+          console.error('Error creating session:', err);
+          this.snackBar.open('Failed to create livestream session', 'Close', { duration: 3000 });
+        }
+      });
+    }
+  });
+}
 }

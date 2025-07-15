@@ -125,7 +125,7 @@ export class KeycloakService {
 
 async getToken(): Promise<string> {
   try {
-    const minValidity = 300; // Augmenté à 5 minutes pour plus de marge
+    const minValidity = 300; // 5 minutes
     if (!this.keycloak.token || this.keycloak.isTokenExpired(minValidity)) {
       const refreshed = await this.keycloak.updateToken(minValidity);
       if (!refreshed) {
@@ -137,33 +137,33 @@ async getToken(): Promise<string> {
       throw new Error('No valid token available');
     }
 
-    // Vérification supplémentaire du token
-    const tokenParts = this.keycloak.token.split('.');
-    if (tokenParts.length !== 3) {
-      throw new Error('Invalid token format');
-    }
-
     return this.keycloak.token;
   } catch (error) {
     console.error('Token error:', error);
     throw error;
   }
-
 }
+
+// keycloak.service.ts
 
 async refreshToken(minValidity: number = 30): Promise<boolean> {
   try {
-    const refreshed = await this.keycloak.updateToken(minValidity);
-    console.log('Tentative de rafraîchissement du token, succès :', refreshed);
-    if (refreshed) {
-      await this.loadUserProfile();
-      this.updateRoles();
-      console.log('Token rafraîchi avec succès');
-      return true;
+    if (!this.keycloak.token || this.keycloak.isTokenExpired(minValidity)) {
+      const refreshed = await this.keycloak.updateToken(minValidity);
+      console.log('Token refresh attempt, success:', refreshed);
+      if (refreshed) {
+        await this.loadUserProfile();
+        this.updateRoles();
+        return true;
+      }
+      // Force login if refresh fails
+      await this.login();
+      return false;
     }
-    return false;
+    return true;
   } catch (error) {
-    console.error('Échec du rafraîchissement du token :', error);
+    console.error('Token refresh failed:', error);
+    await this.login();
     return false;
   }
 }

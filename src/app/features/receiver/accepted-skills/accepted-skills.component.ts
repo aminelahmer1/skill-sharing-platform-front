@@ -37,6 +37,7 @@ export class AcceptedSkillsComponent implements OnInit {
   isLoading = true;
   error: string | null = null;
   producerNames: { [key: number]: string } = {};
+session: any;
 
   constructor(
     private exchangeService: ExchangeService,
@@ -108,17 +109,21 @@ export class AcceptedSkillsComponent implements OnInit {
     return this.producerNames[userId] || 'Chargement...';
   }
 
-  joinLivestream(skillId: number): void {
-    const session = this.sessions[skillId];
-    if (session && session.status === 'LIVE') {
-      this.livestreamService.joinSession(session.id).subscribe({
+// accepted-skills.component.ts
+joinLivestreamSession(sessionId: number): void {
+    this.livestreamService.joinSession(sessionId).subscribe({
         next: (joinToken) => {
-          this.router.navigate(['/receiver/livestream', session.id], { state: { joinToken, roomName: session.roomName } });
+            this.livestreamService.getSession(sessionId).subscribe({
+                next: (session) => {
+                    this.router.navigate(['/receiver/livestream', sessionId], {
+                        state: { sessionToken: joinToken, roomName: session.roomName }
+                    });
+                }
+            });
         },
-        error: () => this.snackBar.open('Erreur lors de la tentative de rejoindre la session', 'Fermer', { duration: 3000 })
-      });
-    } else {
-      this.snackBar.open('La session n\'est pas en direct', 'Fermer', { duration: 3000 });
-    }
-  }
+        error: (err) => {
+            this.snackBar.open('Erreur lors de la tentative de rejoindre la session', 'Fermer', { duration: 3000 });
+        }
+    });
+}
 }

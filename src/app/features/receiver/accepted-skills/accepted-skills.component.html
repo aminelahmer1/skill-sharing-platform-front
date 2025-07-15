@@ -45,9 +45,13 @@
           </div>
         </mat-card-content>
         <mat-card-actions>
-          <button mat-raised-button color="primary" *ngIf="sessions[skill.id]?.status === 'LIVE'" (click)="joinLivestream(skill.id)">
-            Rejoindre
-          </button>
+          <button mat-raised-button color="primary" 
+        *ngIf="session?.status === 'LIVE' || session?.status === 'SCHEDULED'" 
+        (click)="joinLivestreamSession(session.id)">
+    Rejoindre Livestream
+</button>
+
+
         </mat-card-actions>
       </mat-card>
     </div>

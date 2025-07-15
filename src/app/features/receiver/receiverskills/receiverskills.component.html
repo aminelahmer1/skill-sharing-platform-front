@@ -46,7 +46,18 @@
         </mat-card-content>
         <mat-card-actions>
           <ng-container *ngIf="getExchangeStatusForSkill(skill.id); else reserveButton">
-            <span class="exchange-status">{{ getExchangeStatusForSkill(skill.id) }}</span>
+            <div class="exchange-actions">
+              <span class="exchange-status">{{ getExchangeStatusForSkill(skill.id) }}</span>
+              <button 
+                *ngIf="canJoinLivestream(skill.id)"
+                mat-raised-button 
+                color="primary" 
+                (click)="joinLivestream(skill)"
+                class="join-button"
+              >
+                Rejoindre le Livestream
+              </button>
+            </div>
           </ng-container>
           <ng-template #reserveButton>
             <button 
