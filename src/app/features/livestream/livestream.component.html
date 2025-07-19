@@ -1,52 +1,210 @@
 <div class="livestream-container">
-  <div *ngIf="isLoading" class="loading-overlay">
-    <mat-spinner diameter="50"></mat-spinner>
-    <p>Loading livestream session...</p>
+  <!-- Loading State -->
+  <div class="loading-overlay" *ngIf="isLoading">
+    <mat-spinner></mat-spinner>
+    <p>Loading session...</p>
   </div>
 
-  <div *ngIf="error" class="error-message">
-    <mat-icon>error_outline</mat-icon>
+  <!-- Error State -->
+  <div class="error-message" *ngIf="error && !isLoading">
+    <mat-icon color="warn">error_outline</mat-icon>
     <p>{{ error }}</p>
-    <button mat-raised-button color="primary" (click)="router.navigate(['/'])">
-      Return to Home
+    <button mat-raised-button color="primary" (click)="navigateToSkillsPage()">
+      Return Home
     </button>
   </div>
 
-  <div *ngIf="!isLoading && !error" class="livestream-content">
-    <div class="livestream-header">
-      <h2>{{ session?.roomName || 'Livestream Session' }}</h2>
-      
-      <div class="action-buttons" *ngIf="isHost">
-        <button mat-raised-button 
-                color="warn" 
-                (click)="endSession()"
-                [disabled]="!isConnected">
-          End Session
+  <!-- Main Content -->
+  <div class="stream-content" *ngIf="!isLoading && !error">
+    <!-- Header Section -->
+    <header class="stream-header">
+      <div class="stream-info">
+        <h2>{{ session?.skillName || session?.roomName || 'Professional Livestream' }}</h2>
+        <div class="stream-stats">
+          <div class="stat-item">
+            <mat-icon>schedule</mat-icon>
+            <span>{{ formattedDuration }}</span>
+          </div>
+          <div class="stat-item">
+            <mat-icon>people</mat-icon>
+            <span>{{ totalParticipants }} participant{{ totalParticipants !== 1 ? 's' : '' }}</span>
+          </div>
+          <div class="stat-item">
+            <mat-icon>visibility</mat-icon>
+            <span>{{ viewerCount }} viewer{{ viewerCount !== 1 ? 's' : '' }}</span>
+          </div>
+          <div class="recording-indicator" *ngIf="isRecording">
+            <mat-icon color="warn">fiber_manual_record</mat-icon>
+            <span>RECORDING</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Host Controls -->
+      <div class="host-controls" *ngIf="isHost && isConnected">
+        <button mat-mini-fab color="primary" 
+                (click)="toggleScreenShare()" 
+                [disabled]="!isConnected"
+                [class.active]="isScreenSharing"
+                matTooltip="{{ isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share' }}">
+          <mat-icon>{{ isScreenSharing ? 'stop_screen_share' : 'screen_share' }}</mat-icon>
         </button>
         
-        <button mat-raised-button 
-                color="primary" 
+        <button mat-mini-fab 
+                [color]="isRecording ? 'warn' : 'primary'" 
                 (click)="isRecording ? stopRecording() : startRecording()"
+                [disabled]="!isConnected"
+                matTooltip="{{ isRecording ? 'Stop Recording' : 'Start Recording' }}">
+          <mat-icon>{{ isRecording ? 'stop' : 'fiber_manual_record' }}</mat-icon>
+        </button>
+        
+        <button mat-raised-button color="warn" 
+                (click)="endSession()" 
                 [disabled]="!isConnected">
-          {{ isRecording ? 'Stop Recording' : 'Start Recording' }}
+          <mat-icon>call_end</mat-icon>
+          End Session
         </button>
       </div>
+    </header>
+
+    <!-- Main Video Section -->
+    <section class="video-section">
+      <!-- Primary Video Container -->
+      <div class="primary-video-container">
+        <div class="main-video-wrapper">
+          <div class="main-video" #mainVideoContainer>
+            <!-- Video Placeholder -->
+            <div class="video-placeholder" *ngIf="!isConnected">
+              <mat-icon>videocam_off</mat-icon>
+              <p *ngIf="showStartButton">Click "Join Stream" to start</p>
+              <p *ngIf="!showStartButton && !isConnected">Connecting...</p>
+            </div>
+          </div>
+
+          <!-- Video Status Indicators -->
+          <div class="video-status-overlay" *ngIf="isConnected">
+            <span class="video-badge" *ngIf="isScreenSharing">
+              <mat-icon>screen_share</mat-icon>
+              Screen Sharing
+            </span>
+            <span class="video-badge" *ngIf="!isScreenSharing && isHost">
+              <mat-icon>videocam</mat-icon>
+              Main Camera
+            </span>
+          </div>
+
+          <!-- Picture-in-Picture for Producer's Camera during Screen Share -->
+          <div class="pip-container" *ngIf="isConnected && isScreenSharing && isHost">
+            <div class="pip-video" #pipVideoContainer></div>
+            <div class="pip-label">
+              <mat-icon>videocam</mat-icon>
+              <span>Your Camera</span>
+            </div>
+          </div>
+
+          <!-- Fullscreen Control -->
+          <div class="fullscreen-control" *ngIf="!isHost && isConnected">
+            <button mat-mini-fab color="primary" 
+                    (click)="toggleFullscreen()"
+                    matTooltip="Toggle Fullscreen">
+              <mat-icon>{{ isFullscreen ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Participants Thumbnails -->
+      <div class="participants-thumbnails" *ngIf="isConnected">
+        <h3 class="thumbnails-title">Participants</h3>
+        <div class="thumbnails-grid" #thumbnailContainer>
+          <!-- Thumbnails will be dynamically added here -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Participants List Section -->
+    <aside class="participants-sidebar" *ngIf="isConnected && participantInfos.length > 0">
+      <mat-card class="participants-card">
+        <mat-card-header>
+          <mat-card-title>
+            <mat-icon>people</mat-icon>
+            Online Participants
+          </mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="participants-list">
+            <div class="participant" *ngFor="let info of participantInfos">
+              <div class="participant-avatar">
+                <mat-icon>person</mat-icon>
+              </div>
+              <div class="participant-info">
+                <span class="participant-name">{{ info.name }}</span>
+                <span class="participant-role" *ngIf="info.isProducer">
+                  <mat-icon>star</mat-icon>
+                  Host
+                </span>
+                <span class="participant-role" *ngIf="!info.isProducer">
+                  <mat-icon>visibility</mat-icon>
+                  Viewer
+                </span>
+              </div>
+              <div class="participant-status">
+                <div class="status-indicator"></div>
+              </div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </aside>
+
+    <!-- Control Panel -->
+    <footer class="control-panel">
+      <!-- Join Button -->
+      <div class="join-button" *ngIf="showStartButton">
+        <button mat-raised-button color="primary" size="large" (click)="startStreaming()">
+          <mat-icon>play_arrow</mat-icon>
+          Join Stream
+        </button>
+      </div>
+
+      <!-- Media Controls -->
+      <div class="media-controls" *ngIf="isConnected">
+        <button mat-fab 
+                [color]="isMuted ? 'warn' : 'primary'" 
+                [class.muted]="isMuted"
+                (click)="toggleMute()"
+                matTooltip="{{ isMuted ? 'Unmute' : 'Mute' }}">
+          <mat-icon>{{ isMuted ? 'mic_off' : 'mic' }}</mat-icon>
+        </button>
+        
+        <button mat-fab 
+                [color]="isVideoOff ? 'warn' : 'primary'" 
+                [class.video-off]="isVideoOff"
+                (click)="toggleVideo()"
+                matTooltip="{{ isVideoOff ? 'Turn On Camera' : 'Turn Off Camera' }}">
+          <mat-icon>{{ isVideoOff ? 'videocam_off' : 'videocam' }}</mat-icon>
+        </button>
+        
+        <button mat-fab color="accent" 
+                (click)="navigateToSkillsPage()"
+                matTooltip="Leave Stream">
+          <mat-icon>exit_to_app</mat-icon>
+        </button>
+      </div>
+    </footer>
+
+    <!-- Status Indicators -->
+    <div class="connection-status" 
+         [class.connected]="isConnected" 
+         [class.disconnected]="!isConnected && !showStartButton"
+         [class.connecting]="!isConnected && !showStartButton">
+      <mat-icon>{{ isConnected ? 'wifi' : 'wifi_off' }}</mat-icon>
+      <span>{{ isConnected ? 'Connected' : 'Disconnected' }}</span>
     </div>
 
-    <div class="video-wrapper">
-  <div #videoContainer class="video-container"></div>
-</div>
-
-<button *ngIf="showStartButton" 
-        mat-raised-button 
-        color="primary"
-        (click)="startStreaming()">
-  Démarrer le streaming
-</button>
-
-    <div class="participant-count" *ngIf="isConnected">
-      <mat-icon>people</mat-icon>
-      <span>{{ participants.length + 1 }} participants</span>
+    <div class="quality-indicator" *ngIf="isConnected">
+      <mat-icon [style.color]="'#4CAF50'">signal_cellular_4_bar</mat-icon>
+      <span>HD Quality</span>
     </div>
   </div>
 </div>
