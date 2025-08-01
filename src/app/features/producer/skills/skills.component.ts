@@ -250,6 +250,8 @@ createLivestreamSession(skillId: number): void {
             { duration: 5000 }
           );
           if (immediate) {
+            // Make sure we have the session with producerToken
+            console.log('Session created with producerToken:', !!session.producerToken);
             this.navigateToLivestream(session.id);
           }
         },

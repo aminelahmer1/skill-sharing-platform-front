@@ -1,0 +1,72 @@
+.recording-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.recording-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(244, 67, 54, 0.1);
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.recording-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.recording-icon.pulse {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.recording-timer {
+  font-family: 'Roboto Mono', monospace;
+  font-weight: 500;
+  color: #d32f2f;
+}
+
+.recording-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #d32f2f;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+button[mat-fab] mat-spinner {
+  margin: auto;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .recording-status {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .recording-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}

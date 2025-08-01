@@ -1,0 +1,19 @@
+<div class="recording-controls" *ngIf="isHost">
+  <div class="recording-status" *ngIf="recordingStatus?.isRecording">
+    <mat-icon class="recording-icon pulse" color="warn">fiber_manual_record</mat-icon>
+    <span class="recording-timer">{{ formattedDuration }}</span>
+    <span class="recording-label">ENREGISTREMENT</span>
+  </div>
+  
+  <button 
+    mat-fab 
+    [color]="recordingStatus?.isRecording ? 'warn' : 'primary'"
+    (click)="toggleRecording()"
+    [disabled]="isProcessing"
+    [matTooltip]="recordingStatus?.isRecording ? 'Arrêter l\'enregistrement' : 'Démarrer l\'enregistrement'">
+    <mat-icon *ngIf="!isProcessing">
+      {{ recordingStatus?.isRecording ? 'stop' : 'fiber_manual_record' }}
+    </mat-icon>
+    <mat-spinner *ngIf="isProcessing" diameter="24"></mat-spinner>
+  </button>
+</div>

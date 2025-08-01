@@ -1,17 +1,34 @@
 <div class="livestream-container">
   <!-- Loading State -->
   <div class="loading-overlay" *ngIf="isLoading">
-    <mat-spinner></mat-spinner>
-    <p>Loading session...</p>
+    <div class="loading-content">
+      <mat-spinner diameter="60"></mat-spinner>
+      <p class="loading-text">Chargement de la session...</p>
+      <div class="loading-details">Connexion au serveur LiveKit</div>
+    </div>
   </div>
 
   <!-- Error State -->
-  <div class="error-message" *ngIf="error && !isLoading">
-    <mat-icon color="warn">error_outline</mat-icon>
-    <p>{{ error }}</p>
-    <button mat-raised-button color="primary" (click)="navigateToSkillsPage()">
-      Return Home
-    </button>
+  <div class="error-container" *ngIf="error && !isLoading">
+    <mat-card class="error-card">
+      <mat-card-content>
+        <div class="error-content">
+          <mat-icon class="error-icon" color="warn">error_outline</mat-icon>
+          <h3 class="error-title">Échec de la connexion</h3>
+          <p class="error-message">{{ error }}</p>
+          <div class="error-actions">
+            <button mat-raised-button color="primary" (click)="startStreaming()" *ngIf="!isLoading">
+              <mat-icon>refresh</mat-icon>
+              Réessayer
+            </button>
+            <button mat-stroked-button (click)="navigateToSkillsPage()">
+              <mat-icon>home</mat-icon>
+              Retour
+            </button>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
   </div>
 
   <!-- Main Content -->
@@ -19,192 +36,574 @@
     <!-- Header Section -->
     <header class="stream-header">
       <div class="stream-info">
-        <h2>{{ session?.skillName || session?.roomName || 'Professional Livestream' }}</h2>
+        <div class="stream-title-section">
+          <h2 class="stream-title">{{ session?.skillName || session?.roomName || 'Diffusion en direct' }}</h2>
+          <div class="stream-status-badge" [class.live]="isConnected" [class.offline]="!isConnected">
+            <mat-icon>{{ isConnected ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
+            <span>{{ isConnected ? 'EN DIRECT' : 'HORS LIGNE' }}</span>
+          </div>
+        </div>
+        
         <div class="stream-stats">
-          <div class="stat-item">
+          <div class="stat-item" matTooltip="Durée du stream">
             <mat-icon>schedule</mat-icon>
             <span>{{ formattedDuration }}</span>
           </div>
-          <div class="stat-item">
+          <div class="stat-item" matTooltip="Total des participants">
             <mat-icon>people</mat-icon>
             <span>{{ totalParticipants }} participant{{ totalParticipants !== 1 ? 's' : '' }}</span>
           </div>
-          <div class="stat-item">
+          <div class="stat-item" matTooltip="Spectateurs">
             <mat-icon>visibility</mat-icon>
-            <span>{{ viewerCount }} viewer{{ viewerCount !== 1 ? 's' : '' }}</span>
+            <span>{{ viewerCount }} spectateur{{ viewerCount !== 1 ? 's' : '' }}</span>
           </div>
-          <div class="recording-indicator" *ngIf="isRecording">
-            <mat-icon color="warn">fiber_manual_record</mat-icon>
-            <span>RECORDING</span>
+          
+          <!-- Recording Status Indicator -->
+          <div class="recording-indicator" *ngIf="recordingStatus.isRecording">
+            <mat-icon color="warn" class="recording-pulse">fiber_manual_record</mat-icon>
+            <span>ENREGISTREMENT {{ formattedRecordingDuration }}</span>
           </div>
         </div>
       </div>
 
       <!-- Host Controls -->
       <div class="host-controls" *ngIf="isHost && isConnected">
-        <button mat-mini-fab color="primary" 
+        <!-- Screen Share Control -->
+        <button mat-mini-fab 
+                [color]="isScreenSharing ? 'accent' : 'primary'"
                 (click)="toggleScreenShare()" 
                 [disabled]="!isConnected"
                 [class.active]="isScreenSharing"
-                matTooltip="{{ isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share' }}">
+                matTooltip="{{ isScreenSharing ? 'Arrêter le partage d\'écran' : 'Partager l\'écran' }}">
           <mat-icon>{{ isScreenSharing ? 'stop_screen_share' : 'screen_share' }}</mat-icon>
         </button>
         
+        <!-- Recording Control -->
         <button mat-mini-fab 
-                [color]="isRecording ? 'warn' : 'primary'" 
-                (click)="isRecording ? stopRecording() : startRecording()"
-                [disabled]="!isConnected"
-                matTooltip="{{ isRecording ? 'Stop Recording' : 'Start Recording' }}">
-          <mat-icon>{{ isRecording ? 'stop' : 'fiber_manual_record' }}</mat-icon>
+                [color]="recordingStatus.isRecording ? 'warn' : 'primary'" 
+                (click)="toggleRecording()"
+                [disabled]="!isConnected || isRecordingProcessing"
+                matTooltip="{{ recordingStatus.isRecording ? 'Arrêter l\'enregistrement' : 'Démarrer l\'enregistrement' }}">
+          <mat-icon *ngIf="!isRecordingProcessing">
+            {{ recordingStatus.isRecording ? 'stop' : 'fiber_manual_record' }}
+          </mat-icon>
+          <mat-spinner *ngIf="isRecordingProcessing" diameter="24"></mat-spinner>
         </button>
         
+        <!-- Chat Toggle avec Badge amélioré -->
+        <button mat-mini-fab 
+                [color]="showChat ? 'accent' : 'primary'"
+                (click)="toggleChat()"
+                [class.active]="showChat"
+                matTooltip="{{ showChat ? 'Masquer le chat' : 'Afficher le chat' }}"
+                [matBadge]="unreadChatCount > 0 ? unreadChatCount : null"
+                [matBadgeHidden]="showChat || unreadChatCount === 0"
+                matBadgeColor="warn"
+                matBadgeSize="small">
+          <mat-icon>{{ showChat ? 'chat_bubble' : 'chat_bubble_outline' }}</mat-icon>
+        </button>
+        
+        <!-- End Session -->
         <button mat-raised-button color="warn" 
                 (click)="endSession()" 
-                [disabled]="!isConnected">
+                [disabled]="!isConnected"
+                class="end-session-btn">
           <mat-icon>call_end</mat-icon>
-          End Session
+          Terminer
+        </button>
+      </div>
+
+      <!-- Viewer Controls -->
+      <div class="viewer-controls" *ngIf="!isHost && isConnected">
+        <button mat-mini-fab 
+                [color]="showChat ? 'accent' : 'primary'"
+                (click)="toggleChat()"
+                [class.active]="showChat"
+                matTooltip="{{ showChat ? 'Masquer le chat' : 'Afficher le chat' }}"
+                [matBadge]="unreadChatCount > 0 ? unreadChatCount : null"
+                [matBadgeHidden]="showChat || unreadChatCount === 0"
+                matBadgeColor="warn"
+                matBadgeSize="small">
+          <mat-icon>{{ showChat ? 'chat_bubble' : 'chat_bubble_outline' }}</mat-icon>
         </button>
       </div>
     </header>
 
-    <!-- Main Video Section -->
-    <section class="video-section">
-      <!-- Primary Video Container -->
-      <div class="primary-video-container">
-        <div class="main-video-wrapper">
-          <div class="main-video" #mainVideoContainer>
-            <!-- Video Placeholder -->
-            <div class="video-placeholder" *ngIf="!isConnected">
-              <mat-icon>videocam_off</mat-icon>
-              <p *ngIf="showStartButton">Click "Join Stream" to start</p>
-              <p *ngIf="!showStartButton && !isConnected">Connecting...</p>
-            </div>
-          </div>
-
-          <!-- Video Status Indicators -->
-          <div class="video-status-overlay" *ngIf="isConnected">
-            <span class="video-badge" *ngIf="isScreenSharing">
-              <mat-icon>screen_share</mat-icon>
-              Screen Sharing
-            </span>
-            <span class="video-badge" *ngIf="!isScreenSharing && isHost">
-              <mat-icon>videocam</mat-icon>
-              Main Camera
-            </span>
-          </div>
-
-          <!-- Picture-in-Picture for Producer's Camera during Screen Share -->
-          <div class="pip-container" *ngIf="isConnected && isScreenSharing && isHost">
-            <div class="pip-video" #pipVideoContainer></div>
-            <div class="pip-label">
-              <mat-icon>videocam</mat-icon>
-              <span>Your Camera</span>
-            </div>
-          </div>
-
-          <!-- Fullscreen Control -->
-          <div class="fullscreen-control" *ngIf="!isHost && isConnected">
-            <button mat-mini-fab color="primary" 
-                    (click)="toggleFullscreen()"
-                    matTooltip="Toggle Fullscreen">
-              <mat-icon>{{ isFullscreen ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Participants Thumbnails -->
-      <div class="participants-thumbnails" *ngIf="isConnected">
-        <h3 class="thumbnails-title">Participants</h3>
-        <div class="thumbnails-grid" #thumbnailContainer>
-          <!-- Thumbnails will be dynamically added here -->
-        </div>
-      </div>
-    </section>
-
-    <!-- Participants List Section -->
-    <aside class="participants-sidebar" *ngIf="isConnected && participantInfos.length > 0">
-      <mat-card class="participants-card">
-        <mat-card-header>
-          <mat-card-title>
-            <mat-icon>people</mat-icon>
-            Online Participants
-          </mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="participants-list">
-            <div class="participant" *ngFor="let info of participantInfos">
-              <div class="participant-avatar">
-                <mat-icon>person</mat-icon>
+    <!-- Main Content Layout -->
+    <div class="main-layout">
+      <!-- Video Section -->
+      <section class="video-section" [class.with-chat]="showChat">
+        <!-- Primary Video Container -->
+        <div class="primary-video-container">
+          <div class="main-video-wrapper">
+            <div class="main-video" #mainVideoContainer>
+              <!-- Video Placeholder -->
+              <div class="video-placeholder" *ngIf="!isConnected">
+                <div class="placeholder-content">
+                  <mat-icon class="placeholder-icon">videocam_off</mat-icon>
+                  <h3 *ngIf="showStartButton">Prêt à rejoindre</h3>
+                  <p *ngIf="showStartButton">Cliquez sur "{{ isHost ? 'Démarrer le stream' : 'Rejoindre le stream' }}" pour commencer</p>
+                  <div *ngIf="!showStartButton && !isConnected" class="connecting-status">
+                    <mat-spinner diameter="30"></mat-spinner>
+                    <p>Connexion en cours...</p>
+                  </div>
+                </div>
               </div>
-              <div class="participant-info">
-                <span class="participant-name">{{ info.name }}</span>
-                <span class="participant-role" *ngIf="info.isProducer">
-                  <mat-icon>star</mat-icon>
-                  Host
+            </div>
+
+            <!-- Video Status Overlay -->
+            <div class="video-status-overlay" *ngIf="isConnected">
+              <div class="status-badges">
+                <span class="video-badge screen-share" *ngIf="isScreenSharing">
+                  <mat-icon>screen_share</mat-icon>
+                  Partage d'écran
                 </span>
-                <span class="participant-role" *ngIf="!info.isProducer">
-                  <mat-icon>visibility</mat-icon>
-                  Viewer
+                <span class="video-badge main-camera" *ngIf="!isScreenSharing && isHost">
+                  <mat-icon>videocam</mat-icon>
+                  Caméra principale
+                </span>
+                <span class="video-badge quality-indicator" *ngIf="isConnected">
+                  <mat-icon>hd</mat-icon>
+                  HD
                 </span>
               </div>
-              <div class="participant-status">
-                <div class="status-indicator"></div>
+            </div>
+
+            <!-- Picture-in-Picture -->
+            <div class="pip-container" *ngIf="isConnected && isScreenSharing && isHost">
+              <div class="pip-video" #pipVideoContainer></div>
+              <div class="pip-label">
+                <mat-icon>videocam</mat-icon>
+                <span>Votre caméra</span>
+              </div>
+              <div class="pip-controls">
+                <button mat-icon-button 
+                        (click)="toggleVideo()"
+                        [color]="isVideoOff ? 'warn' : 'primary'"
+                        matTooltip="Basculer la caméra">
+                  <mat-icon>{{ isVideoOff ? 'videocam_off' : 'videocam' }}</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <!-- Fullscreen Control -->
+            <div class="fullscreen-control" *ngIf="!isHost && isConnected">
+              <button mat-mini-fab color="primary" 
+                      (click)="toggleFullscreen()"
+                      matTooltip="Basculer en plein écran">
+                <mat-icon>{{ isFullscreen ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Participants Sidebar -->
+        <div class="participants-sidebar" *ngIf="isConnected && !showChat">
+          <!-- Miniatures des participants -->
+          <div class="participants-thumbnails">
+            <div class="thumbnails-header">
+              <h3 class="thumbnails-title">
+                <mat-icon>people</mat-icon>
+                Participants ({{ totalParticipants }})
+              </h3>
+            </div>
+            <div class="thumbnails-grid" #thumbnailContainer>
+              <!-- Les miniatures seront ajoutées dynamiquement ici -->
+              <div class="thumbnail-placeholder" *ngIf="participantInfos.length === 0">
+                <mat-icon>person_add</mat-icon>
+                <span>En attente...</span>
               </div>
             </div>
           </div>
-        </mat-card-content>
-      </mat-card>
-    </aside>
+
+          <!-- Liste des participants en ligne -->
+          <div class="online-participants" *ngIf="participantInfos.length > 0">
+            <mat-card class="participants-card">
+              <mat-card-header>
+                <mat-card-title class="participants-title">
+                  <mat-icon>people</mat-icon>
+                  Participants en ligne
+                  <mat-chip-set>
+                    <mat-chip class="participant-count">{{ participantInfos.length }}</mat-chip>
+                  </mat-chip-set>
+                </mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="participants-list">
+                  <div class="participant-item" *ngFor="let info of participantInfos; trackBy: trackParticipant">
+                    <div class="participant-avatar">
+                      <mat-icon [class.producer]="info.isProducer">
+                        {{ info.isProducer ? 'star' : 'person' }}
+                      </mat-icon>
+                    </div>
+                    <div class="participant-info">
+                      <span class="participant-name">{{ info.displayName }}</span>
+                      <span class="participant-role" [class.host]="info.isProducer">
+                        {{ info.isProducer ? 'Animateur' : 'Spectateur' }}
+                      </span>
+                      <span class="participant-joined">
+                        Connecté {{ info.joinedAt | date:'short' }}
+                      </span>
+                    </div>
+                    <div class="participant-status">
+                      <div class="status-indicator online"></div>
+                    </div>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </div>
+      </section>
+
+      <!-- Chat Section Complètement Corrigée pour l'Accessibilité -->
+      <aside class="chat-section" *ngIf="showChat && isConnected">
+        <mat-card class="chat-container">
+          <mat-card-header class="chat-header">
+            <mat-card-title class="chat-title">
+              <div class="chat-title-section">
+                <mat-icon>chat</mat-icon>
+                <span>Chat en direct</span>
+                <mat-chip class="participant-count">{{ totalParticipants }}</mat-chip>
+              </div>
+              
+              <!-- Indicateur de connexion chat -->
+              <div class="chat-connection-status" 
+                   [class.connected]="isChatConnected"
+                   [class.connecting]="chatConnectionStatus === 'CONNECTING'"
+                   [class.reconnecting]="chatConnectionStatus === 'RECONNECTING'"
+                   [class.disconnected]="!isChatConnected"
+                   role="status"
+                   [attr.aria-live]="'polite'"
+                   [attr.aria-label]="'Statut du chat: ' + chatConnectionStatusText">
+                
+                <mat-icon [class.spin]="chatConnectionStatus === 'CONNECTING' || chatConnectionStatus === 'RECONNECTING'"
+                          [attr.aria-hidden]="true">
+                  {{ isChatConnected ? 'wifi' : 'wifi_off' }}
+                </mat-icon>
+                <span class="status-text">{{ chatConnectionStatusText }}</span>
+                
+                <!-- Bouton de reconnexion si déconnecté -->
+                <button mat-icon-button 
+                        *ngIf="!isChatConnected && chatConnectionStatus !== 'CONNECTING'"
+                        (click)="reconnectChat()"
+                        matTooltip="Reconnecter le chat"
+                        class="reconnect-btn"
+                        [attr.aria-label]="'Reconnecter le chat'">
+                  <mat-icon>refresh</mat-icon>
+                </button>
+              </div>
+            </mat-card-title>
+          </mat-card-header>
+
+          <mat-card-content class="chat-content">
+            <div class="messages-container" #messagesContainer>
+              
+              <!-- Loading State -->
+              <div class="chat-loading-container" *ngIf="isChatLoading"
+                   role="status"
+                   aria-label="Chargement du chat en cours">
+                <mat-spinner diameter="30"></mat-spinner>
+                <p>Connexion au chat...</p>
+              </div>
+
+              <!-- Messages List -->
+              <div class="messages-list" 
+                   *ngIf="!isChatLoading"
+                   role="log"
+                   aria-label="Liste des messages du chat"
+                   [attr.aria-live]="'polite'"
+                   [attr.aria-relevant]="'additions'">
+                <div class="message-wrapper" 
+                     *ngFor="let message of chatMessages; trackBy: trackChatMessage"
+                     [class.own-message]="isOwnChatMessage(message)"
+                     [class.other-message]="!isOwnChatMessage(message)"
+                     role="article"
+                     [attr.aria-label]="getMessageAriaLabel(message)">
+                  <div class="message">
+                    <div class="message-header" [attr.aria-hidden]="true">
+                      <span class="username" 
+                            [class.own-username]="isOwnChatMessage(message)">
+                        {{ isOwnChatMessage(message) ? 'Vous' : message.username }}
+                      </span>
+                      <span class="timestamp">{{ message.timestamp | date:'HH:mm' }}</span>
+                    </div>
+                    <div class="message-content">{{ message.message }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Typing Indicators -->
+              <div class="typing-indicators" 
+                   *ngIf="typingUsersArray.length > 0"
+                   role="status"
+                   [attr.aria-live]="'polite'"
+                   [attr.aria-label]="getTypingIndicatorAriaLabel()">
+                <div class="typing-indicator" 
+                     *ngFor="let user of typingUsersArray"
+                     [attr.aria-hidden]="true">
+                  <div class="typing-animation">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                  </div>
+                  <span class="typing-text">{{ user.username }} écrit...</span>
+                </div>
+              </div>
+
+              <!-- Empty State -->
+              <div class="empty-chat" 
+                   *ngIf="!isChatLoading && chatMessages.length === 0 && isChatConnected"
+                   role="status"
+                   aria-label="Aucun message dans le chat">
+                <mat-icon class="empty-icon" [attr.aria-hidden]="true">chat_bubble_outline</mat-icon>
+                <p class="empty-title">Aucun message pour le moment</p>
+                <small class="empty-subtitle">Soyez {{ isHost ? 'le premier' : 'la première' }} à écrire !</small>
+              </div>
+
+              <!-- Disconnected State -->
+              <div class="chat-disconnected" 
+                   *ngIf="!isChatConnected && !isChatLoading"
+                   role="alert"
+                   aria-label="Chat déconnecté">
+                <mat-icon class="disconnected-icon" color="warn" [attr.aria-hidden]="true">wifi_off</mat-icon>
+                <p class="disconnected-title">Chat déconnecté</p>
+                <small class="disconnected-subtitle">{{ chatConnectionStatusText }}</small>
+                <button mat-raised-button 
+                        color="primary" 
+                        (click)="reconnectChat()"
+                        [disabled]="chatConnectionStatus === 'CONNECTING'"
+                        [attr.aria-label]="chatConnectionStatus === 'CONNECTING' ? 'Reconnexion en cours' : 'Reconnecter le chat'">
+                  <mat-icon>refresh</mat-icon>
+                  {{ chatConnectionStatus === 'CONNECTING' ? 'Connexion...' : 'Reconnecter' }}
+                </button>
+              </div>
+            </div>
+          </mat-card-content>
+
+          <!-- Message Form - CORRECTION DE L'ERREUR D'ACCESSIBILITÉ -->
+          <mat-card-actions class="chat-actions">
+            <form class="message-form" 
+                  (ngSubmit)="sendChatMessage()"
+                  role="form"
+                  aria-label="Formulaire d'envoi de message chat">
+              <mat-form-field appearance="outline" class="message-input">
+                <mat-label>{{ isChatConnected ? 'Tapez votre message...' : 'Chat déconnecté' }}</mat-label>
+                <textarea 
+                  matInput
+                  #messageInput
+                  [(ngModel)]="newChatMessage"
+                  (input)="onChatMessageInput()"
+                  (keypress)="onChatKeyPress($event)"
+                  [disabled]="!isChatConnected"
+                  name="message"
+                  id="chat-message-input"
+                  rows="2"
+                  maxlength="500"
+                  placeholder="{{ isChatConnected ? 'Appuyez sur Entrée pour envoyer' : 'Chat déconnecté' }}"
+                  title="{{ isChatConnected ? 'Zone de saisie pour écrire un message dans le chat. Appuyez sur Entrée pour envoyer.' : 'Chat déconnecté - impossible de saisir un message' }}"
+                  [class.disabled]="!isChatConnected"
+                  [attr.aria-label]="isChatConnected ? 'Zone de saisie de message chat' : 'Chat déconnecté - saisie indisponible'"
+                  [attr.aria-describedby]="'chat-message-hint'"
+                  [attr.aria-required]="isChatConnected"
+                  [attr.aria-invalid]="!isChatConnected">
+                </textarea>
+                
+                <mat-hint align="end" 
+                         id="chat-message-hint"
+                         [class.error-hint]="!isChatConnected"
+                         [attr.aria-live]="'polite'">
+                  {{ isChatConnected ? newChatMessage.length + '/500' : 'Chat déconnecté' }}
+                </mat-hint>
+                
+                <!-- Icône d'état dans le champ -->
+                <mat-icon matSuffix 
+                          [color]="isChatConnected ? 'primary' : 'warn'"
+                          [attr.aria-label]="isChatConnected ? 'Chat connecté' : 'Chat déconnecté'"
+                          [attr.aria-hidden]="true"
+                          matTooltip="{{ isChatConnected ? 'Chat connecté' : 'Chat déconnecté' }}">
+                  {{ isChatConnected ? 'send' : 'wifi_off' }}
+                </mat-icon>
+              </mat-form-field>
+              
+              <!-- Bouton d'envoi -->
+              <button 
+                mat-fab 
+                color="primary" 
+                type="submit"
+                [disabled]="!isChatConnected || !newChatMessage.trim()"
+                [class.pulse]="isChatConnected && newChatMessage.trim()"
+                [attr.aria-label]="getSubmitButtonAriaLabel()"
+                [attr.title]="getSubmitButtonTitle()"
+                matTooltip="{{ getSubmitButtonTooltip() }}">
+                <mat-icon *ngIf="isChatConnected" [attr.aria-hidden]="true">send</mat-icon>
+                <mat-icon *ngIf="!isChatConnected" color="warn" [attr.aria-hidden]="true">wifi_off</mat-icon>
+              </button>
+            </form>
+            
+            <!-- Status bar du chat -->
+            <div class="chat-status-bar" 
+                 [class.connected]="isChatConnected"
+                 role="status"
+                 [attr.aria-live]="'polite'"
+                 [attr.aria-label]="'Statut du chat: ' + chatConnectionStatusText">
+              <div class="status-indicator-dot" 
+                   [class.connected]="isChatConnected"
+                   [attr.aria-hidden]="true"></div>
+              <span class="status-text">{{ chatConnectionStatusText }}</span>
+              <span class="messages-count" 
+                    *ngIf="isChatConnected"
+                    [attr.aria-label]="'Nombre de messages: ' + chatMessages.length">
+                ({{ chatMessages.length }} messages)
+              </span>
+            </div>
+          </mat-card-actions>
+        </mat-card>
+      </aside>
+    </div>
 
     <!-- Control Panel -->
     <footer class="control-panel">
       <!-- Join Button -->
-      <div class="join-button" *ngIf="showStartButton">
-        <button mat-raised-button color="primary" size="large" (click)="startStreaming()">
+      <div class="join-section" *ngIf="showStartButton">
+        <div class="join-info">
+          <h3>Prêt à rejoindre la diffusion en direct</h3>
+          <p *ngIf="isHost">Vous animez cette session</p>
+          <p *ngIf="!isHost">Vous allez rejoindre en tant que spectateur</p>
+        </div>
+        <button mat-raised-button 
+                color="primary" 
+                size="large" 
+                class="join-button"
+                (click)="startStreaming()"
+                [disabled]="isLoading">
           <mat-icon>play_arrow</mat-icon>
-          Join Stream
+          {{ isHost ? 'Démarrer le stream' : 'Rejoindre le stream' }}
         </button>
       </div>
 
       <!-- Media Controls -->
       <div class="media-controls" *ngIf="isConnected">
-        <button mat-fab 
-                [color]="isMuted ? 'warn' : 'primary'" 
-                [class.muted]="isMuted"
-                (click)="toggleMute()"
-                matTooltip="{{ isMuted ? 'Unmute' : 'Mute' }}">
-          <mat-icon>{{ isMuted ? 'mic_off' : 'mic' }}</mat-icon>
-        </button>
+        <div class="control-group">
+          <!-- Mute Toggle -->
+          <button mat-fab 
+                  [color]="isMuted ? 'warn' : 'primary'" 
+                  [class.muted]="isMuted"
+                  (click)="toggleMute()"
+                  matTooltip="{{ isMuted ? 'Réactiver le micro' : 'Couper le micro' }}">
+            <mat-icon>{{ isMuted ? 'mic_off' : 'mic' }}</mat-icon>
+          </button>
+          
+          <!-- Video Toggle -->
+          <button mat-fab 
+                  [color]="isVideoOff ? 'warn' : 'primary'" 
+                  [class.video-off]="isVideoOff"
+                  (click)="toggleVideo()"
+                  matTooltip="{{ isVideoOff ? 'Activer la caméra' : 'Désactiver la caméra' }}">
+            <mat-icon>{{ isVideoOff ? 'videocam_off' : 'videocam' }}</mat-icon>
+          </button>
+          
+          <!-- Leave Button -->
+          <button mat-fab 
+                  color="accent" 
+                  (click)="navigateToSkillsPage()"
+                  matTooltip="Quitter le stream"
+                  class="leave-button">
+            <mat-icon>exit_to_app</mat-icon>
+          </button>
+        </div>
         
-        <button mat-fab 
-                [color]="isVideoOff ? 'warn' : 'primary'" 
-                [class.video-off]="isVideoOff"
-                (click)="toggleVideo()"
-                matTooltip="{{ isVideoOff ? 'Turn On Camera' : 'Turn Off Camera' }}">
-          <mat-icon>{{ isVideoOff ? 'videocam_off' : 'videocam' }}</mat-icon>
-        </button>
-        
-        <button mat-fab color="accent" 
-                (click)="navigateToSkillsPage()"
-                matTooltip="Leave Stream">
-          <mat-icon>exit_to_app</mat-icon>
-        </button>
+        <!-- Status indicators -->
+        <div class="control-status">
+          <div class="connection-quality">
+            <mat-icon [style.color]="isConnected ? '#4CAF50' : '#f44336'">
+              {{ isConnected ? 'signal_cellular_4_bar' : 'signal_cellular_0_bar' }}
+            </mat-icon>
+            <span class="quality-text">
+              {{ isConnected ? 'Excellente' : 'Déconnecté' }}
+            </span>
+          </div>
+
+          <!-- Chat Status -->
+          <div class="chat-status" *ngIf="showChat">
+            <mat-icon [style.color]="isChatConnected ? '#4CAF50' : '#f44336'">chat</mat-icon>
+            <span class="status-text">
+              Chat {{ chatConnectionStatusText.toLowerCase() }}
+            </span>
+            <span class="unread-indicator" *ngIf="unreadChatCount > 0">({{ unreadChatCount }})</span>
+          </div>
+
+          <!-- Recording Status -->
+          <div class="recording-status" *ngIf="isHost && recordingStatus.isRecording">
+            <mat-icon style="color: #f44336" class="recording-pulse">fiber_manual_record</mat-icon>
+            <span class="status-text">{{ formattedRecordingDuration }}</span>
+          </div>
+        </div>
       </div>
     </footer>
 
     <!-- Status Indicators -->
-    <div class="connection-status" 
-         [class.connected]="isConnected" 
-         [class.disconnected]="!isConnected && !showStartButton"
-         [class.connecting]="!isConnected && !showStartButton">
-      <mat-icon>{{ isConnected ? 'wifi' : 'wifi_off' }}</mat-icon>
-      <span>{{ isConnected ? 'Connected' : 'Disconnected' }}</span>
+    <div class="status-indicators">
+      <div class="connection-status" 
+           [class.connected]="isConnected" 
+           [class.disconnected]="!isConnected && !showStartButton"
+           [class.connecting]="!isConnected && !showStartButton">
+        <mat-icon class="status-icon">
+          {{ isConnected ? 'wifi' : (!showStartButton ? 'wifi_off' : 'wifi_lock') }}
+        </mat-icon>
+        <span class="status-text">
+          {{ isConnected ? 'Connecté' : (!showStartButton ? 'Connexion...' : 'Prêt') }}
+        </span>
+      </div>
+
+      <div class="network-quality" *ngIf="isConnected">
+        <mat-icon class="quality-icon" [style.color]="'#4CAF50'">signal_cellular_4_bar</mat-icon>
+        <span class="quality-text">Qualité HD</span>
+      </div>
+
+      <!-- Chat Quality Indicator -->
+      <div class="chat-quality" *ngIf="showChat">
+        <mat-icon class="chat-quality-icon" 
+                  [style.color]="isChatConnected ? '#4CAF50' : '#f44336'"
+                  [class.pulse]="chatConnectionStatus === 'CONNECTING'">
+          {{ isChatConnected ? 'chat' : 'chat_bubble_outline' }}
+        </mat-icon>
+        <span class="chat-quality-text">
+          Chat {{ chatConnectionStatusText.toLowerCase() }}
+        </span>
+      </div>
     </div>
 
-    <div class="quality-indicator" *ngIf="isConnected">
-      <mat-icon [style.color]="'#4CAF50'">signal_cellular_4_bar</mat-icon>
-      <span>HD Quality</span>
+    <!-- Toast de notification pour le chat -->
+    <div class="chat-notifications" 
+         *ngIf="unreadChatCount > 0 && !showChat"
+         style="position: fixed; top: 80px; right: 20px; z-index: 1000;">
+      <mat-card class="notification-card" 
+                style="background: #3f51b5; color: white; cursor: pointer;"
+                (click)="toggleChat()"
+                role="button"
+                [attr.aria-label]="'Vous avez ' + unreadChatCount + ' nouveau message dans le chat. Cliquez pour ouvrir.'">
+        <mat-card-content style="padding: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <mat-icon [attr.aria-hidden]="true">chat_bubble</mat-icon>
+            <span>{{ unreadChatCount }} nouveau{{ unreadChatCount > 1 ? 'x' : '' }} message{{ unreadChatCount > 1 ? 's' : '' }}</span>
+            <mat-icon [attr.aria-hidden]="true">keyboard_arrow_down</mat-icon>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Element invisible pour les annonces aux lecteurs d'écran -->
+    <div id="screen-reader-announcements" 
+         class="sr-only" 
+         aria-live="polite" 
+         aria-atomic="true">
     </div>
   </div>
 </div>
+
+<!-- Badge invisible pour les lecteurs d'écran -->
+<span id="unread-messages-count" 
+      class="sr-only" 
+      *ngIf="unreadChatCount > 0"
+      [attr.aria-live]="'polite'">
