@@ -68,29 +68,31 @@ export class ChatService implements OnDestroy {
   // ===== INITIALISATION =====
   // ============================================================================
 
-  private async initializeService(): Promise<void> {
-    try {
-      console.log('🚀 Initializing ChatService...');
-      
-      // Récupérer l'ID utilisateur
-      this.userId = await this.keycloakService.getUserId();
-      if (!this.userId) {
-        console.error('❌ User ID not available for chat');
-        return;
-      }
-      
-      // Récupérer le profil utilisateur
-      await this.loadUserProfile();
-      
-      console.log('✅ ChatService initialized:', { 
-        userId: this.userId, 
-        username: this.username 
-      });
-      
-    } catch (error) {
-      console.error('❌ ChatService initialization failed:', error);
+ private async initializeService(): Promise<void> {
+  try {
+    console.log('🚀 Initializing ChatService...');
+    
+    // Récupérer l'ID utilisateur
+    this.userId = await this.keycloakService.getUserId();
+    if (!this.userId) {
+      console.error('❌ User ID not available for chat');
+      return;
     }
-  }
+    
+    // Récupérer le profil utilisateur
+    await this.loadUserProfile();
+    
+    console.log('✅ ChatService initialized (ready for connection):', { 
+      userId: this.userId, 
+      username: this.username 
+    });
+    
+    // 🔥 NE PLUS se connecter automatiquement ici
+    // await this.connectWebSocket(); // SUPPRIMER CETTE LIGNE
+    
+  } catch (error) {
+    console.error('❌ ChatService initialization failed:', error);
+  }}
 
   private async loadUserProfile(): Promise<void> {
     try {

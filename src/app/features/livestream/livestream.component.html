@@ -4,7 +4,7 @@
     <div class="loading-content">
       <mat-spinner diameter="60"></mat-spinner>
       <p class="loading-text">Chargement de la session...</p>
-      <div class="loading-details">Connexion au serveur LiveKit</div>
+      <div class="loading-details">Connexion au notre serveur </div>
     </div>
   </div>
 
@@ -30,7 +30,48 @@
       </mat-card-content>
     </mat-card>
   </div>
-
+ <!-- ===== SECTION MINIATURES EN HAUT UNIFIÉE ===== -->
+<section class="top-thumbnails-section" *ngIf="isConnected">
+  <div class="thumbnails-header-section">
+    <h3 class="thumbnails-title">
+      <mat-icon>people</mat-icon>
+      Participants
+      <span class="participant-count-chip">{{ totalParticipants }}</span>
+    </h3>
+  </div>
+  
+  <div class="top-thumbnails-container" 
+       #topThumbnailContainer
+       role="region"
+       aria-label="Miniatures des participants"
+       tabindex="0">
+    
+    <!-- Placeholder si aucun participant -->
+    <div class="top-thumbnails-empty" 
+         *ngIf="participantInfos.length === 0 && receiverThumbnails.size === 0">
+      <mat-icon>person_add</mat-icon>
+      <span>En attente des participants...</span>
+    </div>
+    
+    <!-- Section Producer (si receiver regarde) -->
+    <div class="producer-thumbnails-group" 
+         *ngIf="!isHost && hasProducerThumbnail()"
+         id="producer-thumbnail-wrapper">
+      <div class="thumbnail-group-label">Producteur</div>
+      <!-- Le producer thumbnail sera ajouté ici dynamiquement -->
+    </div>
+    
+    <!-- Section Receivers -->
+    <div class="receivers-thumbnails-group" 
+         *ngIf="receiverThumbnails.size > 0"
+         id="receivers-thumbnail-wrapper">
+      <div class="thumbnail-group-label">Spectateurs</div>
+      <!-- Les receiver thumbnails seront ajoutés ici dynamiquement -->
+    </div>
+    
+    <!-- Les autres miniatures existantes seront aussi ajoutées dynamiquement -->
+  </div>
+</section>
   <!-- Main Content -->
   <div class="stream-content" *ngIf="!isLoading && !error">
     <!-- Header Section -->
@@ -52,10 +93,6 @@
           <div class="stat-item" matTooltip="Total des participants">
             <mat-icon>people</mat-icon>
             <span>{{ totalParticipants }} participant{{ totalParticipants !== 1 ? 's' : '' }}</span>
-          </div>
-          <div class="stat-item" matTooltip="Spectateurs">
-            <mat-icon>visibility</mat-icon>
-            <span>{{ viewerCount }} spectateur{{ viewerCount !== 1 ? 's' : '' }}</span>
           </div>
           
           <!-- Recording Status Indicator -->
@@ -129,15 +166,24 @@
       </div>
     </header>
 
+  
+
     <!-- Main Content Layout -->
-    <div class="main-layout">
+    <div class="main-layout" 
+         [class.with-chat]="showChat"
+         [class.with-participants]="!showChat && participantInfos.length > 0">
+      
       <!-- Video Section -->
-      <section class="video-section" [class.with-chat]="showChat">
+      <section class="video-section" 
+               [class.with-chat]="showChat"
+               [class.with-participants]="!showChat && participantInfos.length > 0">
+        
         <!-- Primary Video Container -->
         <div class="primary-video-container">
           <div class="main-video-wrapper">
             <div class="main-video" #mainVideoContainer>
-              <!-- Video Placeholder -->
+              
+              <!-- Video Placeholder pour non connecté -->
               <div class="video-placeholder" *ngIf="!isConnected">
                 <div class="placeholder-content">
                   <mat-icon class="placeholder-icon">videocam_off</mat-icon>
@@ -149,20 +195,40 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Placeholder pour receiver en attente du producteur -->
+              <div class="video-placeholder" *ngIf="isConnected && !isHost && currentMainVideoSource === 'none'">
+                <div class="placeholder-content">
+                  <mat-icon class="placeholder-icon">videocam_off</mat-icon>
+                  <h3>En attente du producteur</h3>
+                  <p>Le producteur n'a pas encore activé sa caméra ou son partage d'écran</p>
+                  <div class="connecting-status">
+                    <mat-spinner diameter="30"></mat-spinner>
+                    <p>Synchronisation...</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 🆕 NOUVEAU: Les miniatures receivers seront créées ici dynamiquement 
+                   en position fixed bottom-right via TypeScript -->
+              
             </div>
 
             <!-- Video Status Overlay -->
             <div class="video-status-overlay" *ngIf="isConnected">
               <div class="status-badges">
-                <span class="video-badge screen-share" *ngIf="isScreenSharing">
+                <!-- Badge pour partage d'écran du producteur -->
+                <span class="video-badge screen-share" *ngIf="currentMainVideoSource === 'producer-screen'">
                   <mat-icon>screen_share</mat-icon>
-                  Partage d'écran
+                  {{ isHost ? 'Partage d\'écran' : 'Partage d\'écran du producteur' }}
                 </span>
-                <span class="video-badge main-camera" *ngIf="!isScreenSharing && isHost">
+                <!-- Badge pour caméra du producteur -->
+                <span class="video-badge main-camera" *ngIf="currentMainVideoSource === 'producer-camera'">
                   <mat-icon>videocam</mat-icon>
-                  Caméra principale
+                  {{ isHost ? 'Caméra principale' : 'Caméra du producteur' }}
                 </span>
-                <span class="video-badge quality-indicator" *ngIf="isConnected">
+                <!-- Badge de qualité -->
+                <span class="video-badge quality-indicator" *ngIf="hasMainContent">
                   <mat-icon>hd</mat-icon>
                   HD
                 </span>
@@ -187,7 +253,7 @@
             </div>
 
             <!-- Fullscreen Control -->
-            <div class="fullscreen-control" *ngIf="!isHost && isConnected">
+            <div class="fullscreen-control" *ngIf="!isHost && isConnected && hasMainContent">
               <button mat-mini-fab color="primary" 
                       (click)="toggleFullscreen()"
                       matTooltip="Basculer en plein écran">
@@ -196,67 +262,47 @@
             </div>
           </div>
         </div>
-
-        <!-- Participants Sidebar -->
-        <div class="participants-sidebar" *ngIf="isConnected && !showChat">
-          <!-- Miniatures des participants -->
-          <div class="participants-thumbnails">
-            <div class="thumbnails-header">
-              <h3 class="thumbnails-title">
-                <mat-icon>people</mat-icon>
-                Participants ({{ totalParticipants }})
-              </h3>
-            </div>
-            <div class="thumbnails-grid" #thumbnailContainer>
-              <!-- Les miniatures seront ajoutées dynamiquement ici -->
-              <div class="thumbnail-placeholder" *ngIf="participantInfos.length === 0">
-                <mat-icon>person_add</mat-icon>
-                <span>En attente...</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Liste des participants en ligne -->
-          <div class="online-participants" *ngIf="participantInfos.length > 0">
-            <mat-card class="participants-card">
-              <mat-card-header>
-                <mat-card-title class="participants-title">
-                  <mat-icon>people</mat-icon>
-                  Participants en ligne
-                  <mat-chip-set>
-                    <mat-chip class="participant-count">{{ participantInfos.length }}</mat-chip>
-                  </mat-chip-set>
-                </mat-card-title>
-              </mat-card-header>
-              <mat-card-content>
-                <div class="participants-list">
-                  <div class="participant-item" *ngFor="let info of participantInfos; trackBy: trackParticipant">
-                    <div class="participant-avatar">
-                      <mat-icon [class.producer]="info.isProducer">
-                        {{ info.isProducer ? 'star' : 'person' }}
-                      </mat-icon>
-                    </div>
-                    <div class="participant-info">
-                      <span class="participant-name">{{ info.displayName }}</span>
-                      <span class="participant-role" [class.host]="info.isProducer">
-                        {{ info.isProducer ? 'Animateur' : 'Spectateur' }}
-                      </span>
-                      <span class="participant-joined">
-                        Connecté {{ info.joinedAt | date:'short' }}
-                      </span>
-                    </div>
-                    <div class="participant-status">
-                      <div class="status-indicator online"></div>
-                    </div>
-                  </div>
-                </div>
-              </mat-card-content>
-            </mat-card>
-          </div>
-        </div>
       </section>
 
-      <!-- Chat Section Complètement Corrigée pour l'Accessibilité -->
+      <!-- Participants Sidebar -->
+      <aside class="participants-sidebar" *ngIf="isConnected && !showChat && participantInfos.length > 0">
+        <mat-card class="participants-card">
+          <mat-card-header>
+            <mat-card-title class="participants-title">
+              <mat-icon>people</mat-icon>
+              Participants en ligne
+              <mat-chip-set>
+                <mat-chip class="participant-count">{{ participantInfos.length }}</mat-chip>
+              </mat-chip-set>
+            </mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="participants-list">
+              <div class="participant-item" *ngFor="let info of participantInfos; trackBy: trackParticipant">
+                <div class="participant-avatar">
+                  <mat-icon [class.producer]="info.isProducer">
+                    {{ info.isProducer ? 'star' : 'person' }}
+                  </mat-icon>
+                </div>
+                <div class="participant-info">
+                  <span class="participant-name">{{ info.displayName }}</span>
+                  <span class="participant-role" [class.host]="info.isProducer">
+                    {{ info.isProducer ? 'Producteur' : 'Spectateur' }}
+                  </span>
+                  <span class="participant-joined">
+                    Connecté {{ info.joinedAt | date:'short' }}
+                  </span>
+                </div>
+                <div class="participant-status">
+                  <div class="status-indicator online"></div>
+                </div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </aside>
+
+      <!-- Chat Section -->
       <aside class="chat-section" *ngIf="showChat && isConnected">
         <mat-card class="chat-container">
           <mat-card-header class="chat-header">
@@ -264,7 +310,7 @@
               <div class="chat-title-section">
                 <mat-icon>chat</mat-icon>
                 <span>Chat en direct</span>
-                <mat-chip class="participant-count">{{ totalParticipants }}</mat-chip>
+                <span class="participant-count-chip">{{ totalParticipants }}</span>
               </div>
               
               <!-- Indicateur de connexion chat -->
@@ -276,16 +322,21 @@
                    role="status"
                    [attr.aria-live]="'polite'"
                    [attr.aria-label]="'Statut du chat: ' + chatConnectionStatusText">
-                
+
                 <mat-icon [class.spin]="chatConnectionStatus === 'CONNECTING' || chatConnectionStatus === 'RECONNECTING'"
                           [attr.aria-hidden]="true">
                   {{ isChatConnected ? 'wifi' : 'wifi_off' }}
                 </mat-icon>
                 <span class="status-text">{{ chatConnectionStatusText }}</span>
                 
-                <!-- Bouton de reconnexion si déconnecté -->
+                <!-- Message informatif au début -->
+                <small class="connection-info" *ngIf="!isConnected && !isChatConnected">
+                  Le chat se connectera automatiquement
+                </small>
+                
+                <!-- Bouton de reconnexion si déconnecté ET que le stream est démarré -->
                 <button mat-icon-button 
-                        *ngIf="!isChatConnected && chatConnectionStatus !== 'CONNECTING'"
+                        *ngIf="!isChatConnected && isConnected && chatConnectionStatus !== 'CONNECTING'"
                         (click)="reconnectChat()"
                         matTooltip="Reconnecter le chat"
                         class="reconnect-btn"
@@ -381,7 +432,7 @@
             </div>
           </mat-card-content>
 
-          <!-- Message Form - CORRECTION DE L'ERREUR D'ACCESSIBILITÉ -->
+          <!-- Message Form -->
           <mat-card-actions class="chat-actions">
             <form class="message-form" 
                   (ngSubmit)="sendChatMessage()"
@@ -494,14 +545,16 @@
             <mat-icon>{{ isMuted ? 'mic_off' : 'mic' }}</mat-icon>
           </button>
           
-          <!-- Video Toggle -->
+          <!-- Video Toggle avec tooltip amélioré -->
           <button mat-fab 
                   [color]="isVideoOff ? 'warn' : 'primary'" 
                   [class.video-off]="isVideoOff"
                   (click)="toggleVideo()"
-                  matTooltip="{{ isVideoOff ? 'Activer la caméra' : 'Désactiver la caméra' }}">
+                  matTooltip="{{ getVideoToggleTooltip() }}">
             <mat-icon>{{ isVideoOff ? 'videocam_off' : 'videocam' }}</mat-icon>
           </button>
+
+         
           
           <!-- Leave Button -->
           <button mat-fab 
@@ -533,6 +586,14 @@
             <span class="unread-indicator" *ngIf="unreadChatCount > 0">({{ unreadChatCount }})</span>
           </div>
 
+          <!-- 🆕 NOUVEAU: Statut des miniatures receivers -->
+          <div class="thumbnails-status" *ngIf="!isHost && receiverThumbnailsCount > 0">
+            <mat-icon [style.color]="'#2196F3'">people</mat-icon>
+            <span class="status-text">
+              {{ receiverThumbnailsCount }} participant{{ receiverThumbnailsCount > 1 ? 's' : '' }}
+            </span>
+          </div>
+
           <!-- Recording Status -->
           <div class="recording-status" *ngIf="isHost && recordingStatus.isRecording">
             <mat-icon style="color: #f44336" class="recording-pulse">fiber_manual_record</mat-icon>
@@ -543,41 +604,12 @@
     </footer>
 
     <!-- Status Indicators -->
-    <div class="status-indicators">
-      <div class="connection-status" 
-           [class.connected]="isConnected" 
-           [class.disconnected]="!isConnected && !showStartButton"
-           [class.connecting]="!isConnected && !showStartButton">
-        <mat-icon class="status-icon">
-          {{ isConnected ? 'wifi' : (!showStartButton ? 'wifi_off' : 'wifi_lock') }}
-        </mat-icon>
-        <span class="status-text">
-          {{ isConnected ? 'Connecté' : (!showStartButton ? 'Connexion...' : 'Prêt') }}
-        </span>
-      </div>
-
-      <div class="network-quality" *ngIf="isConnected">
-        <mat-icon class="quality-icon" [style.color]="'#4CAF50'">signal_cellular_4_bar</mat-icon>
-        <span class="quality-text">Qualité HD</span>
-      </div>
-
-      <!-- Chat Quality Indicator -->
-      <div class="chat-quality" *ngIf="showChat">
-        <mat-icon class="chat-quality-icon" 
-                  [style.color]="isChatConnected ? '#4CAF50' : '#f44336'"
-                  [class.pulse]="chatConnectionStatus === 'CONNECTING'">
-          {{ isChatConnected ? 'chat' : 'chat_bubble_outline' }}
-        </mat-icon>
-        <span class="chat-quality-text">
-          Chat {{ chatConnectionStatusText.toLowerCase() }}
-        </span>
-      </div>
-    </div>
+    
 
     <!-- Toast de notification pour le chat -->
     <div class="chat-notifications" 
          *ngIf="unreadChatCount > 0 && !showChat"
-         style="position: fixed; top: 80px; right: 20px; z-index: 1000;">
+         style="position: fixed; top: 140px; right: 20px; z-index: 1000;">
       <mat-card class="notification-card" 
                 style="background: #3f51b5; color: white; cursor: pointer;"
                 (click)="toggleChat()"
@@ -606,4 +638,4 @@
 <span id="unread-messages-count" 
       class="sr-only" 
       *ngIf="unreadChatCount > 0"
-      [attr.aria-live]="'polite'">
+      [attr.aria-live]="'polite'"></span>
