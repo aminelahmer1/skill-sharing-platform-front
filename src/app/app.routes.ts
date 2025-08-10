@@ -15,8 +15,9 @@ import { SkillsComponent } from './features/producer/skills/skills.component';
 import { ReceiverskillsComponent } from './features/receiver/receiverskills/receiverskills.component';
 import { ResendVerificationComponent } from './auth/resend-verification/resend-verification.component';
 import { ProducerRequestsComponent } from './features/producer/producer-requests/producer-requests.component';
-import { AcceptedSkillsComponent } from './features/receiver/accepted-skills/accepted-skills.component';
+import {  AcceptedSkillsComponent} from './features/receiver/accepted-skills/accepted-skills.component';
 import { LivestreamComponent } from './features/livestream/livestream.component';
+import { MyLivestreamsComponent } from './features/producer/my-livestreams/my-livestreams/my-livestreams.component';
 
 export const routes: Routes = [
   { path: '', component: MainTemplateComponent },
@@ -30,6 +31,7 @@ export const routes: Routes = [
       { path: 'profile-edit', component: ProducerProfileEditComponent },
       { path: 'skills', component: SkillsComponent }, 
       { path: 'requests', component: ProducerRequestsComponent }, 
+       { path: 'livestreams', component: MyLivestreamsComponent },
       { path: 'livestream/:sessionId', component: LivestreamComponent },
       { path: '', redirectTo: '', pathMatch: 'full' }
     ],

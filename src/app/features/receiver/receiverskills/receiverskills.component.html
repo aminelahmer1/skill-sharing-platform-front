@@ -1,22 +1,40 @@
 <div class="skills-container">
   <h2>Compétences disponibles</h2>
+  
   <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
+  
   <div *ngIf="error" class="error-message">
     <mat-icon>error</mat-icon> {{ error }}
   </div>
+  
   <div *ngIf="!isLoading && !error">
     <div *ngIf="skills.length === 0" class="no-skills">
+      <img src="assets/images/default-skills.png" alt="Aucune compétence" class="empty-state-img">
       <p>Aucune compétence disponible pour le moment.</p>
     </div>
+    
     <div class="skills-grid">
       <mat-card *ngFor="let skill of skills" class="skill-card">
         <div class="skill-image-container">
-          <img [src]="skill.pictureUrl || 'assets/images/default-skills.png'" alt="{{ skill.name }}" class="skill-image">
+          <img [src]="skill.pictureUrl || 'assets/images/default-skills.png'" 
+               alt="{{ skill.name }}" 
+               class="skill-image">
+          
+          <!-- Status chip overlay -->
+          <div class="status-overlay" *ngIf="skill.exchangeStatus && skill.exchangeStatus !== 'available'">
+            <mat-chip [color]="getStatusColor(skill.exchangeStatus)" selected>
+              {{ getStatusLabel(skill.exchangeStatus) }}
+            </mat-chip>
+          </div>
         </div>
+        
         <mat-card-content>
           <h3>{{ skill.name }}</h3>
           <span class="skill-category">{{ skill.categoryName }}</span>
-          <p class="skill-description">{{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}</p>
+          <p class="skill-description">
+            {{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}
+          </p>
+          
           <div class="skill-meta">
             <div class="meta-row">
               <div class="meta-item">
@@ -39,36 +57,99 @@
               </div>
             </div>
           </div>
+          
+          <!-- Exchange Status Display -->
+          <div class="exchange-status" *ngIf="showExchangeMessage(skill)">
+            <div class="status-info">
+              <mat-icon>swap_horiz</mat-icon>
+              <span>{{ skill.exchangeMessage }}</span>
+              <div *ngIf="skill.rejectionReason" class="rejection-reason">
+                <mat-icon>info</mat-icon>
+                <span>Raison: {{ skill.rejectionReason }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Session Status Display -->
+          <div class="session-status" *ngIf="hasLivestreamSession(skill)">
+            <div class="session-info">
+              <mat-icon>live_tv</mat-icon>
+              <span>Session: </span>
+              <mat-chip [color]="livestreamSessions[skill.id].status === 'LIVE' ? 'primary' : 'accent'" selected>
+                {{ livestreamSessions[skill.id].status === 'LIVE' ? 'En direct' : 'Programmée' }}
+              </mat-chip>
+            </div>
+          </div>
+          
           <div class="producer-info">
             <span>Proposé par : </span>
-            <a (click)="openProducerProfile(skill.userId)" class="producer-link">{{ getProducerName(skill.userId) }}</a>
+            <a (click)="openProducerProfile(skill.userId)" class="producer-link">
+              {{ getProducerName(skill.userId) }}
+            </a>
           </div>
         </mat-card-content>
+        
         <mat-card-actions>
-          <ng-container *ngIf="getExchangeStatusForSkill(skill.id); else reserveButton">
-            <div class="exchange-actions">
-              <span class="exchange-status">{{ getExchangeStatusForSkill(skill.id) }}</span>
-              <button 
-                *ngIf="canJoinLivestream(skill.id)"
-                mat-raised-button 
-                color="primary" 
-                (click)="joinLivestream(skill)"
-                class="join-button"
-              >
-                Rejoindre le Livestream
-              </button>
-            </div>
-          </ng-container>
-          <ng-template #reserveButton>
-            <button 
-              mat-raised-button 
-              color="primary" 
-              (click)="reserveSkill(skill)" 
-              [disabled]="isLoading || skill.nbInscrits >= skill.availableQuantity"
-            >
-              Réserver
-            </button>
-          </ng-template>
+          <!-- Reserve Button for Available Skills -->
+          <button mat-raised-button 
+                  color="primary"
+                  *ngIf="canReserve(skill)"
+                  (click)="reserveSkill(skill)"
+                  class="reserve-btn"
+                  [attr.aria-label]="'Réserver la compétence ' + skill.name">
+            <mat-icon>book_online</mat-icon>
+            Réserver
+          </button>
+          
+          <!-- Status-based action messages -->
+          <div class="action-status" *ngIf="!canReserve(skill)">
+            <ng-container [ngSwitch]="skill.exchangeStatus">
+              
+              <!-- Pending Status -->
+              <div *ngSwitchCase="'pending'" class="pending-status">
+                <mat-icon color="accent">hourglass_empty</mat-icon>
+                <span>Demande envoyée - En attente de validation</span>
+              </div>
+              
+              <!-- Accepted Status -->
+              <div *ngSwitchCase="'accepted'" class="accepted-status">
+                <mat-icon color="primary">check_circle</mat-icon>
+                <span>Réservation confirmée</span>
+                <small>Vous recevrez une notification pour la session</small>
+              </div>
+              
+              <!-- In Progress Status -->
+              <div *ngSwitchCase="'in_progress'" class="in-progress-status">
+                <mat-icon color="primary">play_arrow</mat-icon>
+                <span>Session en cours</span>
+              </div>
+              
+              <!-- Completed Status -->
+              <div *ngSwitchCase="'completed'" class="completed-status">
+                <mat-icon color="primary">done_all</mat-icon>
+                <span>Session terminée</span>
+                <small>Vous pouvez maintenant laisser un avis</small>
+              </div>
+              
+              <!-- Rejected Status -->
+              <div *ngSwitchCase="'rejected'" class="rejected-status">
+                <mat-icon color="warn">cancel</mat-icon>
+                <div class="rejected-content">
+                  <span>Demande rejetée</span>
+                  <small *ngIf="skill.rejectionReason">{{ skill.rejectionReason }}</small>
+                  <small class="rejection-note">Cette compétence n'est plus disponible pour vous</small>
+                </div>
+              </div>
+              
+              <!-- Full Capacity -->
+              <div *ngSwitchDefault class="full-capacity" 
+                   [style.display]="skill.nbInscrits >= skill.availableQuantity ? 'flex' : 'none'">
+                <mat-icon color="warn">people</mat-icon>
+                <span>Complet - Plus de places disponibles</span>
+              </div>
+              
+            </ng-container>
+          </div>
         </mat-card-actions>
       </mat-card>
     </div>

@@ -1,22 +1,47 @@
 <div class="skills-container">
   <h2>Mes compétences acceptées</h2>
+  
   <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
+  
   <div *ngIf="error" class="error-message">
     <mat-icon>error</mat-icon> {{ error }}
   </div>
+  
   <div *ngIf="!isLoading && !error">
     <div *ngIf="skills.length === 0" class="no-skills">
+      <img src="assets/images/default-skills.png" alt="Aucune compétence" class="empty-state-img">
       <p>Vous n'avez pas encore de compétences acceptées.</p>
     </div>
+    
     <div class="skills-grid">
       <mat-card *ngFor="let skill of skills" class="skill-card">
         <div class="skill-image-container">
-          <img [src]="skill.pictureUrl || 'assets/images/default-skills.png'" alt="{{ skill.name }}" class="skill-image">
+          <img [src]="skill.pictureUrl || 'assets/images/default-skills.png'" 
+               alt="{{ skill.name }}" 
+               class="skill-image">
+          
+          <!-- Status chip overlay -->
+          <div class="status-overlay" *ngIf="skill.exchangeStatus">
+            <mat-chip [color]="getStatusColor(skill.exchangeStatus)" selected>
+              {{ getStatusLabel(skill.exchangeStatus) }}
+            </mat-chip>
+          </div>
+          
+          <!-- Livestream Status chip overlay -->
+          <div class="session-overlay" *ngIf="sessions[skill.id]">
+            <mat-chip [color]="sessions[skill.id].status === 'LIVE' ? 'warn' : 'accent'" selected>
+              {{ sessions[skill.id].status === 'LIVE' ? 'EN DIRECT' : 'PROGRAMMÉ' }}
+            </mat-chip>
+          </div>
         </div>
+        
         <mat-card-content>
           <h3>{{ skill.name }}</h3>
           <span class="skill-category">{{ skill.categoryName }}</span>
-          <p class="skill-description">{{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}</p>
+          <p class="skill-description">
+            {{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}
+          </p>
+          
           <div class="skill-meta">
             <div class="meta-row">
               <div class="meta-item">
@@ -39,19 +64,94 @@
               </div>
             </div>
           </div>
+          
+          <!-- Exchange Status Display -->
+          <div class="exchange-status" *ngIf="skill.exchangeStatus">
+            <div class="status-info">
+              <mat-icon>swap_horiz</mat-icon>
+              <span>Statut de l'échange: </span>
+              <mat-chip [color]="getStatusColor(skill.exchangeStatus)" selected>
+                {{ getStatusLabel(skill.exchangeStatus) }}
+              </mat-chip>
+            </div>
+          </div>
+          
+          <!-- Session Status Display -->
+          <div class="session-status" *ngIf="sessions[skill.id]">
+            <div class="session-info">
+              <mat-icon>live_tv</mat-icon>
+              <span>Session: </span>
+              <mat-chip [color]="sessions[skill.id].status === 'LIVE' ? 'primary' : 'accent'" selected>
+                {{ sessions[skill.id].status === 'LIVE' ? 'En direct' : 'Programmée' }}
+              </mat-chip>
+              <span class="session-time" *ngIf="sessions[skill.id].startTime">
+                - {{ sessions[skill.id].startTime | date:'HH:mm' }}
+              </span>
+            </div>
+          </div>
+          
           <div class="producer-info">
             <span>Proposé par : </span>
-            <a (click)="openProducerProfile(skill.userId)" class="producer-link">{{ getProducerName(skill.userId) }}</a>
+            <a (click)="openProducerProfile(skill.userId)" class="producer-link">
+              {{ getProducerName(skill.userId) }}
+            </a>
           </div>
         </mat-card-content>
+        
         <mat-card-actions>
-          <button mat-raised-button color="primary" 
-        *ngIf="session?.status === 'LIVE' || session?.status === 'SCHEDULED'" 
-        (click)="joinLivestreamSession(session.id)">
-    Rejoindre Livestream
-</button>
-
-
+          <!-- Livestream Join Button -->
+          <button mat-raised-button 
+                  color="primary"
+                  *ngIf="canJoinLivestream(skill)"
+                  (click)="joinLivestreamSession(skill)"
+                  class="join-livestream-btn"
+                  [disabled]="isLoading">
+            <mat-icon>play_circle_filled</mat-icon>
+            {{ sessions[skill.id].status === 'LIVE' ? 'Rejoindre Live' : 'Rejoindre Session' }}
+          </button>
+          
+          <!-- Status-based action buttons -->
+          <div class="status-actions" *ngIf="skill.exchangeStatus && !canJoinLivestream(skill)">
+            <ng-container [ngSwitch]="skill.exchangeStatus">
+              
+              <!-- Pending Status -->
+              <div *ngSwitchCase="'PENDING'" class="pending-status">
+                <mat-icon color="accent">hourglass_empty</mat-icon>
+                <span>En attente de validation du producteur</span>
+              </div>
+              
+              <!-- Accepted Status (but no live session) -->
+              <div *ngSwitchCase="'ACCEPTED'" class="accepted-status">
+                <mat-icon color="primary">check_circle</mat-icon>
+                <span>{{ sessions[skill.id] ? 'Session programmée' : 'En attente de session' }}</span>
+              </div>
+              
+              <!-- In Progress Status -->
+              <div *ngSwitchCase="'IN_PROGRESS'" class="in-progress-status">
+                <mat-icon color="primary">play_arrow</mat-icon>
+                <span>Session en cours</span>
+              </div>
+              
+              <!-- Completed Status -->
+              <div *ngSwitchCase="'COMPLETED'" class="completed-status">
+                <mat-icon color="primary">task_alt</mat-icon>
+                <span>Session terminée</span>
+              </div>
+              
+              <!-- Rejected Status -->
+              <div *ngSwitchCase="'REJECTED'" class="rejected-status">
+                <mat-icon color="warn">cancel</mat-icon>
+                <span>Demande rejetée</span>
+              </div>
+              
+              <!-- Cancelled Status -->
+              <div *ngSwitchCase="'CANCELLED'" class="cancelled-status">
+                <mat-icon color="warn">block</mat-icon>
+                <span>Session annulée</span>
+              </div>
+              
+            </ng-container>
+          </div>
         </mat-card-actions>
       </mat-card>
     </div>

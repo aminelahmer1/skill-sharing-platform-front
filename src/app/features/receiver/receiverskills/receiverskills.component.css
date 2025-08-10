@@ -1,110 +1,495 @@
+/* Receiver Skills Component - Modern Design */
 .skills-container {
-    padding: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-  
-  h2 {
-    text-align: center;
-    margin-bottom: 20px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: #fafafa;
+  min-height: 100vh;
+}
+
+.skills-container h2 {
+  margin-bottom: 24px;
+  color: #333;
+  font-weight: 600;
+  font-size: 1.75rem;
+  text-align: center;
+}
+
+/* Error Message */
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #f44336;
+  background-color: #ffebee;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+/* No Skills */
+.no-skills {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+  background: white;
+  border-radius: 12px;
+}
+
+.empty-state-img {
+  width: 200px;
+  height: 150px;
+  object-fit: cover;
+  margin-bottom: 20px;
+  opacity: 0.7;
+}
+
+/* Skills Grid */
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 24px;
+  margin-top: 20px;
+}
+
+.skill-card {
+  position: relative;
+  overflow: visible;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 12px;
+  background: white;
+}
+
+.skill-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+/* Skill Image */
+.skill-image-container {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+  border-radius: 12px 12px 0 0;
+}
+
+.skill-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.status-overlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+}
+
+.status-overlay mat-chip {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Card Content */
+.skill-card mat-card-content {
+  padding: 20px;
+}
+
+.skill-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+  line-height: 1.3;
+}
+
+.skill-category {
+  display: inline-block;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.skill-description {
+  color: #666;
+  line-height: 1.5;
+  margin: 12px 0;
+  font-size: 0.9rem;
+}
+
+/* Skill Meta */
+.skill-meta {
+  margin: 16px 0;
+  border-top: 1px solid #eee;
+  padding-top: 16px;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.meta-row:last-child {
+  margin-bottom: 0;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.meta-item mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #999;
+}
+
+.meta-item.price {
+  color: #4caf50;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+/* Status Sections */
+.exchange-status, .session-status {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+}
+
+.status-info, .session-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.status-info mat-icon, .session-info mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: #1976d2;
+}
+
+.rejection-reason {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: #ffebee;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #d32f2f;
+}
+
+.rejection-reason mat-icon {
+  font-size: 14px;
+  color: #d32f2f;
+}
+
+/* Producer Info */
+.producer-info {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.producer-link {
+  color: #1976d2;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.producer-link:hover {
+  text-decoration: underline;
+}
+
+/* Card Actions */
+.skill-card mat-card-actions {
+  padding: 16px 20px;
+  background-color: #fafafa;
+  border-top: 1px solid #eee;
+}
+
+.reserve-btn {
+  width: 100%;
+  height: 44px;
+  font-weight: 500;
+  text-transform: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #1976d2;
+  color: white;
+}
+
+.reserve-btn:hover {
+  background: #1565c0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+}
+
+.reserve-btn mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+/* Action Status */
+.action-status {
+  width: 100%;
+  text-align: center;
+}
+
+.pending-status, .accepted-status, .in-progress-status, .completed-status, .rejected-status, .full-capacity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.pending-status {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.accepted-status {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.accepted-status small {
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 400;
+  margin-top: 4px;
+}
+
+.in-progress-status {
+  background-color: #e8f5e8;
+  color: #388e3c;
+}
+
+.completed-status {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.completed-status small {
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 400;
+  margin-top: 4px;
+}
+
+.rejected-status {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.rejected-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.rejected-content small {
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 400;
+  text-align: center;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.rejection-note {
+  font-style: italic;
+  color: #d32f2f !important;
+  font-weight: 500 !important;
+}
+
+.full-capacity {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.full-capacity mat-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+/* Status icons alignment */
+.pending-status mat-icon,
+.accepted-status mat-icon,
+.in-progress-status mat-icon,
+.completed-status mat-icon,
+.rejected-status mat-icon {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .skills-container {
+    padding: 16px;
   }
   
   .skills-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
   
   .skill-card {
-    display: flex;
-    flex-direction: column;
-    transition: transform 0.2s;
+    margin: 0;
   }
   
-  .skill-card:hover {
-    transform: translateY(-5px);
+  .skill-card h3 {
+    font-size: 1.1rem;
+  }
+  
+  .reserve-btn {
+    height: 40px;
+    font-size: 0.9rem;
+  }
+  
+  .skill-card mat-card-content {
+    padding: 16px;
+  }
+  
+  .skill-card mat-card-actions {
+    padding: 12px 16px;
+  }
+  
+  .status-overlay {
+    top: 8px;
+    right: 8px;
+  }
+  
+  .pending-status, .accepted-status, .in-progress-status, 
+  .completed-status, .rejected-status, .full-capacity {
+    padding: 12px;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .skills-container h2 {
+    font-size: 1.5rem;
   }
   
   .skill-image-container {
-    height: 150px;
-    overflow: hidden;
-  }
-  
-  .skill-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .skill-category {
-    font-size: 0.9em;
-    color: #666;
-  }
-  
-  .skill-description {
-    margin: 10px 0;
-  }
-  
-  .skill-meta {
-    font-size: 0.9em;
+    height: 160px;
   }
   
   .meta-row {
-    display: flex;
-    justify-content: space-between;
-    margin: 5px 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
   
   .meta-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
+    font-size: 0.8rem;
   }
   
-  .price {
-    font-weight: bold;
+  .skill-description {
+    font-size: 0.85rem;
   }
-  
-  .producer-info {
-    margin-top: 10px;
-    font-size: 0.9em;
-  }
-  
-  .producer-link {
-    color: #1976d2;
-    cursor: pointer;
-    text-decoration: underline;
-  }
-  
-  .producer-link:hover {
-    color: #0d47a1;
-  }
-  
-  .error-message {
-    color: red;
-    text-align: center;
-    margin: 20px 0;
-  }
-  
-  .no-skills {
-    text-align: center;
-    padding: 20px;
-  }/* Ajoutez ces styles à votre fichier CSS existant */
-
-.exchange-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
 }
 
-.join-button {
-  margin-top: 8px;
-  width: 100%;
+/* Animation */
+.skill-card {
+  animation: slideInUp 0.5s ease-out;
 }
 
-.exchange-status {
-  font-weight: 500;
-  color: #3f51b5;
-  text-align: center;
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Status chips animation */
+.status-overlay mat-chip {
+  animation: chipPulse 2s infinite;
+}
+
+@keyframes chipPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Hover effects for interactive elements */
+.producer-link:hover {
+  color: #1565c0;
+  transition: color 0.2s ease;
+}
+
+/* Focus states for accessibility */
+.reserve-btn:focus,
+.producer-link:focus {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}
+
+/* Loading state */
+.skill-card.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Empty state styling */
+.no-skills p {
+  font-size: 1.1rem;
+  color: #666;
+  margin-bottom: 20px;
+}
+
+/* Progress bar styling */
+mat-progress-bar {
+  margin-bottom: 20px;
+  border-radius: 4px;
+}
+
+/* Error message icon */
+.error-message mat-icon {
+  font-size: 20px;
+  margin-right: 8px;
 }

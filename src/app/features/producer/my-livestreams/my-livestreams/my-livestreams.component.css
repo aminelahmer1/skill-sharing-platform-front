@@ -1,0 +1,509 @@
+/* My Livestreams Component - Matching Application Colors */
+:root {
+  --primary: #6c5ce7;
+  --primary-dark: #5649c0;
+  --secondary: #a29bfe;
+  --dark: #2d3436;
+  --light: #f5f6fa;
+  --success: #00b894;
+  --warning: #fdcb6e;
+  --danger: #d63031;
+  --producer: #fd79a8;
+  --producer-dark: #e66797;
+  --receiver: #74b9ff;
+  --receiver-dark: #5aa8f5;
+}
+
+.livestreams-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  background-color: var(--light);
+  min-height: 100vh;
+  animation: fadeIn 0.8s ease-out;
+}
+
+.livestreams-container h2 {
+  margin-bottom: 24px;
+  color: var(--dark);
+  font-weight: 700;
+  font-size: 1.75rem;
+  text-align: center;
+  background: linear-gradient(45deg, var(--primary), var(--producer));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: slideInLeft 0.8s ease-out;
+}
+
+/* Filters Section - Removed */
+
+/* Error Message */
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--danger);
+  background-color: #ffebee;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid var(--danger);
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* No Skills */
+.no-skills {
+  text-align: center;
+  padding: 60px 20px;
+  color: #636e72;
+  background: white;
+  border-radius: 15px;
+  border: 2px dashed var(--primary);
+  animation: fadeIn 0.8s ease-out;
+}
+
+.empty-state-img {
+  width: 200px;
+  height: 150px;
+  object-fit: cover;
+  margin-bottom: 20px;
+  opacity: 0.7;
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Skills Grid */
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 24px;
+  margin-top: 0;
+}
+
+.skill-card {
+  position: relative;
+  overflow: visible;
+  transition: all 0.3s ease;
+  border-radius: 15px;
+  background: white;
+  border: 1px solid rgba(0,0,0,0.05);
+  box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+  animation: scaleIn 0.5s ease-out;
+}
+
+.skill-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 15px 40px rgba(108, 92, 231, 0.15);
+  border-color: var(--primary);
+}
+
+.skill-card:nth-child(1) { animation-delay: 0.1s; }
+.skill-card:nth-child(2) { animation-delay: 0.2s; }
+.skill-card:nth-child(3) { animation-delay: 0.3s; }
+.skill-card:nth-child(4) { animation-delay: 0.4s; }
+
+/* Skill Image */
+.skill-image-container {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+  border-radius: 15px 15px 0 0;
+}
+
+.skill-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.skill-card:hover .skill-image {
+  transform: scale(1.05);
+}
+
+.status-overlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+}
+
+.status-overlay mat-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  animation: chipPulse 2s infinite;
+  border-radius: 20px;
+  padding: 4px 12px;
+}
+
+@keyframes chipPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.02); }
+}
+
+/* Card Content */
+.skill-card mat-card-content {
+  padding: 20px;
+}
+
+.skill-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--dark);
+  line-height: 1.3;
+}
+
+.skill-category {
+  display: inline-block;
+  background: linear-gradient(45deg, var(--primary), var(--secondary));
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.skill-description {
+  color: #636e72;
+  line-height: 1.5;
+  margin: 12px 0;
+  font-size: 0.9rem;
+}
+
+/* Skill Meta */
+.skill-meta {
+  margin: 16px 0;
+  border-top: 1px solid #e0e0e0;
+  padding-top: 16px;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.meta-row:last-child {
+  margin-bottom: 0;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #636e72;
+}
+
+.meta-item mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--primary);
+}
+
+.meta-item.price {
+  color: var(--success);
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.inscrits-button {
+  min-width: auto !important;
+  padding: 0 8px !important;
+  line-height: 1 !important;
+  font-weight: 600 !important;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  color: var(--primary) !important;
+  background-color: rgba(108, 92, 231, 0.08);
+}
+
+.inscrits-button:hover {
+  background-color: var(--primary);
+  color: white !important;
+  transform: translateY(-2px);
+  animation: pulse 1s infinite;
+}
+
+.capacity-text {
+  color: #636e72;
+  margin-left: 2px;
+}
+
+/* Session Status */
+.session-status {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid rgba(108, 92, 231, 0.2);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(108, 92, 231, 0.05), rgba(162, 155, 254, 0.05));
+}
+
+.status-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #636e72;
+}
+
+.status-info mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--primary);
+}
+
+/* Card Actions */
+.skill-card mat-card-actions {
+  padding: 16px 20px;
+  background-color: var(--light);
+  border-top: 1px solid #e0e0e0;
+}
+
+.livestream-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.action-btn {
+  height: 44px;
+  font-weight: 600;
+  text-transform: none;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  font-size: 0.95rem;
+}
+
+.immediate-btn {
+  background: linear-gradient(45deg, var(--danger), var(--producer));
+  color: white;
+  box-shadow: 0 4px 15px rgba(214, 48, 49, 0.3);
+}
+
+.immediate-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(214, 48, 49, 0.4);
+  animation: pulse 1s infinite;
+}
+
+.schedule-btn {
+  border: 2px solid var(--primary);
+  color: var(--primary);
+  background: white;
+}
+
+.schedule-btn:hover {
+  background: var(--primary);
+  color: white;
+  transform: translateY(-3px);
+  box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+}
+
+.action-btn mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+/* Session Actions */
+.session-actions {
+  width: 100%;
+}
+
+.join-session-btn {
+  width: 100%;
+  height: 50px;
+  font-weight: 600;
+  text-transform: none;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(45deg, var(--primary), var(--secondary));
+  color: white;
+  font-size: 1rem;
+  box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+}
+
+.join-session-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(108, 92, 231, 0.4);
+  animation: pulse 1s infinite;
+}
+
+.join-session-btn mat-icon {
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+}
+
+/* No Participants */
+.no-participants {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(253, 203, 110, 0.1), rgba(253, 203, 110, 0.05));
+  border-radius: 10px;
+  color: var(--warning);
+  font-weight: 500;
+  text-align: center;
+  border: 1px solid rgba(253, 203, 110, 0.3);
+}
+
+.no-participants mat-icon {
+  font-size: 20px;
+  color: var(--warning);
+}
+
+/* Animations from main app */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-50px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes float {
+  0% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(10deg); }
+  100% { transform: translateY(0) rotate(0deg); }
+}
+
+/* Progress bar styling to match app theme */
+mat-progress-bar {
+  margin-bottom: 20px;
+  border-radius: 4px;
+}
+
+mat-progress-bar .mat-progress-bar-fill::after {
+  background: linear-gradient(45deg, var(--primary), var(--secondary));
+}
+
+/* Focus states for accessibility */
+.action-btn:focus,
+.join-session-btn:focus,
+.inscrits-button:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Loading state */
+.skill-card.loading {
+  opacity: 0.7;
+  pointer-events: none;
+  animation: pulse 2s infinite;
+}
+
+/* Error message icon */
+.error-message mat-icon {
+  font-size: 20px;
+  margin-right: 8px;
+  color: var(--danger);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .livestreams-container {
+    padding: 16px;
+  }
+  
+  .skills-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .skill-card {
+    margin: 0;
+  }
+  
+  .skill-card h3 {
+    font-size: 1.1rem;
+  }
+  
+  .livestream-actions {
+    gap: 8px;
+  }
+  
+  .action-btn {
+    height: 40px;
+    font-size: 0.9rem;
+  }
+  
+  .join-session-btn {
+    height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .livestreams-container h2 {
+    font-size: 1.5rem;
+  }
+  
+  .skill-image-container {
+    height: 160px;
+  }
+  
+  .meta-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .meta-item {
+    font-size: 0.8rem;
+  }
+  
+  .skill-description {
+    font-size: 0.85rem;
+  }
+}
+
+/* Status chip colors matching the app theme */
+mat-chip[color="warn"] {
+  background-color: var(--danger) !important;
+  color: white !important;
+}
+
+mat-chip[color="accent"] {
+  background-color: var(--secondary) !important;
+  color: white !important;
+}
+
+mat-chip[color="primary"] {
+  background-color: var(--primary) !important;
+  color: white !important;
+}
+

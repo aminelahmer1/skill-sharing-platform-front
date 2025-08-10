@@ -1,0 +1,137 @@
+<div class="livestreams-container">
+  <h2>🎥 Mes Livestreams</h2>
+  
+  <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
+  
+  <div *ngIf="error" class="error-message">
+    <mat-icon>error</mat-icon> {{ error }}
+  </div>
+  
+  <div *ngIf="!isLoading && !error">
+    <div *ngIf="skills.length === 0" class="no-skills">
+      <img src="assets/images/default-livestream.png" alt="Aucun livestream" class="empty-state-img">
+      <p>Vous n'avez pas encore créé de compétences.</p>
+      <button mat-raised-button color="primary" routerLink="/producer/skills">
+        <mat-icon>add</mat-icon> Créer une compétence
+      </button>
+    </div>
+    
+    <div class="skills-grid">
+      <mat-card *ngFor="let skill of skills" 
+                class="skill-card" 
+                [class.session-completed]="skill.isSessionCompleted">
+        <div class="skill-image-container">
+          <img [src]="skill.pictureUrl || 'assets/images/default-skills.png'" 
+               alt="{{ skill.name }}" 
+               class="skill-image">
+          
+          <!-- Session status chip overlay -->
+          <div class="status-overlay" *ngIf="skill.sessionStatus && skill.sessionStatus !== 'none'">
+            <mat-chip [color]="getSessionStatusColor(skill.sessionStatus)" selected>
+              {{ getSessionStatusLabel(skill.sessionStatus) }}
+            </mat-chip>
+          </div>
+        </div>
+        
+        <mat-card-content>
+          <h3>{{ skill.name }}</h3>
+          <span class="skill-category">{{ skill.categoryName }}</span>
+          <p class="skill-description">
+            {{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}
+          </p>
+          
+          <div class="skill-meta">
+            <div class="meta-row">
+              <div class="meta-item">
+                <mat-icon>people</mat-icon>
+                <button 
+                  mat-button 
+                  color="primary" 
+                  class="inscrits-button"
+                  (click)="showAcceptedReceivers(skill.id)"
+                  [attr.aria-label]="'Voir les ' + skill.nbInscrits + ' participants'">
+                  {{ skill.nbInscrits }}
+                </button>
+                <span class="capacity-text">/{{ skill.availableQuantity }}</span>
+              </div>
+              <div class="meta-item">
+                <mat-icon>calendar_today</mat-icon>
+                <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
+              </div>
+            </div>
+            <div class="meta-row">
+              <div class="meta-item">
+                <mat-icon>access_time</mat-icon>
+                <span>{{ skill.streamingTime }}</span>
+              </div>
+              <div class="meta-item price">
+                <span>TND</span>
+                <span>{{ skill.price | number:'1.2-2' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Session Status Display -->
+          <div class="session-status" *ngIf="skill.sessionStatus && skill.sessionStatus !== 'none'">
+            <div class="status-info">
+              <mat-icon>live_tv</mat-icon>
+              <mat-chip [color]="getSessionStatusColor(skill.sessionStatus)" selected>
+                {{ getSessionStatusLabel(skill.sessionStatus) }}
+              </mat-chip>
+            </div>
+          </div>
+        </mat-card-content>
+        
+        <mat-card-actions>
+          <!-- Afficher les actions seulement si la session n'est pas terminée -->
+          <ng-container *ngIf="!skill.isSessionCompleted">
+            <!-- Create Session Buttons -->
+            <div class="livestream-actions" *ngIf="canCreateSession(skill)">
+              <button mat-raised-button 
+                      color="warn"
+                      (click)="createLivestreamSession(skill, true)"
+                      class="action-btn immediate-btn"
+                      [attr.aria-label]="'Démarrer livestream pour ' + skill.name">
+                <mat-icon>live_tv</mat-icon>
+                Démarrer maintenant
+              </button>
+              
+              <button mat-stroked-button 
+                      color="primary"
+                      (click)="createLivestreamSession(skill, false)"
+                      class="action-btn schedule-btn"
+                      [attr.aria-label]="'Programmer livestream pour ' + skill.name">
+                <mat-icon>schedule</mat-icon>
+                Programmer
+              </button>
+            </div>
+
+            <!-- Join Existing Session -->
+            <div class="session-actions" *ngIf="canJoinSession(skill)">
+              <button mat-raised-button 
+                      color="primary"
+                      (click)="joinExistingSession(skill)"
+                      class="join-session-btn"
+                      [attr.aria-label]="'Rejoindre session pour ' + skill.name">
+                <mat-icon>{{ skill.sessionStatus === 'live' ? 'live_tv' : 'play_arrow' }}</mat-icon>
+                {{ skill.sessionStatus === 'live' ? 'Rejoindre Live' : 'Démarrer Session' }}
+              </button>
+            </div>
+
+            <!-- No participants message -->
+            <div class="no-participants" *ngIf="!canCreateSession(skill) && !canJoinSession(skill)">
+              <mat-icon color="warn">people_outline</mat-icon>
+              <span>{{ getNoSessionMessage(skill) }}</span>
+            </div>
+          </ng-container>
+          
+          <!-- Message pour session terminée -->
+          <div class="completed-message" *ngIf="skill.isSessionCompleted">
+            <mat-icon color="primary">check_circle</mat-icon>
+            <span>Session terminée</span>
+          </div>
+        </mat-card-actions>
+      </mat-card>
+    </div>
+  </div>
+</div>

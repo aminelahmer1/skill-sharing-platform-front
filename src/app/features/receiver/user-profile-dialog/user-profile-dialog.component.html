@@ -1,56 +1,101 @@
-<div class="profile-dialog-container">
-    <mat-card class="profile-card mat-elevation-z4">
-      <mat-card-header class="profile-header">
-        <div mat-card-avatar class="profile-avatar">
-          <img
-            [src]="data.pictureUrl || 'assets/images/default-profile.png'"
-            alt="Photo de profil"
-            class="avatar-image"
-          />
-        </div>
-        <div class="profile-title">
-          <mat-card-title>{{ data.firstName }} {{ data.lastName }}</mat-card-title>
-          <mat-card-subtitle>{{ data.email }}</mat-card-subtitle>
-        </div>
-      </mat-card-header>
-  
-      <mat-card-content class="profile-content">
-        <div class="profile-details">
-          <div class="detail-row">
-            <mat-icon class="detail-icon">person</mat-icon>
-            <span class="detail-text">Nom d'utilisateur : {{ data.username }}</span>
-          </div>
-          <div class="detail-row" *ngIf="data.phoneNumber">
-            <mat-icon class="detail-icon">phone</mat-icon>
-            <span class="detail-text">Téléphone : {{ data.phoneNumber }}</span>
-          </div>
-          <div class="detail-row" *ngIf="data.bio">
-            <mat-icon class="detail-icon">info</mat-icon>
-            <span class="detail-text">Bio : {{ data.bio }}</span>
-          </div>
-          <div class="detail-row" *ngIf="data.address?.city || data.address?.country">
-            <mat-icon class="detail-icon">location_on</mat-icon>
-            <span class="detail-text">
-              Adresse : {{ data.address?.city }}, {{ data.address?.postalCode }}, {{ data.address?.country }}
-            </span>
-          </div>
-          <div class="detail-row">
-            <mat-icon class="detail-icon">calendar_today</mat-icon>
-            <span class="detail-text">Membre depuis : {{ data.createdAt | date:'mediumDate' }}</span>
-          </div>
-        </div>
-  
-        <div *ngIf="data.address" class="map-container">
-          <h3>Localisation</h3>
-          <div #map class="map"></div>
-        </div>
-      </mat-card-content>
-  
-      <mat-card-actions class="profile-actions">
-        <button mat-raised-button color="primary" (click)="closeDialog()">
-          <mat-icon>close</mat-icon>
-          Fermer
-        </button>
-      </mat-card-actions>
-    </mat-card>
+<div class="compact-profile-dialog">
+  <!-- Header with user info -->
+  <div class="profile-header">
+    <div class="avatar-container">
+      <img 
+        [src]="data.pictureUrl || 'assets/images/default-profile.png'"
+        alt="Photo de profil"
+        class="avatar-image"
+      />
+      <div class="status-indicator"></div>
+    </div>
+    
+    <div class="user-info">
+      <h2 class="user-name">{{ data.firstName }} {{ data.lastName }}</h2>
+      <p class="user-email">{{ data.email }}</p>
+    </div>
+    
+    <button 
+      mat-icon-button 
+      class="close-btn"
+      (click)="closeDialog()">
+      <mat-icon>close</mat-icon>
+    </button>
   </div>
+
+  <!-- Content -->
+  <div class="profile-content">
+    <!-- Quick stats -->
+    <div class="stats-row">
+      <div class="stat-item">
+        <mat-icon>star</mat-icon>
+        <span class="stat-value">{{ averageRating }}</span>
+        <span class="stat-label">Note</span>
+      </div>
+      <div class="stat-item">
+        <mat-icon>school</mat-icon>
+        <span class="stat-value">{{ skillsCount }}</span>
+        <span class="stat-label">Compétences</span>
+      </div>
+      <div class="stat-item">
+        <mat-icon>people</mat-icon>
+        <span class="stat-value">{{ studentsCount }}</span>
+        <span class="stat-label">Étudiants</span>
+      </div>
+    </div>
+
+    <!-- Details -->
+    <div class="details-section">
+      <div class="detail-item">
+        <mat-icon>account_circle</mat-icon>
+        <div class="detail-content">
+          <span class="detail-label">Nom d'utilisateur</span>
+          <span class="detail-value">{{ data.username }}</span>
+        </div>
+      </div>
+
+      <div class="detail-item" *ngIf="data.phoneNumber">
+        <mat-icon>phone</mat-icon>
+        <div class="detail-content">
+          <span class="detail-label">Téléphone</span>
+          <span class="detail-value">{{ data.phoneNumber }}</span>
+        </div>
+      </div>
+
+      <div class="detail-item" *ngIf="data.address?.city || data.address?.country">
+        <mat-icon>location_on</mat-icon>
+        <div class="detail-content">
+          <span class="detail-label">Localisation</span>
+          <span class="detail-value">{{ getFullAddress() }}</span>
+        </div>
+      </div>
+
+      <div class="detail-item" *ngIf="data.bio">
+        <mat-icon>description</mat-icon>
+        <div class="detail-content">
+          <span class="detail-label">Biographie</span>
+          <span class="detail-value bio-text">{{ data.bio }}</span>
+        </div>
+      </div>
+
+      <div class="detail-item">
+        <mat-icon>schedule</mat-icon>
+        <div class="detail-content">
+          <span class="detail-label">Membre depuis</span>
+          <span class="detail-value">{{ data.createdAt | date:'dd/MM/yyyy' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="profile-footer">
+    <button 
+      mat-raised-button 
+      color="primary" 
+      (click)="closeDialog()"
+      class="action-btn">
+      Fermer
+    </button>
+  </div>
+</div>
