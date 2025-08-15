@@ -1,114 +1,260 @@
 <div class="skill-form-container">
-    <h2 mat-dialog-title class="dialog-title">
-      {{ isEditing ? 'Modifier la Compétence' : 'Nouvelle Compétence' }}
-      <button mat-icon-button class="close-btn" (click)="onCancel()" type="button" aria-label="Fermer la fenêtre">
-        <mat-icon>close</mat-icon>
-      </button>
-    </h2>
-  
-    <mat-dialog-content>
-      <form [formGroup]="skillForm" class="skill-form">
-        <div class="image-upload-section">
-          <div class="image-preview" *ngIf="previewUrl">
-            <img [src]="previewUrl" alt="Preview" class="preview-image">
-            <button mat-icon-button class="remove-image-btn" (click)="removeImage()" type="button" aria-label="Supprimer l'image">
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
-          <div class="upload-btn-wrapper" *ngIf="!previewUrl">
-            <label for="skillImage" class="upload-label">
-              <mat-icon>add_photo_alternate</mat-icon>
-              <span>Ajouter une image</span>
-            </label>
-            <input type="file" id="skillImage" accept="image/jpeg, image/png, image/gif" (change)="onFileSelected($event)" aria-label="Sélectionner une image">
-          </div>
+  <!-- Header moderne avec gradient -->
+  <h2 mat-dialog-title class="dialog-title">
+    <span>
+      {{ isEditing ? '✏️ Modifier la Compétence' : '✨ Nouvelle Compétence' }}
+    </span>
+    <button 
+      mat-icon-button 
+      class="close-btn" 
+      (click)="onCancel()" 
+      type="button" 
+      aria-label="Fermer la fenêtre"
+      [disabled]="isLoading">
+      <mat-icon>close</mat-icon>
+    </button>
+  </h2>
+
+  <mat-dialog-content>
+    <form [formGroup]="skillForm" class="skill-form" novalidate>
+      
+      <!-- Section Upload d'Image Moderne -->
+      <div class="image-upload-section">
+        <div class="image-preview" *ngIf="previewUrl">
+          <img [src]="previewUrl" alt="Aperçu de l'image" class="preview-image">
+          <button 
+            mat-icon-button 
+            class="remove-image-btn" 
+            (click)="removeImage()" 
+            type="button" 
+            aria-label="Supprimer l'image"
+            [disabled]="isLoading">
+            <mat-icon>close</mat-icon>
+          </button>
         </div>
-  
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Nom de la compétence</mat-label>
-          <input matInput formControlName="name" required aria-label="Nom de la compétence">
-          <mat-icon matSuffix>title</mat-icon>
-          <mat-error *ngIf="skillForm.get('name')?.hasError('required')">
-            Le nom est obligatoire
-          </mat-error>
-        </mat-form-field>
-  
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Description</mat-label>
-          <textarea matInput formControlName="description" rows="4" required aria-label="Description de la compétence"></textarea>
-          <mat-error *ngIf="skillForm.get('description')?.hasError('required')">
-            La description est obligatoire
-          </mat-error>
-        </mat-form-field>
-  
-        <div class="form-row">
-          <mat-form-field appearance="outline">
-            <mat-label>Places disponibles</mat-label>
-            <input matInput type="number" formControlName="availableQuantity" min="1" required aria-label="Nombre de places disponibles">
-            <mat-icon matSuffix>people</mat-icon>
-            <mat-error *ngIf="skillForm.get('availableQuantity')?.hasError('required')">
-              Ce champ est obligatoire
-            </mat-error>
-          </mat-form-field>
-  
-          <mat-form-field appearance="outline">
-            <mat-label>Prix (TND)</mat-label>
-            <input matInput type="number" formControlName="price" min="0" step="0.01" required aria-label="Prix de la compétence">
-            <span matSuffix>TND</span>
-            <mat-error *ngIf="skillForm.get('price')?.hasError('required')">
-              Ce champ est obligatoire
-            </mat-error>
-          </mat-form-field>
+        
+        <div class="upload-btn-wrapper" *ngIf="!previewUrl">
+          <label for="skillImage" class="upload-label">
+            <mat-icon>add_photo_alternate</mat-icon>
+            <span>Ajouter une image</span>
+            <small>(JPEG, PNG, GIF, WebP - Max 5MB)</small>
+          </label>
+          <input 
+            type="file" 
+            id="skillImage" 
+            accept="image/jpeg,image/png,image/gif,image/webp" 
+            (change)="onFileSelected($event)" 
+            aria-label="Sélectionner une image"
+            [disabled]="isLoading">
         </div>
-  
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Catégorie</mat-label>
-          <mat-select formControlName="categoryId" required aria-label="Sélectionner une catégorie">
-            <mat-option *ngFor="let category of categories" [value]="category.id">
-              {{ category.name }}
-            </mat-option>
-          </mat-select>
-          <mat-icon matSuffix>category</mat-icon>
-          <mat-error *ngIf="skillForm.get('categoryId')?.hasError('required')">
-            Veuillez sélectionner une catégorie
+      </div>
+
+      <!-- Nom de la compétence -->
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Nom de la compétence *</mat-label>
+        <input 
+          matInput 
+          formControlName="name" 
+          placeholder="Ex: Cours de cuisine italienne"
+          maxlength="100"
+          required 
+          aria-label="Nom de la compétence">
+        <mat-icon matSuffix>title</mat-icon>
+        <mat-hint align="end">{{ nameControl?.value?.length || 0 }}/100</mat-hint>
+        <mat-error *ngIf="nameControl?.invalid && nameControl?.touched">
+          {{ getFieldError('name') }}
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Description -->
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Description détaillée *</mat-label>
+        <textarea 
+          matInput 
+          formControlName="description" 
+          rows="4" 
+          placeholder="Décrivez votre compétence, ce que vous allez enseigner, les prérequis..."
+          maxlength="500"
+          required 
+          aria-label="Description de la compétence"></textarea>
+        <mat-icon matSuffix>description</mat-icon>
+        <mat-hint align="end">{{ descriptionControl?.value?.length || 0 }}/500</mat-hint>
+        <mat-error *ngIf="descriptionControl?.invalid && descriptionControl?.touched">
+          {{ getFieldError('description') }}
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Ligne: Places et Prix -->
+      <div class="form-row">
+        <mat-form-field appearance="outline">
+          <mat-label>Places disponibles *</mat-label>
+          <input 
+            matInput 
+            type="number" 
+            formControlName="availableQuantity" 
+            min="1" 
+            max="100"
+            placeholder="1"
+            required 
+            aria-label="Nombre de places disponibles">
+          <mat-icon matSuffix>people</mat-icon>
+          <mat-hint>Maximum 100 participants</mat-hint>
+          <mat-error *ngIf="availableQuantityControl?.invalid && availableQuantityControl?.touched">
+            {{ getFieldError('availableQuantity') }}
           </mat-error>
         </mat-form-field>
-  
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Date du streaming</mat-label>
-          <input matInput [matDatepicker]="picker" formControlName="streamingDate" [min]="minDate" required aria-label="Date du streaming">
+
+        <mat-form-field appearance="outline">
+          <mat-label>Prix (TND) *</mat-label>
+          <input 
+            matInput 
+            type="number" 
+            formControlName="price" 
+            min="0" 
+            max="10000"
+            step="0.01" 
+            placeholder="0.00"
+            required 
+            aria-label="Prix de la compétence">
+          <span matPrefix>TND </span>
+          <mat-icon matSuffix>payments</mat-icon>
+          <mat-hint>Prix par participant</mat-hint>
+          <mat-error *ngIf="priceControl?.invalid && priceControl?.touched">
+            {{ getFieldError('price') }}
+          </mat-error>
+        </mat-form-field>
+      </div>
+
+      <!-- Catégorie -->
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Catégorie *</mat-label>
+        <mat-select 
+          formControlName="categoryId" 
+          required 
+          aria-label="Sélectionner une catégorie">
+          <mat-option>
+            <em>Choisissez une catégorie</em>
+          </mat-option>
+          <mat-option *ngFor="let category of categories" [value]="category.id">
+            {{ category.name }}
+          </mat-option>
+        </mat-select>
+        <mat-icon matSuffix>category</mat-icon>
+        <mat-error *ngIf="categoryControl?.invalid && categoryControl?.touched">
+          {{ getFieldError('categoryId') }}
+        </mat-error>
+      </mat-form-field>
+
+      <!-- Ligne: Date et Heure -->
+      <div class="form-row">
+        <mat-form-field appearance="outline">
+          <mat-label>Date du streaming *</mat-label>
+          <input 
+            matInput 
+            [matDatepicker]="picker" 
+            formControlName="streamingDate" 
+            [min]="minDate" 
+            placeholder="📅 Cliquez sur l'icône calendrier"
+            readonly
+            required 
+            aria-label="Date du streaming - Sélection uniquement via calendrier">
           <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
           <mat-datepicker #picker></mat-datepicker>
-          <mat-error *ngIf="skillForm.get('streamingDate')?.hasError('required')">
-            La date est obligatoire
-          </mat-error>
-          <mat-error *ngIf="skillForm.get('streamingDate')?.hasError('invalidDate')">
-            La date doit être aujourd'hui ou ultérieure
+          <mat-hint>📅 Cliquez sur l'icône calendrier pour sélectionner</mat-hint>
+          <mat-error *ngIf="dateControl?.invalid && dateControl?.touched">
+            {{ getFieldError('streamingDate') }}
           </mat-error>
         </mat-form-field>
-  
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Heure du streaming</mat-label>
-          <input matInput type="time" formControlName="streamingTime" required aria-label="Heure du streaming">
+
+        <mat-form-field appearance="outline">
+          <mat-label>Heure du streaming *</mat-label>
+          <input 
+            matInput 
+            type="time" 
+            formControlName="streamingTime" 
+            required 
+            aria-label="Heure du streaming">
           <mat-icon matSuffix>access_time</mat-icon>
-          <mat-error *ngIf="skillForm.get('streamingTime')?.hasError('required')">
-            L'heure est obligatoire
+          <mat-hint>Format 24h (ex: 14:30)</mat-hint>
+          <mat-error *ngIf="timeControl?.invalid && timeControl?.touched">
+            {{ getFieldError('streamingTime') }}
           </mat-error>
         </mat-form-field>
-      </form>
-    </mat-dialog-content>
-  
-    <mat-dialog-actions align="end">
-      <button mat-button (click)="onCancel()" type="button">Annuler</button>
+      </div>
+
+      <!-- Indicateur de validation globale -->
+      <div class="form-status" *ngIf="skillForm.invalid && skillForm.touched">
+        <mat-icon color="warn">error_outline</mat-icon>
+        <span>Veuillez corriger les erreurs ci-dessus avant de continuer</span>
+      </div>
+
+    </form>
+  </mat-dialog-content>
+
+  <!-- Actions modernes -->
+  <mat-dialog-actions align="end">
+    <button 
+      mat-button 
+      (click)="onCancel()" 
+      type="button"
+      [disabled]="isLoading">
+      Annuler
+    </button>
+    
+    <button 
+      mat-raised-button 
+      color="primary" 
+      (click)="onSubmit()"
+      [disabled]="skillForm.invalid || isLoading"
+      type="button">
+      
+      <ng-container *ngIf="!isLoading">
+        <mat-icon>{{ isEditing ? 'save' : 'add' }}</mat-icon>
+        {{ isEditing ? 'Mettre à jour' : 'Créer la compétence' }}
+      </ng-container>
+      
+      <ng-container *ngIf="isLoading">
+        <mat-spinner diameter="20"></mat-spinner>
+        {{ isEditing ? 'Mise à jour...' : 'Création...' }}
+      </ng-container>
+    </button>
+  </mat-dialog-actions>
+</div>
+
+<!-- Dialog de confirmation personnalisé -->
+<div class="confirmation-overlay" *ngIf="showConfirmDialog" (click)="cancelConfirmation()">
+  <div class="confirmation-dialog" (click)="$event.stopPropagation()">
+    <!-- Header avec icône d'avertissement -->
+    <div class="confirmation-header">
+      <mat-icon class="warning-icon">warning</mat-icon>
+      <h3>⚠️ Modifications non sauvegardées</h3>
+    </div>
+    
+    <!-- Contenu du message -->
+    <div class="confirmation-content">
+      <p>Vous avez des modifications non sauvegardées dans le formulaire.</p>
+      <p><strong>Voulez-vous vraiment quitter sans sauvegarder ?</strong></p>
+    </div>
+    
+    <!-- Actions de confirmation -->
+    <div class="confirmation-actions">
+      <button 
+        mat-button 
+        (click)="cancelConfirmation()" 
+        type="button"
+        class="confirmation-cancel-btn">
+        <mat-icon>arrow_back</mat-icon>
+        Continuer l'édition
+      </button>
+      
       <button 
         mat-raised-button 
-        color="primary" 
-        (click)="onSubmit()"
-        [disabled]="skillForm.invalid || isLoading"
+        (click)="confirmCancel()" 
         type="button"
-      >
-        {{ isEditing ? 'Mettre à jour' : 'Créer' }}
-        <mat-spinner *ngIf="isLoading" diameter="20"></mat-spinner>
+        class="confirmation-confirm-btn">
+        <mat-icon>exit_to_app</mat-icon>
+        Quitter sans sauvegarder
       </button>
-    </mat-dialog-actions>
+    </div>
   </div>
+</div>

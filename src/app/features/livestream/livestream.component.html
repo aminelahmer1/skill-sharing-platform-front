@@ -142,12 +142,13 @@
         
         <!-- End Session -->
         <button mat-raised-button color="warn" 
-                (click)="endSession()" 
-                [disabled]="!isConnected"
-                class="end-session-btn">
-          <mat-icon>call_end</mat-icon>
-          Terminer
-        </button>
+        (click)="confirmAndEndSession()" 
+        [disabled]="!isConnected"
+        class="end-session-btn"
+        matTooltip="Terminer la session pour tous les participants">
+  <mat-icon>call_end</mat-icon>
+  Terminer
+</button>
       </div>
 
       <!-- Viewer Controls -->

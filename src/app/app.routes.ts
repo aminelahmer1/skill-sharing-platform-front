@@ -18,6 +18,9 @@ import { ProducerRequestsComponent } from './features/producer/producer-requests
 import {  AcceptedSkillsComponent} from './features/receiver/accepted-skills/accepted-skills.component';
 import { LivestreamComponent } from './features/livestream/livestream.component';
 import { MyLivestreamsComponent } from './features/producer/my-livestreams/my-livestreams/my-livestreams.component';
+import { FinishedSkillsComponent } from './features/receiver/finished-skills/finished-skills.component';
+import { ProducerCalendarComponent } from './features/producer/producer-calendar/producer-calendar.component';
+import { ReceiverCalendarComponent } from './features/receiver/receiver-calendar/receiver-calendar.component';
 
 export const routes: Routes = [
   { path: '', component: MainTemplateComponent },
@@ -32,7 +35,9 @@ export const routes: Routes = [
       { path: 'skills', component: SkillsComponent }, 
       { path: 'requests', component: ProducerRequestsComponent }, 
        { path: 'livestreams', component: MyLivestreamsComponent },
+       { path: 'calendarP', component: ProducerCalendarComponent },
       { path: 'livestream/:sessionId', component: LivestreamComponent },
+      
       { path: '', redirectTo: '', pathMatch: 'full' }
     ],
   },
@@ -46,6 +51,8 @@ export const routes: Routes = [
       { path: 'profile-edit', component: ProfileEditComponent },
       { path: 'skills', component: ReceiverskillsComponent },
       { path: 'accepted-skills', component: AcceptedSkillsComponent },
+       { path: 'finished-skills', component: FinishedSkillsComponent },
+       { path: 'calendarR', component: ReceiverCalendarComponent },
       { path: '', redirectTo: '', pathMatch: 'full' },
       { path: 'livestream/:sessionId', component: LivestreamComponent },
     ],

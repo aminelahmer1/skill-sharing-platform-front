@@ -1,4 +1,4 @@
-/* My Livestreams Component - Matching Application Colors */
+/* My Livestreams Component - Matching Receiver Accepted Skills Colors */
 :root {
   --primary: #6c5ce7;
   --primary-dark: #5649c0;
@@ -15,9 +15,9 @@
 }
 
 .livestreams-container {
-  padding: 20px;
+  padding: 0px 20px 20px 20px; /* Réduire le padding-top à 0 */
   max-width: 1200px;
-  margin: 0 auto;
+  margin: -30px auto 0 auto; /* Ajouter margin-top négatif comme skills */
   background-color: var(--light);
   min-height: 100vh;
   animation: fadeIn 0.8s ease-out;
@@ -25,6 +25,7 @@
 
 .livestreams-container h2 {
   margin-bottom: 24px;
+  margin-top: -69px; /* Réduire la marge supérieure */
   color: var(--dark);
   font-weight: 700;
   font-size: 1.75rem;
@@ -35,8 +36,6 @@
   background-clip: text;
   animation: slideInLeft 0.8s ease-out;
 }
-
-/* Filters Section - Removed */
 
 /* Error Message */
 .error-message {
@@ -156,14 +155,15 @@
   line-height: 1.3;
 }
 
+/* 🎨 CATÉGORIE - Style receiver accepted skills */
 .skill-category {
   display: inline-block;
-  background: linear-gradient(45deg, var(--primary), var(--secondary));
-  color: white;
+  background-color: #e3f2fd; /* Bleu clair comme receiver skills */
+  color: #1976d2; /* Bleu foncé comme receiver skills */
   padding: 4px 12px;
-  border-radius: 20px;
+  border-radius: 16px; /* Plus arrondi comme receiver skills */
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500; /* Poids plus léger comme receiver skills */
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
@@ -277,11 +277,12 @@
   width: 100%;
 }
 
+/* 🎨 BOUTONS - Style receiver accepted skills */
 .action-btn {
   height: 44px;
-  font-weight: 600;
+  font-weight: 500; /* Poids plus léger comme receiver skills */
   text-transform: none;
-  border-radius: 10px;
+  border-radius: 8px; /* Moins arrondi comme receiver skills */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -290,29 +291,33 @@
   font-size: 0.95rem;
 }
 
+/* Bouton "Démarrer maintenant" - Rouge comme completed status */
 .immediate-btn {
-  background: linear-gradient(45deg, var(--danger), var(--producer));
-  color: white;
-  box-shadow: 0 4px 15px rgba(214, 48, 49, 0.3);
+  background: #e8f5e8; /* Fond vert clair comme completed */
+  color: #388e3c; /* Texte vert foncé comme completed */
+  border: 1px solid #a5d6a7; /* Bordure verte comme completed */
+  box-shadow: none; /* Pas d'ombre comme receiver skills */
 }
 
 .immediate-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(214, 48, 49, 0.4);
-  animation: pulse 1s infinite;
+  background: #388e3c; /* Vert foncé au hover */
+  color: white;
+  transform: translateY(-2px); /* Mouvement plus subtil */
+  box-shadow: 0 4px 12px rgba(56, 142, 60, 0.2);
 }
 
+/* Bouton "Programmer" - Style accepted status */
 .schedule-btn {
-  border: 2px solid var(--primary);
-  color: var(--primary);
-  background: white;
+  background: #e8f5e8; /* Fond vert clair comme accepted */
+  color: #388e3c; /* Texte vert foncé comme accepted */
+  border: 1px solid #a5d6a7; /* Bordure verte comme accepted */
 }
 
 .schedule-btn:hover {
-  background: var(--primary);
+  background: #388e3c; /* Vert foncé au hover */
   color: white;
-  transform: translateY(-3px);
-  box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(56, 142, 60, 0.2);
 }
 
 .action-btn mat-icon {
@@ -326,32 +331,35 @@
   width: 100%;
 }
 
+/* 🎨 BOUTON REJOINDRE - Style receiver accepted skills */
 .join-session-btn {
   width: 100%;
-  height: 50px;
-  font-weight: 600;
+  height: 44px; /* Hauteur comme receiver skills */
+  font-weight: 500; /* Poids comme receiver skills */
   text-transform: none;
-  border-radius: 10px;
+  border-radius: 8px; /* Moins arrondi comme receiver skills */
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: linear-gradient(45deg, var(--primary), var(--secondary));
-  color: white;
+  background: #e8f5e8; /* Fond vert clair comme completed */
+  color: #388e3c; /* Texte vert foncé comme completed */
+  border: 1px solid #a5d6a7; /* Bordure verte comme completed */
   font-size: 1rem;
-  box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+  box-shadow: none; /* Pas d'ombre comme receiver skills */
 }
 
 .join-session-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(108, 92, 231, 0.4);
-  animation: pulse 1s infinite;
+  background: #388e3c; /* Vert foncé au hover */
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(56, 142, 60, 0.2);
 }
 
 .join-session-btn mat-icon {
-  font-size: 24px;
-  width: 24px;
-  height: 24px;
+  font-size: 20px; /* Taille comme receiver skills */
+  width: 20px;
+  height: 20px;
 }
 
 /* No Participants */
@@ -360,21 +368,171 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 16px;
-  background: linear-gradient(135deg, rgba(253, 203, 110, 0.1), rgba(253, 203, 110, 0.05));
-  border-radius: 10px;
-  color: var(--warning);
+  padding: 12px; /* Padding comme receiver skills */
+  background: #fff3e0; /* Fond orange clair comme pending */
+  color: #f57c00; /* Texte orange comme pending */
+  border: 1px solid #ffcc80; /* Bordure orange comme pending */
+  border-radius: 8px; /* Moins arrondi comme receiver skills */
   font-weight: 500;
   text-align: center;
-  border: 1px solid rgba(253, 203, 110, 0.3);
 }
 
 .no-participants mat-icon {
-  font-size: 20px;
-  color: var(--warning);
+  font-size: 18px; /* Taille comme receiver skills */
+  width: 18px;
+  height: 18px;
+  color: #f57c00;
 }
 
-/* Animations from main app */
+/* Skill Rating Section */
+.skill-rating {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: 16px;
+  border-left: 4px solid #FFD700;
+}
+
+.rating-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.rating-summary > mat-icon {
+  color: #FFD700;
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
+}
+
+.rating-label {
+  font-weight: 600;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.rating-value {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.rating-number {
+  font-size: 1.4rem;
+  font-weight: bold;
+  transition: color 0.3s ease;
+}
+
+.rating-count {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.stars-mini {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.star-icon-mini {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #ddd;
+  transition: color 0.2s ease;
+}
+
+.star-icon-mini.filled {
+  color: #FFD700;
+}
+
+.no-rating {
+  color: #999;
+  font-style: italic;
+  font-size: 0.95rem;
+}
+
+/* 🎨 BOUTON VOIR ÉVALUATIONS - Style receiver accepted skills */
+.view-ratings-btn {
+  margin-top: 8px;
+  font-size: 0.9rem;
+  height: 36px; /* Hauteur comme receiver skills */
+  font-weight: 500; /* Poids comme receiver skills */
+  border-radius: 8px; /* Moins arrondi comme receiver skills */
+  background: #e3f2fd; /* Fond bleu clair comme receiver skills */
+  color: #1976d2; /* Texte bleu comme receiver skills */
+  border: 1px solid #90caf9; /* Bordure bleue comme receiver skills */
+}
+
+.view-ratings-btn:hover {
+  background: #1976d2; /* Bleu foncé au hover */
+  color: white;
+}
+
+.view-ratings-btn mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  margin-right: 4px;
+}
+
+/* 🎨 STYLES POUR LES SESSIONS COMPLÉTÉES - Style receiver accepted skills */
+.skill-card.session-completed {
+  position: relative;
+  border: 2px solid #a5d6a7; /* Bordure verte comme accepted */
+  background: linear-gradient(to bottom, rgba(168, 214, 167, 0.02), transparent); /* Fond vert très subtil */
+}
+
+.skill-card.session-completed::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 60px 60px 0;
+  border-color: transparent #4caf50 transparent transparent; /* Vert comme completed */
+}
+
+.skill-card.session-completed::after {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  z-index: 1;
+}
+
+/* 🎯 BADGE SESSION TERMINÉE CENTRÉ */
+.session-completed-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #e8f5e8; /* Fond vert clair comme completed status */
+  color: #388e3c; /* Texte vert foncé comme completed status */
+  border: 1px solid #a5d6a7; /* Bordure verte comme completed status */
+  padding: 12px 16px;
+  border-radius: 8px; /* Moins arrondi comme receiver skills */
+  font-weight: 500;
+  font-size: 0.85rem; /* Taille comme receiver skills status */
+  margin: 0 auto; /* Centrage horizontal */
+  width: fit-content;
+  text-align: center;
+}
+
+.session-completed-badge mat-icon {
+  font-size: 16px; /* Taille comme receiver skills */
+  width: 16px;
+  height: 16px;
+}
+
+/* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
@@ -402,7 +560,7 @@
   100% { transform: translateY(0) rotate(0deg); }
 }
 
-/* Progress bar styling to match app theme */
+/* Progress bar styling */
 mat-progress-bar {
   margin-bottom: 20px;
   border-radius: 4px;
@@ -412,10 +570,11 @@ mat-progress-bar .mat-progress-bar-fill::after {
   background: linear-gradient(45deg, var(--primary), var(--secondary));
 }
 
-/* Focus states for accessibility */
+/* Focus states */
 .action-btn:focus,
 .join-session-btn:focus,
-.inscrits-button:focus {
+.inscrits-button:focus,
+.view-ratings-btn:focus {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
@@ -432,6 +591,22 @@ mat-progress-bar .mat-progress-bar-fill::after {
   font-size: 20px;
   margin-right: 8px;
   color: var(--danger);
+}
+
+/* Status chip colors matching receiver accepted skills theme */
+mat-chip[color="warn"] {
+  background-color: #ffebee !important; /* Rouge clair comme rejected */
+  color: #d32f2f !important; /* Rouge foncé comme rejected */
+}
+
+mat-chip[color="accent"] {
+  background-color: #e3f2fd !important; /* Bleu clair comme in-progress */
+  color: #1976d2 !important; /* Bleu foncé comme in-progress */
+}
+
+mat-chip[color="primary"] {
+  background-color: #e8f5e8 !important; /* Vert clair comme completed */
+  color: #388e3c !important; /* Vert foncé comme completed */
 }
 
 /* Responsive Design */
@@ -463,7 +638,21 @@ mat-progress-bar .mat-progress-bar-fill::after {
   }
   
   .join-session-btn {
-    height: 44px;
+    height: 42px;
+  }
+  
+  .skill-rating {
+    padding: 12px;
+  }
+  
+  .rating-summary {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .rating-value {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 
@@ -489,21 +678,193 @@ mat-progress-bar .mat-progress-bar-fill::after {
   .skill-description {
     font-size: 0.85rem;
   }
+}/* AJOUTER CETTE NOUVELLE RÈGLE CSS */
+
+/* Une seule ligne pour tous les métadonnées */
+.single-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  flex-wrap: nowrap; /* Empêche le retour à la ligne */
 }
 
-/* Status chip colors matching the app theme */
-mat-chip[color="warn"] {
-  background-color: var(--danger) !important;
+.single-meta-row .meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #636e72;
+  white-space: nowrap; /* Empêche le texte de se casser */
+  flex-shrink: 0; /* Empêche la compression */
+}
+
+.single-meta-row .meta-item mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.single-meta-row .meta-item.price {
+  color: var(--success); /* Vert TND */
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Ajuster le bouton inscrits pour la ligne unique */
+.single-meta-row .inscrits-button {
+  min-width: auto !important;
+  padding: 0 6px !important;
+  line-height: 1 !important;
+  font-weight: 600 !important;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  color: var(--primary) !important;
+  background-color: rgba(108, 92, 231, 0.08);
+  font-size: 0.85rem;
+  height: 24px;
+}
+
+.single-meta-row .inscrits-button:hover {
+  background-color: var(--primary);
   color: white !important;
+  transform: translateY(-1px);
 }
 
-mat-chip[color="accent"] {
-  background-color: var(--secondary) !important;
+.single-meta-row .capacity-text {
+  color: #636e72;
+  margin-left: 2px;
+  font-size: 0.85rem;
+}
+
+/* RESPONSIVE pour la ligne unique */
+@media (max-width: 768px) {
+  .single-meta-row {
+    gap: 8px;
+  }
+  
+  .single-meta-row .meta-item {
+    font-size: 0.8rem;
+  }
+  
+  .single-meta-row .meta-item mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .single-meta-row {
+    gap: 6px;
+  }
+  
+  .single-meta-row .meta-item {
+    font-size: 0.75rem;
+  }
+  
+  .single-meta-row .meta-item.price {
+    font-size: 0.8rem;
+  }
+}
+/* AJOUTER CETTE NOUVELLE RÈGLE CSS */
+
+/* Une seule ligne pour tous les métadonnées */
+.single-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  flex-wrap: nowrap; /* Empêche le retour à la ligne */
+}
+
+.single-meta-row .meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #636e72;
+  white-space: nowrap; /* Empêche le texte de se casser */
+  flex-shrink: 0; /* Empêche la compression */
+}
+
+.single-meta-row .meta-item mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.single-meta-row .meta-item.price {
+  color: #4caf50 !important; /* Même vert que skills */
+  font-weight: 700 !important; /* Plus gras pour TND */
+  font-size: 1rem !important; /* Garder la taille originale livestreams */
+}
+
+/* Forcer le vert pour tous les éléments du prix */
+.single-meta-row .meta-item.price span {
+  color: #4caf50 !important;
+  font-weight: 500 !important;
+}
+
+/* Ajuster le bouton inscrits pour la ligne unique */
+.single-meta-row .inscrits-button {
+  min-width: auto !important;
+  padding: 0 6px !important;
+  line-height: 1 !important;
+  font-weight: 600 !important;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  color: var(--primary) !important;
+  background-color: rgba(108, 92, 231, 0.08);
+  font-size: 0.85rem;
+  height: 24px;
+}
+
+.single-meta-row .inscrits-button:hover {
+  background-color: var(--primary);
   color: white !important;
+  transform: translateY(-1px);
 }
 
-mat-chip[color="primary"] {
-  background-color: var(--primary) !important;
-  color: white !important;
+.single-meta-row .capacity-text {
+  color: #636e72;
+  margin-left: 2px;
+  font-size: 0.85rem;
 }
 
+/* RESPONSIVE pour la ligne unique */
+@media (max-width: 768px) {
+  .single-meta-row {
+    gap: 8px;
+  }
+  
+  .single-meta-row .meta-item {
+    font-size: 0.8rem;
+  }
+  
+  .single-meta-row .meta-item mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .single-meta-row {
+    gap: 6px;
+  }
+  
+  .single-meta-row .meta-item {
+    font-size: 0.75rem;
+  }
+  
+  .single-meta-row .meta-item.price {
+    font-size: 0.8rem;
+  }
+}

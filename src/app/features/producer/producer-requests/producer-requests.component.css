@@ -1,10 +1,18 @@
+/* ============================================================================
+   📋 PRODUCER-REQUESTS.COMPONENT.CSS - VERSION OPTIMISÉE ET RÉDUITE
+   ============================================================================ */
 
+/* 🎯 Container principal */
 .main-container {
-  background-color: var(--light, #f5f6fa);
+  padding: 0px 20px 20px 20px;
+  margin: -40px auto 0 auto;
+  max-width: 1200px;
+  background-color: #f5f6fa;
   min-height: 100vh;
-  padding: 2rem 5%;
+  animation: fadeIn 0.8s ease-out;
 }
 
+/* ⚠️ États de chargement et erreur */
 .loading {
   display: flex;
   justify-content: center;
@@ -13,7 +21,7 @@
 }
 
 .error {
-  color: var(--danger, #d63031);
+  color: #d63031;
   padding: 1rem;
   background-color: #ffebee;
   border-radius: 8px;
@@ -22,29 +30,39 @@
   animation: fadeIn 0.5s ease-out;
 }
 
+/* 📋 Section des demandes */
 .requests-section {
-  padding: 2rem 0;
+  padding: 15px 0 2rem 0;
   background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
   animation: fadeIn 0.8s ease-out;
 }
 
 .section-title {
   text-align: center;
-  font-size: clamp(1.8rem, 4vw, 2.5rem);
-  margin-bottom: 1rem;
-  color: var(--dark, #2d3436);
+  font-size: 1.75rem;
+  margin: 0 0 1rem 0;
+  color: #2d3436;
+  font-weight: 700;
+  background: linear-gradient(45deg, #6c5ce7, #fd79a8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   animation: slideInLeft 0.8s ease-out;
 }
 
 .section-subtitle {
   text-align: center;
   color: #636e72;
-  max-width: 700px;
-  margin: 0 auto 2rem;
-  line-height: 1.6;
+  max-width: 600px;
+  margin: 0 auto 1.5rem;
+  line-height: 1.5;
+  font-size: 1rem;
   animation: fadeIn 0.8s ease-out 0.2s both;
 }
 
+/* 🎴 Grille des demandes */
 .requests-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -52,20 +70,24 @@
   margin-top: 1.5rem;
 }
 
+/* 🃏 Carte de demande */
 .request-card {
   background: #ffffff;
   border-radius: 10px;
   padding: 1rem;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
   border: 1px solid rgba(0,0,0,0.05);
+  transition: all 0.3s ease;
 }
 
 .request-card:hover {
-  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  transform: translateY(-2px);
 }
 
+/* 📋 Header de carte */
 mat-card-header {
-  background: var(--primary, #6c5ce7);
+  background: #6c5ce7;
   color: #ffffff;
   padding: 0.8rem;
   border-radius: 8px 8px 0 0;
@@ -73,10 +95,12 @@ mat-card-header {
 }
 
 mat-card-title {
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   font-weight: 600;
+  margin: 0;
 }
 
+/* 📊 Tableau des demandes */
 .requests-table {
   width: 100%;
   border-collapse: collapse;
@@ -88,30 +112,28 @@ mat-card-title {
   padding: 0.6rem;
   text-align: left;
   border-bottom: 1px solid #dfe6e9;
+  font-size: 0.9rem;
 }
 
 .requests-table th {
-  background-color: var(--light, #f5f6fa);
+  background-color: #f5f6fa;
   font-weight: 600;
-  color: var(--primary, #6c5ce7);
+  color: #6c5ce7;
 }
 
 .requests-table tr:hover {
   background-color: rgba(108, 92, 231, 0.05);
 }
 
-.reject-button {
-  margin-left: 0.5rem;
-}
-
+/* 🔘 Boutons */
 .btn {
-  padding: 0.5rem 1.2rem;
-  border-radius: 25px;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   border: none;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -119,12 +141,12 @@ mat-card-title {
 }
 
 .btn-receiver {
-  background-color: var(--receiver, #74b9ff);
+  background-color: #74b9ff;
 }
 
 .btn-receiver:hover:not(:disabled) {
-  background-color: var(--receiver-dark, #5aa8f5);
-  transform: scale(1.02);
+  background-color: #5aa8f5;
+  transform: scale(1.05);
 }
 
 .btn-receiver:disabled {
@@ -133,32 +155,41 @@ mat-card-title {
 }
 
 .btn-producer {
-  background-color: var(--producer, #fd79a8);
+  background-color: #fd79a8;
 }
 
 .btn-producer:hover {
-  background-color: var(--producer-dark, #e66797);
-  transform: scale(1.02);
+  background-color: #e66797;
+  transform: scale(1.05);
 }
 
+.reject-button {
+  margin-left: 0.5rem;
+}
+
+/* 🔍 État vide */
 .no-requests {
   text-align: center;
   color: #636e72;
-  padding: 1.5rem;
+  padding: 2rem 1.5rem;
   font-size: 1.1rem;
-  font-style: normal;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 2px dashed #dfe6e9;
 }
 
+/* 🎨 Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(15px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slideInLeft {
-  from { transform: translateX(-50px); opacity: 0; }
+  from { transform: translateX(-30px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
 
+/* 📱 Responsive Design */
 @media (max-width: 992px) {
   .requests-grid {
     grid-template-columns: 1fr;
@@ -166,8 +197,13 @@ mat-card-title {
 }
 
 @media (max-width: 768px) {
+  .main-container {
+    padding: 0px 16px 16px 16px;
+    margin: -30px auto 0 auto;
+  }
+
   .section-title {
-    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-size: 1.5rem;
   }
 
   .requests-table th,
@@ -179,5 +215,38 @@ mat-card-title {
   .btn {
     padding: 0.4rem 0.8rem;
     font-size: 0.75rem;
+  }
+
+  .request-card {
+    padding: 0.8rem;
+  }
+
+  mat-card-header {
+    padding: 0.6rem;
+    margin: -0.8rem -0.8rem 0.8rem;
+  }
+
+  mat-card-title {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-container {
+    padding: 0px 12px 12px 12px;
+    margin: -20px auto 0 auto;
+  }
+
+  .section-title {
+    font-size: 1.3rem;
+  }
+
+  .requests-table {
+    font-size: 0.75rem;
+  }
+
+  .requests-table th,
+  .requests-table td {
+    padding: 0.3rem;
   }
 }

@@ -17,10 +17,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
 import { LivestreamSession } from '../../../models/LivestreamSession/livestream-session';
 import { firstValueFrom } from 'rxjs';
+import { RatingDisplayComponent } from '../../RatingDisplay/rating-display/rating-display.component';
 
 interface SkillWithExchange extends SkillResponse {
   exchangeStatus?: string;
   exchangeId?: number;
+  showFullDescription?: boolean;
 }
 
 @Component({
@@ -34,7 +36,8 @@ interface SkillWithExchange extends SkillResponse {
     MatDialogModule,
     MatSnackBarModule,
     MatButtonModule,
-    MatChipsModule
+    MatChipsModule,
+    RatingDisplayComponent
   ],
   templateUrl: './accepted-skills.component.html',
   styleUrls: ['./accepted-skills.component.css']
@@ -69,15 +72,20 @@ export class AcceptedSkillsComponent implements OnInit {
         // Then get accepted skills
         this.exchangeService.getAcceptedSkills().subscribe({
           next: (skills) => {
-            // Map exchange status to skills
-            this.skills = skills.map(skill => {
-              const exchange = exchanges.find(ex => ex.skillId === skill.id);
-              return {
-                ...skill,
-                exchangeStatus: exchange?.status,
-                exchangeId: exchange?.id
-              };
-            });
+            // 🎯 EXCLURE LES COMPÉTENCES TERMINÉES
+            const activeExchanges = exchanges.filter(ex => ex.status !== 'COMPLETED');
+            
+            // Map exchange status to skills and exclude completed ones
+            this.skills = skills
+              .map(skill => {
+                const exchange = activeExchanges.find(ex => ex.skillId === skill.id);
+                return {
+                  ...skill,
+                  exchangeStatus: exchange?.status,
+                  exchangeId: exchange?.id
+                };
+              })
+              .filter(skill => skill.exchangeStatus && skill.exchangeStatus !== 'COMPLETED'); // 🎯 Exclure les terminées
             
             this.loadProducerNames();
             this.checkActiveSessions();
@@ -147,7 +155,7 @@ export class AcceptedSkillsComponent implements OnInit {
   }
 
   /**
-   * Rejoindre un livestream - méthode mise à jour comme dans receiverskills
+   * 🎬 Rejoindre un livestream - méthode mise à jour
    */
   async joinLivestreamSession(skill: SkillWithExchange): Promise<void> {
     // Vérifier qu'il y a bien une session active pour cette compétence
@@ -166,7 +174,7 @@ export class AcceptedSkillsComponent implements OnInit {
     this.isLoading = true;
     
     try {
-      console.log(`Tentative de rejoindre la session ${session.id} pour la compétence ${skill.id}`);
+      console.log(`🎬 Tentative de rejoindre la session ${session.id} pour la compétence ${skill.id}`);
       
       // Obtenir le token pour rejoindre la session
       const joinToken = await firstValueFrom(
@@ -177,7 +185,7 @@ export class AcceptedSkillsComponent implements OnInit {
         throw new Error('Échec de la récupération du token de session');
       }
 
-      console.log('Token de session obtenu avec succès');
+      console.log('✅ Token de session obtenu avec succès');
 
       // Récupérer les détails de la session pour obtenir le nom de la room
       const sessionDetails = await firstValueFrom(
@@ -188,7 +196,7 @@ export class AcceptedSkillsComponent implements OnInit {
         throw new Error('Impossible de récupérer les détails de la session');
       }
 
-      console.log('Détails de session récupérés:', sessionDetails);
+      console.log('✅ Détails de session récupérés:', sessionDetails);
 
       // Naviguer vers le composant livestream avec les bonnes données
       this.router.navigate(['/receiver/livestream', session.id], {
@@ -201,7 +209,7 @@ export class AcceptedSkillsComponent implements OnInit {
       this.snackBar.open('Connexion au livestream en cours...', 'Fermer', { duration: 2000 });
       
     } catch (error: any) {
-      console.error('Erreur lors de la tentative de rejoindre le livestream:', error);
+      console.error('❌ Erreur lors de la tentative de rejoindre le livestream:', error);
       
       let errorMessage = 'Erreur lors de la connexion au livestream';
       if (error.message) {
@@ -216,12 +224,14 @@ export class AcceptedSkillsComponent implements OnInit {
     }
   }
 
+  /**
+   * 🎨 Méthodes pour les couleurs et labels des status
+   */
   getStatusColor(status: string): string {
     switch (status) {
       case 'PENDING': return 'accent';
       case 'ACCEPTED': return 'primary';
       case 'IN_PROGRESS': return 'primary';
-      case 'COMPLETED': return 'primary';
       case 'REJECTED': return 'warn';
       case 'CANCELLED': return 'warn';
       default: return '';
@@ -233,13 +243,22 @@ export class AcceptedSkillsComponent implements OnInit {
       case 'PENDING': return 'En attente';
       case 'ACCEPTED': return 'Accepté';
       case 'IN_PROGRESS': return 'En cours';
-      case 'COMPLETED': return 'Terminé';
       case 'REJECTED': return 'Rejeté';
       case 'CANCELLED': return 'Annulé';
       default: return status;
     }
   }
 
+  /**
+   * 📝 Toggle pour afficher/masquer la description complète
+   */
+  toggleDescription(skill: SkillWithExchange): void {
+    skill.showFullDescription = !skill.showFullDescription;
+  }
+
+  /**
+   * ✅ Vérifier si l'utilisateur peut rejoindre le livestream
+   */
   canJoinLivestream(skill: SkillWithExchange): boolean {
     const session = this.sessions[skill.id];
     return session && 

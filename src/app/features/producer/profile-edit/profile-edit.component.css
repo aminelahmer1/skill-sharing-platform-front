@@ -1,66 +1,786 @@
-/* src/app/features/producer/profile-edit/profile-edit.component.css */
+/* ============================================================================
+   ✏️ PROFILE EDIT COMPONENT - STYLES DÉDIÉS
+   ============================================================================ */
+
+/* Variables CSS spécifiques à l'édition */
+:host {
+  --edit-primary: #6c5ce7;
+  --edit-primary-dark: #5649c0;
+  --edit-primary-light: #a29bfe;
+  --edit-secondary: #74b9ff;
+  --edit-accent: #fd79a8;
+  --edit-success: #00b894;
+  --edit-warning: #fdcb6e;
+  --edit-danger: #e17055;
+  --edit-dark: #2d3436;
+  --edit-gray: #636e72;
+  --edit-light-gray: #b2bec3;
+  --edit-white: #ffffff;
+  --edit-background: #f8f9fa;
+  --edit-border: #dfe6e9;
+  --edit-border-light: #e8ecef;
+  
+  --edit-shadow-xs: 0 2px 4px rgba(108, 92, 231, 0.04);
+  --edit-shadow-sm: 0 4px 12px rgba(108, 92, 231, 0.08);
+  --edit-shadow-md: 0 8px 25px rgba(108, 92, 231, 0.12);
+  --edit-shadow-lg: 0 15px 40px rgba(108, 92, 231, 0.15);
+  --edit-shadow-xl: 0 25px 50px rgba(108, 92, 231, 0.20);
+  
+  --edit-radius-xs: 6px;
+  --edit-radius-sm: 8px;
+  --edit-radius-md: 12px;
+  --edit-radius-lg: 16px;
+  --edit-radius-xl: 24px;
+  --edit-radius-full: 50px;
+  
+  --edit-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --edit-transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --edit-transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Container principal */
 .edit-container {
-    max-width: 800px;
-    margin: 2rem auto;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  background: var(--edit-background);
+  min-height: 100vh;
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  position: relative;
+}
+
+/* Overlay de chargement global */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(248, 249, 250, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+  animation: editFadeIn 0.3s ease-out;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  background: var(--edit-white);
+  padding: 3rem 2rem;
+  border-radius: var(--edit-radius-lg);
+  box-shadow: var(--edit-shadow-lg);
+  text-align: center;
+}
+
+.loading-text {
+  color: var(--edit-gray);
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+}
+
+/* ===============================
+   CARD PRINCIPAL
+   =============================== */
+
+.edit-card {
+  background: var(--edit-white);
+  border-radius: var(--edit-radius-xl);
+  box-shadow: var(--edit-shadow-md);
+  border: 1px solid var(--edit-border);
+  overflow: hidden;
+  transition: var(--edit-transition);
+  animation: editSlideUp 0.8s ease-out;
+}
+
+.edit-card:hover {
+  box-shadow: var(--edit-shadow-lg);
+  transform: translateY(-2px);
+}
+
+.edit-card.loading {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+/* Header */
+.edit-header {
+  background: linear-gradient(135deg, var(--edit-primary) 0%, var(--edit-accent) 100%);
+  color: var(--edit-white);
+  padding: 3rem 2.5rem 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.edit-header::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  right: -15%;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: editFloat 8s ease-in-out infinite;
+}
+
+.edit-header::after {
+  content: '';
+  position: absolute;
+  bottom: -20%;
+  left: -10%;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 60%);
+  border-radius: 50%;
+  animation: editFloat 6s ease-in-out infinite reverse;
+}
+
+.header-content {
+  position: relative;
+  z-index: 2;
+}
+
+.edit-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  letter-spacing: -0.025em;
+}
+
+.title-icon {
+  font-size: 2.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  animation: editBounce 2s ease-in-out infinite;
+}
+
+.edit-subtitle {
+  font-size: 1.1rem;
+  opacity: 0.9;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  margin: 0;
+}
+
+/* ===============================
+   CONTENU DU FORMULAIRE
+   =============================== */
+
+.edit-content {
+  padding: 3rem 2.5rem;
+  background: var(--edit-white);
+}
+
+/* Sections */
+.avatar-section,
+.personal-info-section,
+.address-section {
+  margin-bottom: 3.5rem;
+  padding: 2rem;
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
+  border-radius: var(--edit-radius-lg);
+  border: 1px solid var(--edit-border-light);
+  box-shadow: var(--edit-shadow-xs);
+  transition: var(--edit-transition);
+  animation: editFadeInUp 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+.avatar-section { animation-delay: 0.1s; }
+.personal-info-section { animation-delay: 0.2s; }
+.address-section { animation-delay: 0.3s; }
+
+.avatar-section:hover,
+.personal-info-section:hover,
+.address-section:hover {
+  box-shadow: var(--edit-shadow-sm);
+  transform: translateY(-2px);
+}
+
+/* Titres de sections */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--edit-primary);
+  margin-bottom: 2rem;
+  letter-spacing: 0.025em;
+}
+
+.section-title mat-icon {
+  font-size: 1.6rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  color: var(--edit-accent);
+}
+
+/* ===============================
+   SECTION AVATAR
+   =============================== */
+
+.avatar-upload-container {
+  display: flex;
+  gap: 2.5rem;
+  align-items: flex-start;
+}
+
+.avatar-preview {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid var(--edit-white);
+  box-shadow: var(--edit-shadow-md);
+  transition: var(--edit-transition);
+  flex-shrink: 0;
+}
+
+.avatar-preview:hover {
+  transform: scale(1.05);
+  box-shadow: var(--edit-shadow-lg);
+}
+
+.profile-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: var(--edit-transition);
+  background: linear-gradient(135deg, var(--edit-primary) 0%, var(--edit-accent) 100%);
+}
+
+.profile-image.uploading {
+  filter: blur(2px) brightness(0.7);
+}
+
+.upload-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  gap: 0.5rem;
+  animation: editFadeIn 0.3s ease-out;
+}
+
+.upload-text {
+  color: var(--edit-white);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.remove-photo-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 32px;
+  height: 32px;
+  background: var(--edit-danger);
+  color: var(--edit-white);
+  border: 2px solid var(--edit-white);
+  box-shadow: var(--edit-shadow-sm);
+  transition: var(--edit-transition);
+}
+
+.remove-photo-btn:hover {
+  background: #d63031;
+  transform: scale(1.1);
+}
+
+.upload-actions {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, var(--edit-primary) 0%, var(--edit-primary-light) 100%);
+  color: var(--edit-white);
+  border: none;
+  border-radius: var(--edit-radius-full);
+  font-weight: 600;
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: 0.025em;
+  box-shadow: var(--edit-shadow-sm);
+  transition: var(--edit-transition);
+  cursor: pointer;
+  min-width: 200px;
+  justify-content: center;
+}
+
+.upload-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--edit-shadow-md);
+  background: linear-gradient(135deg, var(--edit-primary-dark) 0%, var(--edit-primary) 100%);
+}
+
+.upload-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.upload-info {
+  padding: 1rem;
+  background: rgba(116, 185, 255, 0.1);
+  border-radius: var(--edit-radius-sm);
+  border: 1px solid rgba(116, 185, 255, 0.2);
+}
+
+.help-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--edit-gray);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.info-icon {
+  font-size: 1rem;
+  width: 1rem;
+  height: 1rem;
+  color: var(--edit-secondary);
+}
+
+/* ===============================
+   GRILLE DE FORMULAIRE
+   =============================== */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.form-field {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.form-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.bio-textarea {
+  resize: vertical;
+  min-height: 120px;
+  font-family: inherit;
+  line-height: 1.6;
+}
+
+.char-counter {
+  font-size: 0.8rem;
+  color: var(--edit-gray);
+  font-weight: 500;
+  transition: var(--edit-transition);
+}
+
+.char-counter.error {
+  color: var(--edit-danger);
+  font-weight: 600;
+}
+
+/* ===============================
+   ACTIONS DU FORMULAIRE
+   =============================== */
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1.5rem;
+  padding: 2.5rem 2rem;
+  background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
+  border-top: 1px solid var(--edit-border);
+  margin: 3rem -2.5rem -3rem;
+  animation: editSlideInUp 0.6s ease-out 0.4s both;
+}
+
+.cancel-btn,
+.save-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2.5rem;
+  border-radius: var(--edit-radius-full);
+  font-weight: 600;
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: 0.025em;
+  transition: var(--edit-transition);
+  border: none;
+  cursor: pointer;
+  min-width: 160px;
+  justify-content: center;
+}
+
+.cancel-btn {
+  background: transparent;
+  color: var(--edit-gray);
+  border: 2px solid var(--edit-border) !important;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: var(--edit-gray);
+  color: var(--edit-white);
+  border-color: var(--edit-gray) !important;
+  transform: translateY(-2px);
+  box-shadow: var(--edit-shadow-sm);
+}
+
+.save-btn {
+  background: linear-gradient(135deg, var(--edit-success) 0%, #00a085 100%);
+  color: var(--edit-white);
+  box-shadow: var(--edit-shadow-sm);
+}
+
+.save-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--edit-shadow-md);
+  background: linear-gradient(135deg, #00a085 0%, var(--edit-success) 100%);
+}
+
+.save-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-spinner {
+  margin-right: 0.5rem;
+}
+
+/* ===============================
+   SURCHARGES MATERIAL DESIGN
+   =============================== */
+
+/* Form Fields */
+.edit-container ::ng-deep .mat-mdc-form-field {
+  width: 100%;
+}
+
+.edit-container ::ng-deep .mat-mdc-form-field .mat-mdc-floating-label {
+  color: var(--edit-primary);
+  font-weight: 500;
+}
+
+.edit-container ::ng-deep .mat-mdc-form-field.mat-focused .mat-mdc-floating-label {
+  color: var(--edit-primary);
+}
+
+.edit-container ::ng-deep .mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+.edit-container ::ng-deep .mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
+.edit-container ::ng-deep .mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
+  border-color: var(--edit-primary) !important;
+  border-width: 2px !important;
+}
+
+.edit-container ::ng-deep .mat-mdc-form-field .mdc-notched-outline__leading,
+.edit-container ::ng-deep .mat-mdc-form-field .mdc-notched-outline__notch,
+.edit-container ::ng-deep .mat-mdc-form-field .mdc-notched-outline__trailing {
+  border-color: var(--edit-border);
+  border-radius: var(--edit-radius-sm);
+}
+
+.edit-container ::ng-deep .mat-mdc-form-field:hover .mdc-notched-outline__leading,
+.edit-container ::ng-deep .mat-mdc-form-field:hover .mdc-notched-outline__notch,
+.edit-container ::ng-deep .mat-mdc-form-field:hover .mdc-notched-outline__trailing {
+  border-color: var(--edit-primary);
+}
+
+/* Input Fields */
+.edit-container ::ng-deep .mat-mdc-input-element {
+  color: var(--edit-dark);
+  font-weight: 500;
+}
+
+.edit-container ::ng-deep .mat-mdc-input-element::placeholder {
+  color: var(--edit-light-gray);
+  font-weight: 400;
+}
+
+/* Prefix Icons */
+.edit-container ::ng-deep .mat-mdc-form-field-icon-prefix {
+  color: var(--edit-primary);
+  margin-right: 0.75rem;
+}
+
+/* Hints */
+.edit-container ::ng-deep .mat-mdc-form-field-hint {
+  color: var(--edit-gray);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Errors */
+.edit-container ::ng-deep .mat-mdc-form-field-error {
+  color: var(--edit-danger);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Cards */
+.edit-container ::ng-deep .mat-mdc-card {
+  border-radius: var(--edit-radius-xl);
+}
+
+.edit-container ::ng-deep .mat-mdc-card-header {
+  padding-bottom: 0;
+}
+
+.edit-container ::ng-deep .mat-mdc-card-content {
+  padding-top: 0;
+}
+
+/* Buttons */
+.edit-container ::ng-deep .mat-mdc-button-base {
+  border-radius: var(--edit-radius-full);
+}
+
+.edit-container ::ng-deep .mat-mdc-raised-button:not(:disabled) {
+  background-color: transparent;
+}
+
+/* Spinners */
+.edit-container ::ng-deep mat-spinner {
+  --mdc-circular-progress-active-indicator-color: var(--edit-primary);
+}
+
+/* ===============================
+   ANIMATIONS
+   =============================== */
+
+@keyframes editFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes editSlideUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes editFadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes editSlideInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes editFloat {
+  0% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-15px) rotate(180deg); }
+  100% { transform: translateY(0) rotate(360deg); }
+}
+
+@keyframes editBounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-8px); }
+  60% { transform: translateY(-4px); }
+}
+
+/* ===============================
+   RESPONSIVE DESIGN
+   =============================== */
+
+@media (max-width: 768px) {
+  .edit-container {
     padding: 1rem;
   }
-  
-  .form-section {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+
+  .edit-header {
+    padding: 2rem 1.5rem;
   }
-  
-  .avatar-upload {
-    display: flex;
+
+  .edit-title {
+    font-size: 1.8rem;
+    flex-direction: column;
+    text-align: center;
+    gap: 0.5rem;
+  }
+
+  .title-icon {
+    font-size: 2rem;
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .edit-content {
+    padding: 2rem 1.5rem;
+  }
+
+  .avatar-section,
+  .personal-info-section,
+  .address-section {
+    padding: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .avatar-upload-container {
     flex-direction: column;
     align-items: center;
-    gap: 1rem;
-    margin-bottom: 2rem;
+    gap: 2rem;
   }
-  
+
   .avatar-preview {
     width: 150px;
     height: 150px;
-    border-radius: 50%;
-    overflow: hidden;
-    border: 3px solid #eee;
   }
-  
-  .avatar-preview img {
+
+  .upload-actions {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  #profile-picture {
-    display: none;
-  }
-  
-  .avatar-upload label {
-    padding: 0.5rem 1rem;
-    background-color: #3f51b5;
-    color: white;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-  }
-  
-  .avatar-upload label:hover {
-    background-color: #303f9f;
-  }
-  
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-    margin-top: 2rem;
-  }
-  
-  .error-message {
-    display: flex;
     align-items: center;
-    gap: 0.5rem;
-    color: #f44336;
-    margin-top: 1rem;
   }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    padding: 2rem 1.5rem;
+    margin: 2rem -1.5rem -2rem;
+    gap: 1rem;
+  }
+
+  .cancel-btn,
+  .save-btn {
+    width: 100%;
+    padding: 1.25rem 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .edit-container {
+    padding: 0.75rem;
+  }
+
+  .edit-header {
+    padding: 1.5rem 1rem;
+  }
+
+  .edit-title {
+    font-size: 1.5rem;
+  }
+
+  .edit-content {
+    padding: 1.5rem 1rem;
+  }
+
+  .avatar-section,
+  .personal-info-section,
+  .address-section {
+    padding: 1.25rem;
+  }
+
+  .avatar-preview {
+    width: 120px;
+    height: 120px;
+  }
+
+  .section-title {
+    font-size: 1.2rem;
+  }
+
+  .form-actions {
+    padding: 1.5rem 1rem;
+    margin: 1.5rem -1rem -1.5rem;
+  }
+}
+
+/* ===============================
+   SNACKBAR PERSONNALISÉ
+   =============================== */
+
+::ng-deep .success-snackbar {
+  background: var(--edit-success) !important;
+  color: var(--edit-white) !important;
+  font-weight: 600 !important;
+  border-radius: var(--edit-radius-sm) !important;
+}
+
+::ng-deep .error-snackbar {
+  background: var(--edit-danger) !important;
+  color: var(--edit-white) !important;
+  font-weight: 600 !important;
+  border-radius: var(--edit-radius-sm) !important;
+}
+
+::ng-deep .mat-mdc-snack-bar-container {
+  box-shadow: var(--edit-shadow-lg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ===============================
+   ÉTATS FOCUS ET ACCESSIBILITÉ
+   =============================== */
+
+.upload-btn:focus-visible,
+.cancel-btn:focus-visible,
+.save-btn:focus-visible,
+.remove-photo-btn:focus-visible {
+  outline: 2px solid var(--edit-primary);
+  outline-offset: 2px;
+}
+
+.edit-container button:focus-visible {
+  z-index: 1;
+}
+
+/* Mode contraste élevé */
+@media (prefers-contrast: high) {
+  .avatar-section,
+  .personal-info-section,
+  .address-section {
+    border-width: 2px;
+  }
+  
+  .upload-info {
+    border-width: 2px;
+  }
+  
+  .section-title {
+    font-weight: 900;
+  }
+}
+
+/* Animations réduites pour les utilisateurs qui les préfèrent */
+@media (prefers-reduced-motion: reduce) {
+  .edit-container *,
+  .edit-container ::ng-deep * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

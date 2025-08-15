@@ -146,6 +146,7 @@
 /* ===== BASE STYLES (maintenir) ===== */
 .livestream-container {
   height: 100vh;
+   margin: -40px auto 0 auto;
   display: flex;
   flex-direction: column;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

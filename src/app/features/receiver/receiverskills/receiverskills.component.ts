@@ -541,9 +541,12 @@ canReserve(skill: SkillWithExchangeStatus): boolean {
   }
 
 
-  showExchangeMessage(skill: SkillWithExchangeStatus): boolean {
-    return !!(skill.exchangeMessage && skill.exchangeStatus !== 'available');
-  }
+showExchangeMessage(skill: SkillWithExchangeStatus): boolean {
+  // Exclure le statut 'rejected' de l'affichage du message d'échange
+  return !!(skill.exchangeMessage && 
+           skill.exchangeStatus !== 'available' && 
+           skill.exchangeStatus !== 'rejected');
+}
 
   hasLivestreamSession(skill: SkillWithExchangeStatus): boolean {
     return !!this.livestreamSessions[skill.id];

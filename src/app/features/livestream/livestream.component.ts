@@ -4,6 +4,10 @@ import { ChatService, ChatMessage, TypingIndicator } from '../../core/services/C
 import { RecordingService, RecordingStatus } from '../../core/services/Recording/recording.service';
 import { UserService } from '../../core/services/User/user.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { RatingDialogComponent } from '../RatingDialog/rating-dialog/rating-dialog.component';
+import { ExchangeService } from '../../core/services/Exchange/exchange.service';
+import { EndSessionDialogComponent } from '../receiver/EndSessionDialog/end-session-dialog/end-session-dialog.component';
+
 import { 
   Room, 
   RoomEvent, 
@@ -34,6 +38,7 @@ import { firstValueFrom, Subject, takeUntil, debounceTime, distinctUntilChanged,
 import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatDialog } from '@angular/material/dialog';
 interface TopThumbnailInfo {
   id: string;
   element: HTMLVideoElement;
@@ -102,6 +107,10 @@ export class LivestreamComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('messagesContainer') messagesContainer!: ElementRef;
   @ViewChild('messageInput') messageInput!: ElementRef;
 
+  private exchangeId?: number;
+private skillName?: string;
+private producerName?: string;
+private sessionEndedByProducer = false;
 
   // =====  SYSTÈMES DE MINIATURES =====
 private topThumbnails = new Map<string, TopThumbnailInfo>();
@@ -1045,7 +1054,11 @@ public forceProducerCameraToSidebar(): void {
     private recordingService: RecordingService,
     private userService: UserService,
     private snackBar: MatSnackBar,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private exchangeService :ExchangeService,
+   
+   private dialog: MatDialog
+
   ) {}
 
   // ============================================================================
@@ -1089,43 +1102,90 @@ public forceProducerCameraToSidebar(): void {
     this.setupChatScrolling();
   }
 
-   async ngOnDestroy(): Promise<void> {
-    try {
-      this.destroy$.next();
-      this.destroy$.complete();
-      
-      // Nettoyer les miniatures receivers
-      this.clearAllReceiverThumbnails();
-      
-      // Logique existante...
-      this.stopStreamTimer();
-      this.removeKeyboardShortcuts();
-      this.removeWindowFocusListeners();
-      
-      if (this.isTyping) {
-        this.chatService.sendTypingIndicator(this.sessionId, false);
-      }
-      this.chatService.leaveSession(this.sessionId);
-      
-      if (this.chatReconnectTimer) {
-        clearInterval(this.chatReconnectTimer);
-        this.chatReconnectTimer = undefined;
-      }
-      
-      this.recordingService.cleanup();
-      
-      if (this.room) {
-        await this.livestreamService.disconnectFromRoom(this.room);
-      }
-      
-      this.cleanupAllMediaElements();
-      document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
-      
-      console.log('LivestreamComponent destroyed successfully');
-    } catch (error) {
-      console.error('Error during component destruction:', error);
+  async ngOnDestroy(): Promise<void> {
+  try {
+    this.destroy$.next();
+    this.destroy$.complete();
+    
+    // Nettoyer les miniatures receivers
+    this.clearAllReceiverThumbnails();
+    
+    // Arrêter les timers
+    this.stopStreamTimer();
+    this.removeKeyboardShortcuts();
+    this.removeWindowFocusListeners();
+    
+    // Chat cleanup
+    if (this.isTyping) {
+      this.chatService.sendTypingIndicator(this.sessionId, false);
     }
+    this.chatService.leaveSession(this.sessionId);
+    
+    if (this.chatReconnectTimer) {
+      clearInterval(this.chatReconnectTimer);
+      this.chatReconnectTimer = undefined;
+    }
+    
+    this.recordingService.cleanup();
+    
+    // Déconnecter de la room SANS terminer la session
+    if (this.room) {
+      await this.livestreamService.disconnectFromRoom(this.room);
+    }
+    
+    this.cleanupAllMediaElements();
+    document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
+    
+    // Si c'est un receiver et que la session a été terminée par le producteur
+    // le mécanisme de rating a déjà été géré dans handleProducerEndedSession()
+    
+    console.log('LivestreamComponent destroyed successfully');
+    
+  } catch (error) {
+    console.error('Error during component destruction:', error);
   }
+}
+private listenForSessionEnd(): void {
+  if (this.isHost) return;
+  
+  console.log('👀 RECEIVER: Starting to listen for session end...');
+  
+  // Vérifier le statut de la session toutes les 3 secondes
+  interval(3000).pipe(
+    takeUntil(this.destroy$)
+  ).subscribe(async () => {
+    if (!this.session || !this.isConnected) return;
+    
+    try {
+      const currentSession = await firstValueFrom(
+        this.livestreamService.getSession(this.session.id)
+      );
+      
+      // Vérifier si la session est terminée
+      if (currentSession.status === 'COMPLETED' && this.isConnected) {
+        console.log('📺 Session marked as COMPLETED by producer');
+        this.sessionEndedByProducer = true;
+        await this.handleProducerEndedSession();
+      }
+    } catch (error) {
+      console.log('Error checking session status:', error);
+    }
+  });
+  
+  // Écouter aussi les messages du chat pour une notification immédiate
+  this.chatService.messages$.pipe(
+    takeUntil(this.destroy$)
+  ).subscribe(messages => {
+    if (!messages || messages.length === 0) return;
+    
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage.message === '### SESSION TERMINÉE PAR LE PRODUCTEUR ###') {
+      console.log('📺 Received session end notification via chat');
+      this.sessionEndedByProducer = true;
+      this.handleProducerEndedSession();
+    }
+  });
+}
 
 
   // ============================================================================
@@ -3572,6 +3632,9 @@ private logProducerTracksInfo(): void {
     });
 
     this.validateSessionAccess(session);
+    if (!this.isHost) {
+    this.listenForSessionEnd();
+  }
   }
 
   private validateSessionAccess(session: LivestreamSession): void {
@@ -4463,17 +4526,185 @@ private updateThumbnailLabel(participantInfo: ParticipantInfo): void {
       .on(RoomEvent.ConnectionQualityChanged, this.handleConnectionQualityChanged.bind(this));
   }
 
-  private handleDisconnect(): void {
-    this.isConnected = false;
-    this.cleanupAllMediaElements();
-    this.stopStreamTimer();
-    
-    this.participantInfos = [];
-    this.updateParticipantCounts();
-    
+ private handleDisconnect(): void {
+  console.log('🔌 Disconnected from room');
+  
+  // Ne pas traiter si déjà géré
+  if (this.sessionEndHandled) return;
+  
+  this.isConnected = false;
+  this.cleanupAllMediaElements();
+  this.stopStreamTimer();
+  
+  this.participantInfos = [];
+  this.updateParticipantCounts();
+  
+  // Pour les receivers, vérifier si c'est une fin de session par le producteur
+  if (!this.isHost) {
+    // Vérifier le statut de la session
+    this.checkIfSessionEnded();
+  } else {
+    // Pour le producteur, simple notification de déconnexion
     this.showNotification('Déconnecté de la session');
-    this.cdr.detectChanges();
   }
+  
+  this.cdr.detectChanges();
+}
+private async checkIfSessionEnded(): Promise<void> {
+  try {
+    const currentSession = await firstValueFrom(
+      this.livestreamService.getSession(this.sessionId)
+    );
+    
+    if (currentSession.status === 'COMPLETED') {
+      console.log('📺 Session is completed, showing rating dialog');
+      this.sessionEndedByProducer = true;
+      await this.handleProducerEndedSession();
+    } else {
+      // Simple déconnexion réseau
+      this.showNotification('Déconnexion du stream - Tentative de reconnexion...');
+    }
+  } catch (error) {
+    console.error('Error checking session status:', error);
+    this.showNotification('Déconnecté de la session');
+  }
+}
+
+// 9. Ajouter une confirmation avant de terminer la session (optionnel mais recommandé)
+async confirmAndEndSession(): Promise<void> {
+  if (!this.isHost) return;
+  
+  // Calculer le nombre de participants actuels (excluant le host)
+  const participantCount = this.participantInfos.filter(p => !p.isLocal || !p.isProducer).length;
+  
+  // Ouvrir le dialogue de confirmation
+  const dialogRef = this.dialog.open(EndSessionDialogComponent, {
+    width: '500px',
+    maxWidth: '90vw',
+    disableClose: false, // Permettre de fermer avec ESC ou clic externe
+    autoFocus: false,
+    panelClass: 'end-session-dialog-container',
+    data: {
+      participantCount: participantCount
+    }
+  });
+  
+  // Attendre la réponse du dialogue
+  const confirmed = await firstValueFrom(dialogRef.afterClosed());
+  
+  // Si confirmé, terminer la session
+  if (confirmed) {
+    try {
+      // Afficher un indicateur de chargement
+      this.showNotification('Arrêt de la session en cours...', 'warning');
+      
+      // Terminer la session
+      await this.endSession();
+      
+    } catch (error) {
+      console.error('Erreur lors de la fin de session:', error);
+      this.showNotification('Erreur lors de l\'arrêt de la session', 'error');
+    }
+  }
+}
+
+private checkIfProducerEndedSession(): boolean {
+  // Vérifier si le producteur n'est plus dans la room
+  const producerParticipant = this.findRemoteProducerParticipant();
+  return !producerParticipant && this.isConnected === false;
+}
+
+// 5. Ajouter la méthode pour gérer la fin par le producteur
+private async handleProducerEndedSession(): Promise<void> {
+  // Éviter les appels multiples
+  if (this.sessionEndHandled) return;
+  this.sessionEndHandled = true;
+  
+  console.log('📺 Handling session end by producer...');
+  
+  // Récupérer les informations nécessaires pour le rating
+  await this.loadExchangeInfo();
+  
+  // Arrêter toutes les activités
+  this.isConnected = false;
+  this.stopStreamTimer();
+  
+  // Déconnecter proprement
+  if (this.room) {
+    try {
+      await this.room.disconnect();
+    } catch (error) {
+      console.log('Error disconnecting room:', error);
+    }
+  }
+  
+  // Notification visuelle
+  this.showNotification('La session a été terminée par le producteur', 'warning');
+  
+  // Attendre un peu pour que l'utilisateur voie la notification
+  setTimeout(() => {
+    this.showRatingDialog();
+  }, 1500);
+}
+
+
+// 6. Méthode pour charger les infos de l'échange
+private async loadExchangeInfo(): Promise<void> {
+  try {
+    if (!this.session || !this.currentUserId) return;
+    
+    // Récupérer l'échange correspondant
+    const exchanges = await firstValueFrom(
+      this.exchangeService.getExchangesBySkillId(this.session.skillId)
+    );
+    
+    const userExchange = exchanges.find(ex => ex.receiverId === this.currentUserId);
+    
+    if (userExchange) {
+      this.exchangeId = userExchange.id;
+      this.skillName = userExchange.skillName;
+      
+      // Récupérer le nom du producteur
+      const producer = await firstValueFrom(
+        this.userService.getUserById(this.session.producerId)
+      );
+      this.producerName = `${producer.firstName} ${producer.lastName}`;
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des infos d\'échange:', error);
+  }
+}
+private sessionEndHandled = false;
+
+// 7. Méthode pour afficher le dialogue de rating
+private showRatingDialog(): void {
+  if (!this.exchangeId) {
+    console.warn('Pas d\'échange trouvé pour cette session');
+    this.router.navigate(['/receiver/finished-skills']);
+    return;
+  }
+  
+  const dialogRef = this.dialog.open(RatingDialogComponent, {
+    width: '500px',
+    disableClose: true, // Empêcher la fermeture par clic externe
+    data: {
+      exchangeId: this.exchangeId,
+      skillName: this.skillName || 'Session de livestream',
+      producerName: this.producerName || 'Producteur',
+      sessionDuration: this.formattedDuration
+    }
+  });
+  
+  dialogRef.afterClosed().subscribe(result => {
+    if (result?.rated) {
+      console.log('✅ Session évaluée avec', result.rating, 'étoiles');
+    } else {
+      console.log('⏭️ Évaluation ignorée');
+    }
+    // Dans tous les cas, rediriger vers finished-skills
+    this.router.navigate(['/receiver/finished-skills']);
+  });
+}
 
   private handleReconnecting(): void {
     this.reconnectionAttempts++;
@@ -4653,8 +4884,10 @@ private participantHasScreenShare(participantInfo: ParticipantInfo): boolean {
 
   // Navigation and notifications
   navigateToSkillsPage(): void {
-    this.router.navigate([this.isHost ? '/producer/skills' : '/receiver/skills']);
-  }
+  // Ne PAS appeler endSession ici - juste naviguer
+  console.log('User leaving session (not ending it)');
+  this.router.navigate([this.isHost ? '/producer/livestreams' : '/receiver/finished-skills']);
+}
 
   private showNotification(message: string, type: 'success' | 'error' | 'warning' = 'success'): void {
     this.snackBar.open(message, 'Fermer', { 
@@ -4728,21 +4961,45 @@ private participantHasScreenShare(participantInfo: ParticipantInfo): boolean {
     }
   }
 
-  async endSession(): Promise<void> {
-    if (!this.isHost) return;
-    
-    try {
-      if (this.room) {
-        await this.livestreamService.disconnectFromRoom(this.room);
-      }
-      await firstValueFrom(this.livestreamService.endSession(this.sessionId));
-      this.stopStreamTimer();
-      this.navigateToSkillsPage();
-    } catch (error) {
-      console.error('Error ending session:', error);
-      this.showNotification('Erreur lors de la fin de session', 'error');
-    }
+ async endSession(): Promise<void> {
+  if (!this.isHost) {
+    console.warn('Only producer can end session');
+    return;
   }
+  
+  try {
+    console.log('🔴 PRODUCER: Ending session for everyone...');
+    
+    // Marquer la session comme terminée dans la base de données
+    await firstValueFrom(this.livestreamService.endSession(this.sessionId));
+    
+    // Envoyer un message spécial dans le chat pour notifier les receivers
+    if (this.isChatConnected) {
+      this.chatService.sendMessage(this.sessionId, '### SESSION TERMINÉE PAR LE PRODUCTEUR ###');
+    }
+    
+    // Attendre un peu pour que le message soit envoyé
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Déconnecter la room
+    if (this.room) {
+      await this.livestreamService.disconnectFromRoom(this.room);
+    }
+    
+    // Arrêter le timer
+    this.stopStreamTimer();
+    
+    // Notification et navigation
+    this.showNotification('Session terminée avec succès', 'success');
+    this.navigateToSkillsPage();
+    
+  } catch (error) {
+    console.error('Error ending session:', error);
+    this.showNotification('Erreur lors de la fin de session', 'error');
+  }
+}
+
+
 
   // Chat accessibility methods
   getSubmitButtonAriaLabel(): string {

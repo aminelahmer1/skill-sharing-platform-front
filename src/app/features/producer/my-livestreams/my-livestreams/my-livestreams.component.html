@@ -25,8 +25,9 @@
                alt="{{ skill.name }}" 
                class="skill-image">
           
-          <!-- Session status chip overlay -->
-          <div class="status-overlay" *ngIf="skill.sessionStatus && skill.sessionStatus !== 'none'">
+          <!-- Session status chip overlay - MASQUER LE STATUT TERMINÉ -->
+          <div class="status-overlay" 
+               *ngIf="skill.sessionStatus && skill.sessionStatus !== 'none' && skill.sessionStatus !== 'completed'">
             <mat-chip [color]="getSessionStatusColor(skill.sessionStatus)" selected>
               {{ getSessionStatusLabel(skill.sessionStatus) }}
             </mat-chip>
@@ -40,39 +41,81 @@
             {{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}
           </p>
           
-          <div class="skill-meta">
-            <div class="meta-row">
-              <div class="meta-item">
-                <mat-icon>people</mat-icon>
-                <button 
-                  mat-button 
-                  color="primary" 
-                  class="inscrits-button"
-                  (click)="showAcceptedReceivers(skill.id)"
-                  [attr.aria-label]="'Voir les ' + skill.nbInscrits + ' participants'">
-                  {{ skill.nbInscrits }}
-                </button>
-                <span class="capacity-text">/{{ skill.availableQuantity }}</span>
+          <!-- REMPLACER la section skill-meta dans le template HTML -->
+<div class="skill-meta">
+  <div class="single-meta-row">
+    <!-- Participants -->
+    <div class="meta-item">
+      <mat-icon>people</mat-icon>
+      <button 
+        mat-button 
+        color="primary" 
+        class="inscrits-button"
+        (click)="showAcceptedReceivers(skill.id)"
+        [attr.aria-label]="'Voir les ' + skill.nbInscrits + ' participants'">
+        {{ skill.nbInscrits }}
+      </button>
+      <span class="capacity-text">/{{ skill.availableQuantity }}</span>
+    </div>
+
+    <!-- Date -->
+    <div class="meta-item">
+      <mat-icon>calendar_today</mat-icon>
+      <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
+    </div>
+
+    <!-- Heure -->
+    <div class="meta-item">
+      <mat-icon>access_time</mat-icon>
+      <span>{{ skill.streamingTime }}</span>
+    </div>
+
+    <!-- Prix -->
+    <div class="meta-item price">
+      <span>TND {{ skill.price | number:'1.2-2' }}</span>
+    </div>
+  </div>
+</div>
+
+          <!-- Section Rating pour les sessions complétées -->
+          <div class="skill-rating" *ngIf="skill.sessionStatus === 'completed' || skill.isSessionCompleted">
+            <div class="rating-summary">
+              <mat-icon>star</mat-icon>
+              <span class="rating-label">Note moyenne:</span>
+              <div class="rating-value" *ngIf="skillRatings[skill.id]">
+                <span class="rating-number" [style.color]="getRatingColor(skillRatings[skill.id].averageRating)">
+                  {{ skillRatings[skill.id].averageRating | number:'1.1-1' }}
+                </span>
+                <span class="rating-count">({{ skillRatings[skill.id].totalRatings }} avis)</span>
+                
+                <!-- Affichage des étoiles -->
+                <div class="stars-mini">
+                  <mat-icon *ngFor="let star of getStarArray(skillRatings[skill.id].averageRating)" 
+                            [class.filled]="star"
+                            class="star-icon-mini">
+                    {{ star ? 'star' : 'star_border' }}
+                  </mat-icon>
+                </div>
               </div>
-              <div class="meta-item">
-                <mat-icon>calendar_today</mat-icon>
-                <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
+              <div class="rating-value" *ngIf="!skillRatings[skill.id]">
+                <span class="no-rating">Pas encore noté</span>
               </div>
             </div>
-            <div class="meta-row">
-              <div class="meta-item">
-                <mat-icon>access_time</mat-icon>
-                <span>{{ skill.streamingTime }}</span>
-              </div>
-              <div class="meta-item price">
-                <span>TND</span>
-                <span>{{ skill.price | number:'1.2-2' }}</span>
-              </div>
-            </div>
+            
+            <!-- Bouton pour voir les détails des évaluations -->
+            <button mat-stroked-button 
+                    color="primary" 
+                    class="view-ratings-btn"
+                    *ngIf="skillRatings[skill.id] && skillRatings[skill.id].totalRatings > 0"
+                    (click)="viewSkillRatings(skill.id)">
+              <mat-icon>visibility</mat-icon>
+              Voir les évaluations
+            </button>
           </div>
 
-          <!-- Session Status Display -->
-          <div class="session-status" *ngIf="skill.sessionStatus && skill.sessionStatus !== 'none'">
+          <!-- Session Status Display - MASQUER LE STATUT TERMINÉ -->
+          <div class="session-status" 
+               *ngIf="skill.sessionStatus && skill.sessionStatus !== 'none' && skill.sessionStatus !== 'completed'">
             <div class="status-info">
               <mat-icon>live_tv</mat-icon>
               <mat-chip [color]="getSessionStatusColor(skill.sessionStatus)" selected>
@@ -124,10 +167,10 @@
               <span>{{ getNoSessionMessage(skill) }}</span>
             </div>
           </ng-container>
-          
-          <!-- Message pour session terminée -->
-          <div class="completed-message" *ngIf="skill.isSessionCompleted">
-            <mat-icon color="primary">check_circle</mat-icon>
+         
+          <!-- 🎯 BADGE SESSION TERMINÉE CENTRÉ avec style receiver accepted skills -->
+          <div *ngIf="skill.isSessionCompleted" class="session-completed-badge">
+            <mat-icon>check_circle</mat-icon>
             <span>Session terminée</span>
           </div>
         </mat-card-actions>

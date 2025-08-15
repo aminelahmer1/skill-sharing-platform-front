@@ -1,0 +1,54 @@
+<div class="end-session-dialog">
+  <!-- Header avec icône d'avertissement -->
+  <div class="dialog-header">
+    <div class="warning-icon-wrapper">
+      <mat-icon class="warning-icon">warning</mat-icon>
+    </div>
+  </div>
+
+  <!-- Contenu du dialogue -->
+  <mat-dialog-content class="dialog-content">
+    <h2 class="dialog-title">Terminer la session ?</h2>
+    
+    <p class="dialog-message">
+      Êtes-vous sûr de vouloir terminer cette session de livestream ?
+    </p>
+
+    <div class="warning-box">
+      <mat-icon>info</mat-icon>
+      <div class="warning-text">
+        <strong>Cette action va :</strong>
+        <ul>
+          <li>Mettre fin à la diffusion pour tous les {{ participantCount }} participant(s)</li>
+          <li>Déconnecter tous les spectateurs</li>
+          <li>Arrêter l'enregistrement en cours (si actif)</li>
+          <li>Marquer la session comme terminée</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="confirmation-text">
+      Cette action est <strong>irréversible</strong>. Les participants devront créer une nouvelle session pour reprendre.
+    </p>
+  </mat-dialog-content>
+
+  <!-- Actions -->
+  <mat-dialog-actions class="dialog-actions">
+    <button mat-stroked-button 
+            class="cancel-btn"
+            (click)="onCancel()">
+      <mat-icon>close</mat-icon>
+      Annuler
+    </button>
+    
+    <button mat-raised-button 
+            color="warn"
+            class="confirm-btn"
+            (click)="onConfirm()"
+            [disabled]="isProcessing">
+      <mat-icon *ngIf="!isProcessing">call_end</mat-icon>
+      <mat-spinner *ngIf="isProcessing" diameter="20"></mat-spinner>
+      {{ isProcessing ? 'Arrêt en cours...' : 'Terminer la session' }}
+    </button>
+  </mat-dialog-actions>
+</div>

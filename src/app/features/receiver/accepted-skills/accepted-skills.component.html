@@ -10,7 +10,8 @@
   <div *ngIf="!isLoading && !error">
     <div *ngIf="skills.length === 0" class="no-skills">
       <img src="assets/images/default-skills.png" alt="Aucune compétence" class="empty-state-img">
-      <p>Vous n'avez pas encore de compétences acceptées.</p>
+      <p>Vous n'avez pas encore de compétences acceptées en cours.</p>
+      <small>Les compétences apparaîtront ici une fois acceptées par les producteurs</small>
     </div>
     
     <div class="skills-grid">
@@ -38,35 +39,50 @@
         <mat-card-content>
           <h3>{{ skill.name }}</h3>
           <span class="skill-category">{{ skill.categoryName }}</span>
-          <p class="skill-description">
-            {{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}
+          <p class="skill-description" 
+             [class.expanded]="skill.showFullDescription"
+             [class.expandable]="skill.description.length > 100">
+            <span class="description-text">
+              {{ skill.showFullDescription ? skill.description : ((skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description) }}
+            </span>
+            <button *ngIf="skill.description.length > 100" 
+                    class="expand-btn"
+                    (click)="toggleDescription(skill)"
+                    mat-button>
+              {{ skill.showFullDescription ? 'Voir moins' : 'Voir plus' }}
+            </button>
           </p>
           
-          <div class="skill-meta">
-            <div class="meta-row">
-              <div class="meta-item">
-                <mat-icon>people</mat-icon>
-                <span>{{ skill.nbInscrits }}/{{ skill.availableQuantity }}</span>
-              </div>
-              <div class="meta-item">
-                <mat-icon>calendar_today</mat-icon>
-                <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
-              </div>
-            </div>
-            <div class="meta-row">
-              <div class="meta-item">
-                <mat-icon>access_time</mat-icon>
-                <span>{{ skill.streamingTime }}</span>
-              </div>
-              <div class="meta-item price">
-                <span>TND</span>
-                <span>{{ skill.price | number:'1.2-2' }}</span>
-              </div>
-            </div>
-          </div>
+          <!-- REMPLACER la section skill-meta dans accepted-skills.component.html -->
+<div class="skill-meta">
+  <div class="single-meta-row">
+    <!-- Participants -->
+    <div class="meta-item">
+      <mat-icon>people</mat-icon>
+      <span>{{ skill.nbInscrits }}/{{ skill.availableQuantity }}</span>
+    </div>
+
+    <!-- Date -->
+    <div class="meta-item">
+      <mat-icon>calendar_today</mat-icon>
+      <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
+    </div>
+
+    <!-- Heure -->
+    <div class="meta-item">
+      <mat-icon>access_time</mat-icon>
+      <span>{{ skill.streamingTime }}</span>
+    </div>
+
+    <!-- Prix -->
+    <div class="meta-item price">
+      <span>TND {{ skill.price | number:'1.2-2' }}</span>
+    </div>
+  </div>
+</div>
           
-          <!-- Exchange Status Display -->
-          <div class="exchange-status" *ngIf="skill.exchangeStatus">
+          <!-- Exchange Status Display - CACHÉ pour l'utilisateur -->
+          <div class="exchange-status" *ngIf="skill.exchangeStatus" style="display: none;">
             <div class="status-info">
               <mat-icon>swap_horiz</mat-icon>
               <span>Statut de l'échange: </span>
@@ -110,7 +126,7 @@
             {{ sessions[skill.id].status === 'LIVE' ? 'Rejoindre Live' : 'Rejoindre Session' }}
           </button>
           
-          <!-- Status-based action buttons -->
+          <!-- Status-based action buttons - 🎯 EXCLU LES STATUS COMPLETED -->
           <div class="status-actions" *ngIf="skill.exchangeStatus && !canJoinLivestream(skill)">
             <ng-container [ngSwitch]="skill.exchangeStatus">
               
@@ -132,12 +148,6 @@
                 <span>Session en cours</span>
               </div>
               
-              <!-- Completed Status -->
-              <div *ngSwitchCase="'COMPLETED'" class="completed-status">
-                <mat-icon color="primary">task_alt</mat-icon>
-                <span>Session terminée</span>
-              </div>
-              
               <!-- Rejected Status -->
               <div *ngSwitchCase="'REJECTED'" class="rejected-status">
                 <mat-icon color="warn">cancel</mat-icon>
@@ -153,6 +163,9 @@
             </ng-container>
           </div>
         </mat-card-actions>
+
+        <!-- 🚫 RATING DISPLAY SUPPRIMÉ - Maintenant uniquement dans finished-skills -->
+        
       </mat-card>
     </div>
   </div>

@@ -1,0 +1,607 @@
+/* ============================================================================
+   🎯 FINISHED-SKILLS.COMPONENT.CSS - VERSION OPTIMISÉE AVEC PAGINATION
+   ============================================================================ */
+
+/* 🎯 Container principal */
+.skills-container {
+  padding: 0px 20px 20px 20px;
+  margin: -40px auto 0 auto;
+  max-width: 1200px;
+  background-color: #f9f9f9;
+  min-height: 100vh;
+  font-family: 'Roboto', sans-serif;
+  animation: fadeIn 0.8s ease-out;
+}
+
+/* 📊 Section header avec info pagination */
+.header-section {
+  margin-bottom: 20px;
+}
+
+.skills-container h2 {
+  margin: 15px 0 16px 0;
+  color: #333;
+  font-weight: 500;
+  font-size: 1.75rem;
+  text-align: center;
+  background: linear-gradient(45deg, #ffeaa7, #fdcb6e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.pagination-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 2px solid #e8f5e8;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  margin-bottom: 16px;
+}
+
+.total-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #28a745;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.total-info mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.page-info {
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* 📄 Styles pagination */
+.pagination-top {
+  margin-bottom: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+
+.pagination-bottom {
+  margin-top: 32px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+.pagination-summary {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.separator {
+  color: #ccc;
+  font-weight: bold;
+}
+
+/* 🎨 Personnalisation du mat-paginator */
+mat-paginator {
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+
+mat-paginator .mat-mdc-paginator-container {
+  padding: 12px 16px !important;
+  min-height: 56px !important;
+}
+
+mat-paginator .mat-mdc-paginator-page-size-select {
+  margin: 0 8px !important;
+}
+
+mat-paginator .mat-mdc-icon-button {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 8px !important;
+  transition: all 0.2s ease !important;
+}
+
+mat-paginator .mat-mdc-icon-button:hover {
+  background-color: rgba(108, 92, 231, 0.1) !important;
+  transform: translateY(-1px);
+}
+
+mat-paginator .mat-mdc-icon-button[disabled] {
+  opacity: 0.4 !important;
+}
+
+/* 📄 Messages d'erreur et état vide */
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #f44336;
+  background-color: #ffebee;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.no-skills {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+  background: white;
+  border-radius: 12px;
+  border: 2px dashed #fdcb6e;
+}
+
+.no-skills small {
+  color: #999;
+  margin-top: 8px;
+  display: block;
+}
+
+.empty-state-img {
+  width: 200px;
+  height: 150px;
+  object-fit: cover;
+  margin-bottom: 20px;
+  opacity: 0.7;
+}
+
+/* 🎴 Grille des compétences */
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 24px;
+  margin-top: 20px;
+  align-items: stretch;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* 🃏 Carte de compétence */
+.skill-card {
+  position: relative;
+  overflow: visible;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  animation: scaleIn 0.4s ease-out;
+}
+
+.skill-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+/* 🖼️ Image de la compétence */
+.skill-image-container {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+  border-radius: 12px 12px 0 0;
+}
+
+.skill-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.skill-card:hover .skill-image {
+  transform: scale(1.02);
+}
+
+/* 🏷️ Overlays de statut */
+.status-overlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+}
+
+.status-overlay mat-chip {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.02); }
+}
+
+/* 📝 Contenu de la carte */
+.skill-card mat-card-content {
+  padding: 20px;
+  flex: 1;
+}
+
+.skill-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+  line-height: 1.3;
+}
+
+/* 🎨 Catégorie */
+.skill-category {
+  display: inline-block;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* 📄 Description expandable */
+.skill-description {
+  color: #666;
+  line-height: 1.5;
+  margin: 12px 0;
+  font-size: 0.9rem;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.skill-description.expanded {
+  max-height: none;
+}
+
+.description-text {
+  display: block;
+  line-height: 1.5;
+}
+
+.expand-btn {
+  color: #1976d2 !important;
+  font-size: 0.8rem !important;
+  min-width: auto !important;
+  padding: 4px 8px !important;
+  height: auto !important;
+  line-height: 1.2 !important;
+  margin-top: 4px;
+  text-transform: none !important;
+  font-weight: 500 !important;
+  border-radius: 6px !important;
+}
+
+.expand-btn:hover {
+  background: rgba(25, 118, 210, 0.08) !important;
+  transform: translateY(-1px);
+}
+
+/* 📊 Métadonnées */
+.skill-meta {
+  margin: 16px 0;
+  border-top: 1px solid #eee;
+  padding-top: 16px;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.meta-row:last-child {
+  margin-bottom: 0;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.meta-item mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #999;
+}
+
+.meta-item.price {
+  color: #4caf50;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+/* 👤 Info producteur */
+.producer-info {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.producer-link {
+  color: #1976d2;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.producer-link:hover {
+  color: #1565c0;
+  background: rgba(25, 118, 210, 0.08);
+  transform: translateY(-1px);
+}
+
+/* 🎯 Actions de la carte */
+.skill-card mat-card-actions {
+  padding: 16px 20px;
+  background-color: #fafafa;
+  border-top: 1px solid #eee;
+  margin-top: auto;
+  order: 1;
+}
+
+/* ⭐ Section rating (session terminée) */
+.rating-section-bottom {
+  order: 999;
+  margin: 0;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f8fff8 0%, #e8f5e8 100%);
+  border-top: 2px solid #e8f5e8;
+}
+
+.session-completed-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 20px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+  margin-top: 16px;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+  animation: fadeInScale 0.4s ease-out;
+}
+
+.session-completed-badge mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+/* 🎨 Style spécial pour cartes avec session terminée */
+.skill-card:has(.rating-section-bottom) {
+  border: 2px solid #e8f5e8;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fff8 100%);
+}
+
+.skill-card:has(.rating-section-bottom):hover {
+  border-color: #4caf50;
+  box-shadow: 0 8px 25px rgba(76, 175, 80, 0.15);
+}
+
+.skill-card:has(.rating-section-bottom) mat-card-actions {
+  margin-top: 0;
+}
+
+/* 🎨 Animations */
+@keyframes fadeInScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* 📱 Responsive Design */
+@media (max-width: 768px) {
+  .skills-container {
+    padding: 0px 16px 16px 16px;
+    margin: -30px auto 0 auto;
+  }
+
+  .pagination-info {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .skills-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .skill-card {
+    margin: 0 8px;
+  }
+
+  .skill-card mat-card-content {
+    padding: 16px;
+  }
+
+  .meta-row {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .pagination-top,
+  .pagination-bottom {
+    margin-left: -8px;
+    margin-right: -8px;
+    border-radius: 8px;
+  }
+
+  mat-paginator .mat-mdc-paginator-container {
+    padding: 8px 12px !important;
+    min-height: 48px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .skills-container {
+    padding: 0px 12px 12px 12px;
+    margin: -20px auto 0 auto;
+  }
+
+  .skill-card h3 {
+    font-size: 1.1rem;
+  }
+
+  .skills-container h2 {
+    font-size: 1.5rem;
+  }
+
+  .pagination-info {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+  }
+
+  .total-info {
+    font-size: 0.9rem;
+  }
+
+  .pagination-summary {
+    font-size: 0.8rem;
+    padding: 8px 16px;
+  }
+}/* AJOUTER CE CSS À finished-skills.component.css */
+
+/* Une seule ligne pour tous les métadonnées - FINISHED SKILLS */
+.single-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  flex-wrap: nowrap; /* Empêche le retour à la ligne */
+}
+
+.single-meta-row .meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #666;
+  white-space: nowrap; /* Empêche le texte de se casser */
+  flex-shrink: 0; /* Empêche la compression */
+}
+
+.single-meta-row .meta-item mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+/* Prix en vert et en gras - TND */
+.single-meta-row .meta-item.price {
+  color: #4caf50 !important; /* Même vert que skills */
+  font-weight: 700 !important; /* TND en gras */
+  font-size: 1rem !important; /* Même taille que l'original */
+}
+
+.single-meta-row .meta-item.price span {
+  color: #4caf50 !important;
+  font-weight: 700 !important; /* TND en gras */
+}
+
+/* Règle spécifique pour surcharger l'ancien style */
+.skill-meta .single-meta-row .meta-item.price,
+.skill-meta .single-meta-row .meta-item.price span {
+  color: #4caf50 !important;
+  font-weight: 700 !important;
+  font-size: 1rem !important;
+}
+
+/* RESPONSIVE pour finished skills */
+@media (max-width: 768px) {
+  .single-meta-row {
+    gap: 8px;
+  }
+  
+  .single-meta-row .meta-item {
+    font-size: 0.8rem;
+  }
+  
+  .single-meta-row .meta-item mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+  
+  .single-meta-row .meta-item.price {
+    font-size: 0.9rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .single-meta-row {
+    gap: 6px;
+  }
+  
+  .single-meta-row .meta-item {
+    font-size: 0.75rem;
+  }
+  
+  .single-meta-row .meta-item.price {
+    font-size: 0.8rem !important;
+  }
+}
+
+/* Cache les anciennes lignes multiples pour compatibility */
+.meta-row {
+  display: none;
+}

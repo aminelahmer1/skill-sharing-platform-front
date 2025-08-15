@@ -45,7 +45,7 @@ export class ProducerProfileEditComponent implements OnInit {
   keycloakId = '';
   
   readonly maxFileSize = 2 * 1024 * 1024; // 2MB
-  readonly allowedFileTypes = ['image/jpeg', 'image/png', 'image/gif'];
+  readonly allowedFileTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
   constructor(
     private fb: FormBuilder,
@@ -54,17 +54,7 @@ export class ProducerProfileEditComponent implements OnInit {
     private snackBar: MatSnackBar,
     private sanitizer: DomSanitizer
   ) {
-    this.profileForm = this.fb.group({
-      firstName: ['', [Validators.required, Validators.maxLength(50)]],
-      lastName: ['', [Validators.required, Validators.maxLength(50)]],
-      phoneNumber: ['', [Validators.pattern(/^[0-9\+\-\s]+$/)]],
-      bio: ['', [Validators.maxLength(500)]],
-      address: this.fb.group({
-        city: ['', [Validators.maxLength(50)]],
-        country: ['', [Validators.maxLength(50)]],
-        postalCode: ['', [Validators.maxLength(20)]]
-      })
-    });
+    this.profileForm = this.createForm();
   }
 
   ngOnInit(): void {
@@ -72,27 +62,50 @@ export class ProducerProfileEditComponent implements OnInit {
     this.scrollToTop();
   }
 
+  private createForm(): FormGroup {
+    return this.fb.group({
+      firstName: ['', [
+        Validators.required, 
+        Validators.maxLength(50),
+        Validators.pattern(/^[a-zA-ZÀ-ÿ\s'-]+$/)
+      ]],
+      lastName: ['', [
+        Validators.required, 
+        Validators.maxLength(50),
+        Validators.pattern(/^[a-zA-ZÀ-ÿ\s'-]+$/)
+      ]],
+      phoneNumber: ['', [
+        Validators.pattern(/^[\+]?[0-9\s\-\(\)]{8,20}$/)
+      ]],
+      bio: ['', [
+        Validators.maxLength(250)
+      ]],
+      address: this.fb.group({
+        city: ['', [
+          Validators.maxLength(50),
+          Validators.pattern(/^[a-zA-ZÀ-ÿ\s'-]+$/)
+        ]],
+        country: ['', [
+          Validators.maxLength(50),
+          Validators.pattern(/^[a-zA-ZÀ-ÿ\s'-]+$/)
+        ]],
+        postalCode: ['', [
+          Validators.maxLength(20),
+          Validators.pattern(/^[a-zA-Z0-9\s-]+$/)
+        ]]
+      })
+    });
+  }
+
   private scrollToTop(): void {
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   private loadProfile(): void {
     this.isLoading = true;
     this.userService.getCurrentUserProfile().subscribe({
       next: (profile) => {
-        this.keycloakId = profile.keycloakId;
-        this.previewUrl = profile.pictureUrl || 'assets/images/default-profile.png';
-        this.profileForm.patchValue({
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          phoneNumber: profile.phoneNumber,
-          bio: profile.bio || '',
-          address: {
-            city: profile.address?.city || '',
-            country: profile.address?.country || '',
-            postalCode: profile.address?.postalCode || ''
-          }
-        });
+        this.populateForm(profile);
         this.isLoading = false;
       },
       error: (err) => {
@@ -102,11 +115,33 @@ export class ProducerProfileEditComponent implements OnInit {
     });
   }
 
+  private populateForm(profile: UserProfileResponse): void {
+    this.keycloakId = profile.keycloakId;
+    this.previewUrl = profile.pictureUrl || 'assets/images/default-profile.png';
+    
+    this.profileForm.patchValue({
+      firstName: profile.firstName || '',
+      lastName: profile.lastName || '',
+      phoneNumber: profile.phoneNumber || '',
+      bio: profile.bio || '',
+      address: {
+        city: profile.address?.city || '',
+        country: profile.address?.country || '',
+        postalCode: profile.address?.postalCode || ''
+      }
+    });
+  }
+
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     
-    if (!file || !this.validateFile(file)) {
+    if (!file) {
+      return;
+    }
+    
+    if (!this.validateFile(file)) {
+      this.resetFileInput();
       return;
     }
     
@@ -115,13 +150,21 @@ export class ProducerProfileEditComponent implements OnInit {
   }
 
   private validateFile(file: File): boolean {
+    // Validation du type de fichier
     if (!this.allowedFileTypes.includes(file.type)) {
-      this.showError('Seuls les images JPEG, PNG ou GIF sont autorisées');
+      this.showError('Seuls les formats JPEG, PNG, GIF et WebP sont autorisés');
       return false;
     }
 
+    // Validation de la taille
     if (file.size > this.maxFileSize) {
-      this.showError(`Taille maximale : ${this.maxFileSize / 1024 / 1024}MB`);
+      this.showError(`La taille du fichier ne doit pas dépasser ${this.maxFileSize / 1024 / 1024}MB`);
+      return false;
+    }
+
+    // Validation du nom de fichier
+    if (file.name.length > 255) {
+      this.showError('Le nom du fichier est trop long');
       return false;
     }
 
@@ -133,22 +176,48 @@ export class ProducerProfileEditComponent implements OnInit {
     reader.onload = () => {
       this.previewUrl = this.sanitizer.bypassSecurityTrustUrl(reader.result as string);
     };
+    reader.onerror = () => {
+      this.showError('Erreur lors de la lecture du fichier');
+      this.resetFileInput();
+    };
     reader.readAsDataURL(file);
   }
 
-  private async uploadImage(): Promise<void> {
-    if (!this.selectedFile || !this.keycloakId) return;
+  private resetFileInput(): void {
+    if (this.fileInput?.nativeElement) {
+      this.fileInput.nativeElement.value = '';
+    }
+    this.selectedFile = null;
+  }
+
+  removePhoto(): void {
+    this.selectedFile = null;
+    this.previewUrl = 'assets/images/default-profile.png';
+    this.resetFileInput();
+  }
+
+  private async uploadImage(): Promise<string | null> {
+    if (!this.selectedFile || !this.keycloakId) {
+      return null;
+    }
 
     this.isUploading = true;
     try {
-      const res = await lastValueFrom(
+      const response = await lastValueFrom(
         this.userService.uploadProfilePicture(this.selectedFile, this.keycloakId)
       );
-      this.previewUrl = res.pictureUrl || this.previewUrl;
-      this.showSuccess('Photo de profil mise à jour !');
-      this.selectedFile = null;
-    } catch (err) {
-      this.handleError('Échec du téléchargement', err);
+      
+      if (response?.pictureUrl) {
+        this.previewUrl = response.pictureUrl;
+        this.selectedFile = null;
+        this.resetFileInput();
+        return response.pictureUrl;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Upload error:', error);
+      throw new Error('Échec du téléchargement de l\'image');
     } finally {
       this.isUploading = false;
     }
@@ -156,50 +225,148 @@ export class ProducerProfileEditComponent implements OnInit {
 
   async onSubmit(): Promise<void> {
     if (this.profileForm.invalid) {
-      this.showError('Veuillez remplir tous les champs obligatoires');
+      this.markFormGroupTouched(this.profileForm);
+      this.showError('Veuillez corriger les erreurs dans le formulaire');
+      return;
+    }
+
+    if (this.isLoading || this.isUploading) {
       return;
     }
 
     this.isLoading = true;
     
     try {
-      if (this.selectedFile) await this.uploadImage();
+      // Upload de l'image si nécessaire
+      if (this.selectedFile) {
+        await this.uploadImage();
+      }
       
-      const formData = this.profileForm.value;
+      // Mise à jour du profil
+      const formData = this.getFormData();
+      console.log('Données envoyées:', formData); // Debug
+      
       await lastValueFrom(
         this.userService.updateProfile(formData, this.keycloakId)
       );
       
       this.showSuccess('Profil mis à jour avec succès !');
-      this.navigateToProfile();
+      await this.navigateToProfile();
+      
     } catch (error) {
+      console.error('Erreur de mise à jour:', error); // Debug
       this.handleError('Échec de la mise à jour du profil', error);
     } finally {
       this.isLoading = false;
     }
   }
 
-  navigateToProfile(): void {
-    this.router.navigate(['/producer/profile']);
+  private getFormData(): any {
+    const formValue = this.profileForm.value;
+    
+    // Permettre les chaînes vides pour tous les champs optionnels
+    return {
+      firstName: formValue.firstName?.trim() || '',
+      lastName: formValue.lastName?.trim() || '',
+      phoneNumber: formValue.phoneNumber?.trim() || '',
+      bio: formValue.bio?.trim() || '',
+      address: {
+        city: formValue.address?.city?.trim() || '',
+        country: formValue.address?.country?.trim() || '',
+        postalCode: formValue.address?.postalCode?.trim() || ''
+      }
+    };
+  }
+
+  // Méthode utilitaire pour nettoyer et valider les champs
+  private cleanAndValidateField(value: string): string | null {
+    if (!value || typeof value !== 'string') {
+      return null;
+    }
+    const cleaned = value.trim();
+    // Retourner null même si le champ est vide après trim
+    return cleaned.length > 0 ? cleaned : null;
+  }
+
+  private markFormGroupTouched(formGroup: FormGroup): void {
+    Object.keys(formGroup.controls).forEach(field => {
+      const control = formGroup.get(field);
+      if (control instanceof FormGroup) {
+        this.markFormGroupTouched(control);
+      } else {
+        control?.markAsTouched({ onlySelf: true });
+      }
+    });
+  }
+
+  async navigateToProfile(): Promise<void> {
+    await this.router.navigate(['/producer/profile']);
     this.scrollToTop();
+  }
+
+  // Getters pour les validations dans le template
+  get firstName() { return this.profileForm.get('firstName'); }
+  get lastName() { return this.profileForm.get('lastName'); }
+  get phoneNumber() { return this.profileForm.get('phoneNumber'); }
+  get bio() { return this.profileForm.get('bio'); }
+  get city() { return this.profileForm.get('address.city'); }
+  get country() { return this.profileForm.get('address.country'); }
+  get postalCode() { return this.profileForm.get('address.postalCode'); }
+
+  // Méthodes utilitaires pour les messages d'erreur
+  getFieldError(fieldName: string): string | null {
+    const field = this.profileForm.get(fieldName);
+    if (field?.errors && field?.touched) {
+      if (field.errors['required']) return 'Ce champ est obligatoire';
+      if (field.errors['maxlength']) return `Maximum ${field.errors['maxlength'].requiredLength} caractères`;
+      if (field.errors['pattern']) return 'Format invalide';
+    }
+    return null;
+  }
+
+  getBioCharacterCount(): number {
+    return this.bio?.value?.length || 0;
+  }
+
+  getBioMaxLength(): number {
+    return 250;
+  }
+
+  isBioLimitExceeded(): boolean {
+    return this.getBioCharacterCount() > this.getBioMaxLength();
   }
 
   private handleError(message: string, error?: any): void {
     console.error(message, error);
-    this.showError(message);
+    let errorMessage = message;
+    
+    // Personnaliser le message d'erreur selon le type
+    if (error?.status === 400) {
+      errorMessage = 'Données invalides. Veuillez vérifier vos informations.';
+    } else if (error?.status === 413) {
+      errorMessage = 'Le fichier est trop volumineux.';
+    } else if (error?.status === 500) {
+      errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.';
+    }
+    
+    this.showError(errorMessage);
   }
 
   private showError(message: string): void {
     this.snackBar.open(message, 'Fermer', { 
       duration: 5000,
-      panelClass: ['error-snackbar']
+      panelClass: ['error-snackbar'],
+      horizontalPosition: 'end',
+      verticalPosition: 'top'
     });
   }
 
   private showSuccess(message: string): void {
     this.snackBar.open(message, 'Fermer', { 
       duration: 3000,
-      panelClass: ['success-snackbar']
+      panelClass: ['success-snackbar'],
+      horizontalPosition: 'end',
+      verticalPosition: 'top'
     });
   }
 }

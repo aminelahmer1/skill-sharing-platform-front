@@ -1,0 +1,134 @@
+<div class="rating-stats-container">
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <mat-spinner diameter="50"></mat-spinner>
+    <p>Chargement des statistiques...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !isLoading" class="error-state">
+    <mat-icon color="warn">error_outline</mat-icon>
+    <p>{{ error }}</p>
+  </div>
+
+  <!-- Stats Display -->
+  <mat-card *ngIf="stats && !isLoading" class="stats-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>insights</mat-icon>
+        Statistiques d'évaluation
+      </mat-card-title>
+    </mat-card-header>
+
+    <mat-card-content>
+      <!-- Vue d'ensemble -->
+      <div class="overview-section">
+        <div class="rating-summary">
+          <div class="average-rating">
+            <div class="rating-number" [style.color]="getRatingColor(stats.averageRating)">
+              {{ stats.averageRating | number:'1.1-1' }}
+            </div>
+            <div class="stars-row">
+              <mat-icon *ngFor="let star of getStarArray(stats.averageRating)" 
+                        [class.filled]="star"
+                        class="star-icon">
+                {{ star ? 'star' : 'star_border' }}
+              </mat-icon>
+            </div>
+            <div class="rating-label">
+              {{ getRatingLabel(stats.averageRating) }}
+            </div>
+          </div>
+
+          <div class="rating-metrics">
+            <div class="metric">
+              <mat-icon>rate_review</mat-icon>
+              <div class="metric-value">{{ stats.totalRatings }}</div>
+              <div class="metric-label">Évaluations</div>
+            </div>
+            <div class="metric">
+              <mat-icon>swap_horiz</mat-icon>
+              <div class="metric-value">{{ stats.totalExchanges }}</div>
+              <div class="metric-label">Échanges</div>
+            </div>
+            <div class="metric">
+              <mat-icon>percent</mat-icon>
+              <div class="metric-value">
+                {{ stats.totalExchanges > 0 ? ((stats.totalRatings / stats.totalExchanges) * 100 | number:'0-0') : 0 }}%
+              </div>
+              <div class="metric-label">Taux d'évaluation</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Distribution des étoiles -->
+      <div class="distribution-section">
+        <h3>Distribution des notes</h3>
+        <div class="distribution-chart">
+          <div *ngFor="let dist of stats.ratingDistribution" class="distribution-row">
+            <div class="star-label">
+              {{ dist.stars }}
+              <mat-icon class="small-star">star</mat-icon>
+            </div>
+            <div class="progress-container">
+              <mat-progress-bar 
+                mode="determinate" 
+                [value]="dist.percentage"
+                [color]="dist.stars >= 4 ? 'primary' : dist.stars >= 3 ? 'accent' : 'warn'">
+              </mat-progress-bar>
+            </div>
+            <div class="count-label">
+              {{ dist.count }} ({{ dist.percentage | number:'0-0' }}%)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Évaluations récentes -->
+      <mat-expansion-panel *ngIf="stats.recentRatings.length > 0" class="recent-ratings-panel">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <mat-icon>history</mat-icon>
+            Évaluations récentes
+          </mat-panel-title>
+          <mat-panel-description>
+            {{ stats.recentRatings.length }} dernières évaluations
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+
+        <div class="recent-ratings-list">
+          <div *ngFor="let rating of stats.recentRatings" class="rating-item">
+            <div class="rating-header">
+              <div class="rating-info">
+                <strong>{{ rating.skillName }}</strong>
+                <span class="receiver-name">par {{ rating.receiverName }}</span>
+              </div>
+              <div class="rating-stars">
+                <mat-icon *ngFor="let star of getStarArray(rating.rating)" 
+                          [class.filled]="star"
+                          class="small-star">
+                  {{ star ? 'star' : 'star_border' }}
+                </mat-icon>
+              </div>
+            </div>
+            <p class="rating-comment" *ngIf="rating.comment">
+              <mat-icon>format_quote</mat-icon>
+              {{ rating.comment }}
+            </p>
+            <div class="rating-date">
+              {{ rating.ratingDate | date:'dd/MM/yyyy à HH:mm' }}
+            </div>
+          </div>
+        </div>
+      </mat-expansion-panel>
+
+      <!-- Message si aucune évaluation -->
+      <div *ngIf="stats.totalRatings === 0" class="no-ratings">
+        <mat-icon>star_outline</mat-icon>
+        <p>Aucune évaluation reçue pour le moment</p>
+        <small>Les évaluations apparaîtront ici après vos sessions livestream</small>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

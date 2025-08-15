@@ -1,21 +1,30 @@
-/* Receiver Skills Component - Modern Design */
+/* ============================================================================
+   🎓 RECEIVERSKILLS.COMPONENT.CSS - VERSION OPTIMISÉE ET RÉDUITE
+   ============================================================================ */
+
+/* 🎯 Container principal */
 .skills-container {
-  padding: 20px;
+  padding: 0px 20px 20px 20px;
+  margin: -40px auto 0 auto;
   max-width: 1200px;
-  margin: 0 auto;
   background-color: #fafafa;
   min-height: 100vh;
+  animation: fadeIn 0.8s ease-out;
 }
 
 .skills-container h2 {
-  margin-bottom: 24px;
+  margin: 15px 0 24px 0;
   color: #333;
   font-weight: 600;
   font-size: 1.75rem;
   text-align: center;
+  background: linear-gradient(45deg, #74b9ff, #0984e3);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-/* Error Message */
+/* 📄 Messages d'erreur et état vide */
 .error-message {
   display: flex;
   align-items: center;
@@ -27,13 +36,22 @@
   margin-bottom: 20px;
 }
 
-/* No Skills */
+.error-message mat-icon {
+  font-size: 20px;
+}
+
 .no-skills {
   text-align: center;
   padding: 60px 20px;
   color: #666;
   background: white;
   border-radius: 12px;
+  border: 2px dashed #74b9ff;
+}
+
+.no-skills p {
+  font-size: 1.1rem;
+  margin-bottom: 20px;
 }
 
 .empty-state-img {
@@ -44,7 +62,7 @@
   opacity: 0.7;
 }
 
-/* Skills Grid */
+/* 🎴 Grille des compétences */
 .skills-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -52,12 +70,14 @@
   margin-top: 20px;
 }
 
+/* 🃏 Carte de compétence */
 .skill-card {
   position: relative;
   overflow: visible;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   border-radius: 12px;
   background: white;
+  animation: slideInUp 0.5s ease-out;
 }
 
 .skill-card:hover {
@@ -65,7 +85,12 @@
   box-shadow: 0 8px 25px rgba(0,0,0,0.15);
 }
 
-/* Skill Image */
+.skill-card.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* 🖼️ Image de la compétence */
 .skill-image-container {
   position: relative;
   height: 200px;
@@ -79,6 +104,7 @@
   object-fit: cover;
 }
 
+/* 🏷️ Overlay de statut */
 .status-overlay {
   position: absolute;
   top: 12px;
@@ -91,9 +117,10 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  animation: chipPulse 2s infinite;
 }
 
-/* Card Content */
+/* 📝 Contenu de la carte */
 .skill-card mat-card-content {
   padding: 20px;
 }
@@ -106,6 +133,7 @@
   line-height: 1.3;
 }
 
+/* 🎨 Catégorie */
 .skill-category {
   display: inline-block;
   background-color: #e3f2fd;
@@ -119,6 +147,7 @@
   margin-bottom: 12px;
 }
 
+/* 📄 Description */
 .skill-description {
   color: #666;
   line-height: 1.5;
@@ -126,7 +155,7 @@
   font-size: 0.9rem;
 }
 
-/* Skill Meta */
+/* 📊 Métadonnées */
 .skill-meta {
   margin: 16px 0;
   border-top: 1px solid #eee;
@@ -165,8 +194,9 @@
   font-size: 1rem;
 }
 
-/* Status Sections */
-.exchange-status, .session-status {
+/* 📊 Sections de statut */
+.exchange-status, 
+.session-status {
   margin: 12px 0;
   padding: 12px;
   border: 1px solid #e0e0e0;
@@ -174,7 +204,8 @@
   background-color: #f9f9f9;
 }
 
-.status-info, .session-info {
+.status-info, 
+.session-info {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -182,13 +213,15 @@
   color: #666;
 }
 
-.status-info mat-icon, .session-info mat-icon {
+.status-info mat-icon, 
+.session-info mat-icon {
   font-size: 16px;
   width: 16px;
   height: 16px;
   color: #1976d2;
 }
 
+/* ❌ Raison de rejet */
 .rejection-reason {
   margin-top: 8px;
   padding: 8px;
@@ -206,7 +239,7 @@
   color: #d32f2f;
 }
 
-/* Producer Info */
+/* 👤 Info producteur */
 .producer-info {
   margin-top: 16px;
   padding-top: 12px;
@@ -220,19 +253,27 @@
   cursor: pointer;
   text-decoration: none;
   font-weight: 500;
+  transition: color 0.2s ease;
 }
 
 .producer-link:hover {
+  color: #1565c0;
   text-decoration: underline;
 }
 
-/* Card Actions */
+.producer-link:focus {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}
+
+/* 🎯 Actions de la carte */
 .skill-card mat-card-actions {
   padding: 16px 20px;
   background-color: #fafafa;
   border-top: 1px solid #eee;
 }
 
+/* 🔘 Bouton réserver */
 .reserve-btn {
   width: 100%;
   height: 44px;
@@ -253,19 +294,29 @@
   box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
 }
 
+.reserve-btn:focus {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}
+
 .reserve-btn mat-icon {
   font-size: 20px;
   width: 20px;
   height: 20px;
 }
 
-/* Action Status */
+/* 🏷️ Statuts d'action */
 .action-status {
   width: 100%;
   text-align: center;
 }
 
-.pending-status, .accepted-status, .in-progress-status, .completed-status, .rejected-status, .full-capacity {
+.pending-status, 
+.accepted-status, 
+.in-progress-status, 
+.completed-status, 
+.rejected-status, 
+.full-capacity {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -287,13 +338,6 @@
   color: #1976d2;
 }
 
-.accepted-status small {
-  font-size: 0.75rem;
-  color: #666;
-  font-weight: 400;
-  margin-top: 4px;
-}
-
 .in-progress-status {
   background-color: #e8f5e8;
   color: #388e3c;
@@ -304,16 +348,34 @@
   color: #7b1fa2;
 }
 
+.rejected-status {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.full-capacity {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+/* 🎯 Icônes des statuts */
+.pending-status mat-icon,
+.accepted-status mat-icon,
+.in-progress-status mat-icon,
+.completed-status mat-icon,
+.rejected-status mat-icon,
+.full-capacity mat-icon {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+/* 📝 Petits textes et notes */
+.accepted-status small,
 .completed-status small {
   font-size: 0.75rem;
   color: #666;
   font-weight: 400;
   margin-top: 4px;
-}
-
-.rejected-status {
-  background-color: #ffebee;
-  color: #d32f2f;
 }
 
 .rejected-content {
@@ -329,7 +391,6 @@
   font-weight: 400;
   text-align: center;
   margin-bottom: 4px;
-  display: block;
 }
 
 .rejection-note {
@@ -338,39 +399,42 @@
   font-weight: 500 !important;
 }
 
-.full-capacity {
-  background-color: #ffebee;
-  color: #d32f2f;
+/* 🎨 Animations */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.full-capacity mat-icon {
-  font-size: 20px;
-  margin-bottom: 4px;
+@keyframes chipPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
 }
 
-/* Status icons alignment */
-.pending-status mat-icon,
-.accepted-status mat-icon,
-.in-progress-status mat-icon,
-.completed-status mat-icon,
-.rejected-status mat-icon {
-  font-size: 24px;
-  margin-bottom: 4px;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* Responsive Design */
+/* 📱 Responsive Design */
 @media (max-width: 768px) {
   .skills-container {
-    padding: 16px;
+    padding: 0px 16px 16px 16px;
+    margin: -30px auto 0 auto;
   }
   
   .skills-grid {
     grid-template-columns: 1fr;
     gap: 16px;
-  }
-  
-  .skill-card {
-    margin: 0;
   }
   
   .skill-card h3 {
@@ -395,26 +459,35 @@
     right: 8px;
   }
   
-  .pending-status, .accepted-status, .in-progress-status, 
-  .completed-status, .rejected-status, .full-capacity {
+  .pending-status, 
+  .accepted-status, 
+  .in-progress-status, 
+  .completed-status, 
+  .rejected-status, 
+  .full-capacity {
     padding: 12px;
     font-size: 0.85rem;
+  }
+
+  .meta-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }
 
 @media (max-width: 480px) {
+  .skills-container {
+    padding: 0px 12px 12px 12px;
+    margin: -20px auto 0 auto;
+  }
+
   .skills-container h2 {
     font-size: 1.5rem;
   }
   
   .skill-image-container {
     height: 160px;
-  }
-  
-  .meta-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
   }
   
   .meta-item {
@@ -426,70 +499,93 @@
   }
 }
 
-/* Animation */
-.skill-card {
-  animation: slideInUp 0.5s ease-out;
-}
-
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Status chips animation */
-.status-overlay mat-chip {
-  animation: chipPulse 2s infinite;
-}
-
-@keyframes chipPulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.8;
-  }
-}
-
-/* Hover effects for interactive elements */
-.producer-link:hover {
-  color: #1565c0;
-  transition: color 0.2s ease;
-}
-
-/* Focus states for accessibility */
-.reserve-btn:focus,
-.producer-link:focus {
-  outline: 2px solid #1976d2;
-  outline-offset: 2px;
-}
-
-/* Loading state */
-.skill-card.loading {
-  opacity: 0.7;
-  pointer-events: none;
-}
-
-/* Empty state styling */
-.no-skills p {
-  font-size: 1.1rem;
-  color: #666;
-  margin-bottom: 20px;
-}
-
-/* Progress bar styling */
+/* 🎯 Progress bar styling */
 mat-progress-bar {
   margin-bottom: 20px;
   border-radius: 4px;
+}/* AJOUTER CE CSS À receiverskills.component.css */
+
+/* Une seule ligne pour tous les métadonnées - RECEIVER SKILLS */
+.single-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  flex-wrap: nowrap; /* Empêche le retour à la ligne */
 }
 
-/* Error message icon */
-.error-message mat-icon {
-  font-size: 20px;
-  margin-right: 8px;
+.single-meta-row .meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #666;
+  white-space: nowrap; /* Empêche le texte de se casser */
+  flex-shrink: 0; /* Empêche la compression */
+}
+
+.single-meta-row .meta-item mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+/* Prix en vert - même couleur que skills original */
+.single-meta-row .meta-item.price {
+  color: #4caf50 !important; /* Même vert que skills */
+  font-weight: 600 !important;
+  font-size: 1rem !important; /* Même taille que l'original */
+}
+
+.single-meta-row .meta-item.price span {
+  color: #4caf50 !important;
+  font-weight: 600 !important;
+}
+
+/* TND en gras spécifiquement */
+.single-meta-row .meta-item.price {
+  font-weight: 700 !important; /* Plus gras pour TND */
+}
+
+/* RESPONSIVE pour receiver skills */
+@media (max-width: 768px) {
+  .single-meta-row {
+    gap: 8px;
+  }
+  
+  .single-meta-row .meta-item {
+    font-size: 0.8rem;
+  }
+  
+  .single-meta-row .meta-item mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+  
+  .single-meta-row .meta-item.price {
+    font-size: 0.9rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .single-meta-row {
+    gap: 6px;
+  }
+  
+  .single-meta-row .meta-item {
+    font-size: 0.75rem;
+  }
+  
+  .single-meta-row .meta-item.price {
+    font-size: 0.8rem !important;
+  }
+}
+
+/* Garde l'ancien meta-row pour compatibility au cas où */
+.meta-row {
+  display: none; /* Cache les anciennes lignes multiples */
 }

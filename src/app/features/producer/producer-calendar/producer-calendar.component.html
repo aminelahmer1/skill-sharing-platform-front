@@ -1,0 +1,75 @@
+<div class="producer-calendar-page">
+  <!-- Header minimaliste -->
+  <div class="calendar-header-section">
+    <h1 class="calendar-main-title">
+      <span class="title-gradient">📅 Calendrier des Formations</span>
+    </h1>
+    
+    <!-- Statistiques simplifiées -->
+    <div class="quick-stats">
+      <div class="stat-bubble live" *ngIf="stats.liveSessions > 0">
+        <span class="stat-icon">🔴</span>
+        <span class="stat-text">{{ stats.liveSessions }} EN DIRECT</span>
+      </div>
+      <div class="stat-bubble upcoming">
+        <span class="stat-icon">📆</span>
+        <span class="stat-text">{{ stats.upcomingSessions }} à venir</span>
+      </div>
+      <div class="stat-bubble completed">
+        <span class="stat-icon">✅</span>
+        <span class="stat-text">{{ stats.completedSessions }} terminées</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Prochaines sessions importantes -->
+  <div class="next-sessions" *ngIf="upcomingEvents.length > 0">
+    <h2 class="section-subtitle">Prochaine session</h2>
+    <div class="next-session-card" *ngFor="let event of upcomingEvents.slice(0, 1)">
+      <div class="session-date-badge">
+        <div class="date-day">{{ event.streamingDate | date:'dd' }}</div>
+        <div class="date-month">{{ event.streamingDate | date:'MMM' | uppercase }}</div>
+      </div>
+      <div class="session-info">
+        <h3>{{ event.skillName }}</h3>
+        <p><span class="info-icon">👤</span> {{ event.receiverName }}</p>
+        <p><span class="info-icon">⏰</span> {{ event.streamingTime }}</p>
+      </div>
+      <button 
+        class="btn-start-session"
+        *ngIf="event.status === 'ACCEPTED' || event.status === 'SCHEDULED'"
+        (click)="startLiveSession(event)">
+        Démarrer la session
+      </button>
+    </div>
+  </div>
+
+  <!-- Indicateur de chargement -->
+  <div class="loading-overlay" *ngIf="loading">
+    <div class="loader"></div>
+  </div>
+
+  <!-- Message d'erreur -->
+  <div class="error-message" *ngIf="error && !loading">
+    <p>⚠️ {{ error }}</p>
+    <button class="btn-retry" (click)="refreshCalendar()">Réessayer</button>
+  </div>
+
+  <!-- Calendrier principal -->
+  <div class="calendar-main" *ngIf="!loading && !error">
+    <app-calendar-base
+      [userRole]="'PRODUCER'"
+      [events]="events"
+      (eventClick)="onEventClick($event)"
+      (dateClick)="onDateClick($event)"
+      (viewChange)="onViewChange($event)">
+    </app-calendar-base>
+  </div>
+
+  <!-- État vide -->
+  <div class="empty-calendar" *ngIf="!loading && !error && events.length === 0">
+    <div class="empty-illustration">📭</div>
+    <h3>Aucune session planifiée</h3>
+    <p>Vos formations apparaîtront ici dès qu'elles seront acceptées</p>
+  </div>
+</div>

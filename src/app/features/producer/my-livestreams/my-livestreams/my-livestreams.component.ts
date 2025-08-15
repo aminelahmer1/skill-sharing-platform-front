@@ -6,6 +6,7 @@ import { Skill } from '../../../../models/skill/skill.model';
 import { MatDialog, MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { AcceptedReceiversDialogComponent } from '../../accepted-receivers-dialog/accepted-receivers-dialog.component';
+import { SkillRatingsDialogComponent } from '../../SkillRatingsDialog/skill-ratings-dialog/skill-ratings-dialog.component';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -15,6 +16,7 @@ import { CommonModule, DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { LivestreamSession } from '../../../../models/LivestreamSession/livestream-session';
 import { firstValueFrom } from 'rxjs';
+import { RatingService, SkillRatingStats } from '../../../../core/services/Rating/rating.service';
 
 // Interface pour les données de confirmation de livestream
 interface LivestreamConfirmationData {
@@ -32,7 +34,12 @@ interface LivestreamConfirmationData {
 @Component({
   selector: 'app-livestream-confirmation',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule],
+  imports: [
+    CommonModule, 
+    MatDialogModule, 
+    MatButtonModule, 
+    MatIconModule
+  ],
   template: `
     <div class="confirmation-dialog">
       <div class="dialog-header">
@@ -233,6 +240,7 @@ interface SkillWithSessionStatus extends Skill {
 export class MyLivestreamsComponent implements OnInit {
   skills: SkillWithSessionStatus[] = [];
   sessions: { [skillId: number]: LivestreamSession } = {};
+  skillRatings: { [skillId: number]: SkillRatingStats } = {};
   isLoading = true;
   error: string | null = null;
 
@@ -240,6 +248,7 @@ export class MyLivestreamsComponent implements OnInit {
     private skillService: SkillService,
     private livestreamService: LivestreamService,
     private exchangeService: ExchangeService,
+    private ratingService: RatingService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
     private router: Router
@@ -292,7 +301,9 @@ export class MyLivestreamsComponent implements OnInit {
                 case 'COMPLETED':
                   skill.sessionStatus = 'completed';
                   skill.hasActiveSession = false;
-                  skill.isSessionCompleted = true; // Marquer comme terminé définitivement
+                  skill.isSessionCompleted = true;
+                  // Charger les ratings pour cette compétence
+                  this.loadSkillRatings(skill.id);
                   break;
                 default:
                   skill.sessionStatus = 'none';
@@ -301,6 +312,7 @@ export class MyLivestreamsComponent implements OnInit {
               }
               skill.sessionId = session.id;
               skill.session = session;
+              resolve();
             } else {
               // Vérifier si des échanges ont été complétés pour cette compétence
               this.exchangeService.isSessionCompletedForSkill(skill.id).subscribe({
@@ -309,6 +321,8 @@ export class MyLivestreamsComponent implements OnInit {
                     skill.sessionStatus = 'completed';
                     skill.hasActiveSession = false;
                     skill.isSessionCompleted = true;
+                    // Charger les ratings pour cette compétence
+                    this.loadSkillRatings(skill.id);
                   } else {
                     skill.sessionStatus = 'none';
                     skill.hasActiveSession = false;
@@ -324,7 +338,6 @@ export class MyLivestreamsComponent implements OnInit {
                 }
               });
             }
-            resolve();
           },
           error: () => {
             skill.sessionStatus = 'none';
@@ -341,13 +354,28 @@ export class MyLivestreamsComponent implements OnInit {
     });
   }
 
+  private loadSkillRatings(skillId: number): void {
+    this.ratingService.getSkillRatingStats(skillId).subscribe({
+      next: (stats) => {
+        this.skillRatings[skillId] = stats;
+      },
+      error: (error) => {
+        console.error(`Erreur lors du chargement des ratings pour la compétence ${skillId}:`, error);
+      }
+    });
+  }
+
   showAcceptedReceivers(skillId: number): void {
     const skill = this.skills.find(s => s.id === skillId);
     if (skill && skill.nbInscrits > 0) {
       this.dialog.open(AcceptedReceiversDialogComponent, {
-        width: '500px',
-        panelClass: 'receivers-dialog',
-        data: { skillId, skillName: skill.name }
+      width: '800px',
+      maxWidth: '95vw',
+      maxHeight: '80vh',
+      panelClass: 'receivers-dialog',
+      data: { 
+        skillId: skillId, 
+        skillName: skill.name  }
       });
     }
   }
@@ -437,6 +465,30 @@ export class MyLivestreamsComponent implements OnInit {
     }
   }
 
+  // MÉTHODE MISE À JOUR pour ouvrir le dialogue amélioré
+  viewSkillRatings(skillId: number): void {
+    const skill = this.skills.find(s => s.id === skillId);
+    if (!skill) return;
+    
+    // Ouvrir le dialogue amélioré avec tous les commentaires
+    const dialogRef = this.dialog.open(SkillRatingsDialogComponent, {
+      width: '700px',
+      maxWidth: '90vw',
+      maxHeight: '80vh',
+      panelClass: 'skill-ratings-dialog',
+      data: {
+        skillId: skillId,
+        skillName: skill.name,
+        ratings: this.skillRatings[skillId]
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      // Optionnel: actions après fermeture du dialogue
+      console.log('Dialogue des évaluations fermé');
+    });
+  }
+
   getSessionStatusColor(status?: string): string {
     switch (status) {
       case 'live': return 'warn';
@@ -455,9 +507,6 @@ export class MyLivestreamsComponent implements OnInit {
     }
   }
 
-  /**
-   * Détermine le message à afficher pour les compétences sans possibilité de créer une session
-   */
   getNoSessionMessage(skill: SkillWithSessionStatus): string {
     if (skill.isSessionCompleted || skill.sessionStatus === 'completed') {
       return 'Session terminée';
@@ -466,6 +515,34 @@ export class MyLivestreamsComponent implements OnInit {
       return 'Aucun participant inscrit';
     }
     return 'Session non disponible';
+  }
+
+  getRatingColor(rating: number): string {
+    if (rating >= 4.5) return '#4CAF50';
+    if (rating >= 3.5) return '#8BC34A';
+    if (rating >= 2.5) return '#FFC107';
+    if (rating >= 1.5) return '#FF9800';
+    return '#F44336';
+  }
+
+  getRatingLabel(rating: number): string {
+    if (rating >= 4.5) return 'Excellent';
+    if (rating >= 3.5) return 'Très bon';
+    if (rating >= 2.5) return 'Bon';
+    if (rating >= 1.5) return 'Moyen';
+    if (rating >= 1) return 'Faible';
+    return 'Non noté';
+  }
+
+  getStarArray(rating: number): boolean[] {
+    const stars: boolean[] = [];
+    const fullStars = Math.floor(rating);
+    
+    for (let i = 0; i < 5; i++) {
+      stars.push(i < fullStars);
+    }
+    
+    return stars;
   }
 
   canCreateSession(skill: SkillWithSessionStatus): boolean {

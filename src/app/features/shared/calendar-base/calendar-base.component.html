@@ -1,0 +1,196 @@
+<!-- calendar-base.component.html -->
+<div class="calendar-container">
+  <!-- Header du calendrier -->
+  <div class="calendar-header">
+    <div class="calendar-title">
+      <h2>{{ currentMonthYear }}</h2>
+    </div>
+    
+    <div class="calendar-controls">
+      <!-- Sélecteur de vue -->
+      <div class="view-selector">
+        <button 
+          class="btn-view" 
+          [class.active]="currentView.type === 'month'"
+          (click)="changeViewType('month')">
+          <span class="view-icon">📅</span>
+          Mois
+        </button>
+        <button 
+          class="btn-view" 
+          [class.active]="currentView.type === 'list'"
+          (click)="changeViewType('list')">
+          <span class="view-icon">📋</span>
+          Liste
+        </button>
+      </div>
+
+      <!-- Navigation -->
+      <div class="calendar-nav">
+        <button class="nav-btn" (click)="navigatePrevious()" title="Mois précédent">
+          ◀
+        </button>
+        <button class="nav-btn today-btn" (click)="navigateToday()">
+          Aujourd'hui
+        </button>
+        <button class="nav-btn" (click)="navigateNext()" title="Mois suivant">
+          ▶
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vue Mois -->
+  <div class="calendar-grid" *ngIf="currentView.type === 'month' && calendarMonth">
+    <!-- En-têtes des jours -->
+    <div class="calendar-weekdays">
+      <div class="calendar-weekday" *ngFor="let day of weekDays">
+        {{ day }}
+      </div>
+    </div>
+
+    <!-- Grille des jours -->
+    <div class="calendar-days">
+      <div *ngFor="let week of calendarMonth.weeks" class="calendar-week">
+        <div 
+          *ngFor="let day of week.days" 
+          class="calendar-day"
+          [class.today]="day.isToday"
+          [class.weekend]="day.isWeekend"
+          [class.other-month]="!day.isCurrentMonth"
+          [class.has-events]="day.events && day.events.length > 0"
+          (click)="onDayClicked(day.date)">
+          
+          <div class="day-header">
+            <span class="day-number" [class.today-number]="day.isToday">
+              {{ day.dayNumber }}
+            </span>
+          </div>
+
+          <div class="day-events" *ngIf="day.events && day.events.length > 0">
+            <!-- Afficher TOUS les événements sans limite -->
+            <div 
+              *ngFor="let event of day.events" 
+              class="calendar-event"
+              [class]="getEventStatusClass(event.status)"
+              [class.skill-without-exchange]="isSkillWithoutExchange(event)"
+              (click)="onEventClicked(event, $event)"
+              [title]="getEventTitle(event)">
+              
+              <span class="event-dot" [style.background-color]="event.color"></span>
+              <span class="event-time">{{ formatTime(event.streamingTime) }}</span>
+              <span class="event-name">{{ event.skillName }}</span>
+              <span class="live-badge" *ngIf="event.status === 'IN_PROGRESS'">LIVE</span>
+              <span class="no-exchange-badge" *ngIf="isSkillWithoutExchange(event)">📭</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vue Liste -->
+  <div class="calendar-list-view" *ngIf="currentView.type === 'list'">
+    <div class="list-header">
+      <h3>Tous les événements</h3>
+      <span class="event-count">{{ filteredEvents.length }} événement(s)</span>
+    </div>
+    
+    <div class="event-list" *ngIf="filteredEvents.length > 0">
+      <div class="event-group" *ngFor="let group of groupEventsByDate(filteredEvents)">
+        <div class="event-date-header">
+          <span class="date-label">{{ group.date | date:'EEEE d MMMM yyyy' }}</span>
+          <span class="event-count-badge">{{ group.events.length }}</span>
+        </div>
+        
+        <div 
+          *ngFor="let event of group.events" 
+          class="list-event-item"
+          [class]="getEventStatusClass(event.status)"
+          [class.skill-without-exchange]="isSkillWithoutExchange(event)"
+          (click)="onEventClicked(event, $event)">
+          
+          <div class="event-time-column">
+            <div class="event-time-display">
+              {{ formatTime(event.streamingTime) }}
+            </div>
+          </div>
+
+          <div class="event-content">
+            <div class="event-header-info">
+              <h4 class="event-title">{{ event.skillName }}</h4>
+              <span class="event-category" *ngIf="event.categoryName">
+                {{ event.categoryName }}
+              </span>
+            </div>
+            
+            <div class="event-participants">
+              <span class="participant-info" *ngIf="userRole === 'PRODUCER'">
+                <span class="participant-icon">👤</span>
+                {{ event.receiverName }}
+              </span>
+              <span class="participant-info" *ngIf="userRole === 'RECEIVER'">
+                <span class="participant-icon">👨‍🏫</span>
+                {{ event.producerName }}
+              </span>
+            </div>
+          </div>
+
+          <div class="event-status-column">
+            <span class="status-indicator" [style.background-color]="event.color">
+              {{ getStatusLabel(event.status) }}
+            </span>
+            <button 
+              class="btn-action" 
+              *ngIf="event.status === 'IN_PROGRESS'"
+              [class.btn-producer]="userRole === 'PRODUCER'"
+              [class.btn-receiver]="userRole === 'RECEIVER'">
+              {{ userRole === 'PRODUCER' ? 'Gérer' : 'Rejoindre' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="empty-list" *ngIf="filteredEvents.length === 0">
+      <div class="empty-icon">📭</div>
+      <p>Aucun événement à afficher</p>
+    </div>
+  </div>
+
+  <!-- Légende des statuts -->
+  <div class="status-legend">
+    <div class="legend-item" *ngIf="userRole === 'PRODUCER'">
+      <span class="legend-dot no-exchange"></span>
+      <span>Sans inscription</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-dot pending"></span>
+      <span>En attente</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-dot accepted"></span>
+      <span>Accepté</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-dot scheduled"></span>
+      <span>Planifié</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-dot live"></span>
+      <span>En direct</span>
+    </div>
+    <div class="legend-item">
+      <span class="legend-dot completed"></span>
+      <span>Terminé</span>
+    </div>
+  </div>
+</div>
+
+<!-- Modal des détails de l'événement -->
+<app-calendar-event-modal 
+  *ngIf="showEventModal && selectedEvent"
+  [event]="selectedEvent"
+  [userRole]="userRole"
+  (close)="closeEventModal()">
+</app-calendar-event-modal>

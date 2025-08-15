@@ -35,28 +35,33 @@
             {{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}
           </p>
           
-          <div class="skill-meta">
-            <div class="meta-row">
-              <div class="meta-item">
-                <mat-icon>people</mat-icon>
-                <span>{{ skill.nbInscrits }}/{{ skill.availableQuantity }}</span>
-              </div>
-              <div class="meta-item">
-                <mat-icon>calendar_today</mat-icon>
-                <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
-              </div>
-            </div>
-            <div class="meta-row">
-              <div class="meta-item">
-                <mat-icon>access_time</mat-icon>
-                <span>{{ skill.streamingTime }}</span>
-              </div>
-              <div class="meta-item price">
-                <span>TND</span>
-                <span>{{ skill.price | number:'1.2-2' }}</span>
-              </div>
-            </div>
-          </div>
+         <!-- REMPLACER la section skill-meta dans receiver-skills.component.html -->
+<div class="skill-meta">
+  <div class="single-meta-row">
+    <!-- Participants -->
+    <div class="meta-item">
+      <mat-icon>people</mat-icon>
+      <span>{{ skill.nbInscrits }}/{{ skill.availableQuantity }}</span>
+    </div>
+
+    <!-- Date -->
+    <div class="meta-item">
+      <mat-icon>calendar_today</mat-icon>
+      <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
+    </div>
+
+    <!-- Heure -->
+    <div class="meta-item">
+      <mat-icon>access_time</mat-icon>
+      <span>{{ skill.streamingTime }}</span>
+    </div>
+
+    <!-- Prix -->
+    <div class="meta-item price">
+      <span>TND {{ skill.price | number:'1.2-2' }}</span>
+    </div>
+  </div>
+</div>
           
           <!-- Exchange Status Display -->
           <div class="exchange-status" *ngIf="showExchangeMessage(skill)">

@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { SkillService } from '../../../core/services/Skill/skill.service';
 import { CategoryService } from '../../../core/services/category/category.service';
-import { LivestreamService } from '../../../core/services/LiveStream/livestream.service';
 import { Skill, Category } from '../../../models/skill/skill.model';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -13,14 +12,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatCardModule } from '@angular/material/card';
 import { CommonModule, DecimalPipe } from '@angular/common';
-import { MatSelectModule } from '@angular/material/select';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { LivestreamSession } from '../../../models/LivestreamSession/livestream-session';
 
 @Component({
   selector: 'app-producer-skills',
@@ -31,33 +23,20 @@ import { LivestreamSession } from '../../../models/LivestreamSession/livestream-
     MatIconModule,
     MatProgressBarModule,
     MatCardModule,
-    DecimalPipe,
-    MatSelectModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
-    MatFormFieldModule,
-    MatInputModule,
-    FormsModule
+    DecimalPipe
   ],
   templateUrl: './skills.component.html',
   styleUrls: ['./skills.component.css']
 })
 export class SkillsComponent implements OnInit {
   skills: Skill[] = [];
-  filteredSkills: Skill[] = [];
   categories: Category[] = [];
-  sessions: { [skillId: number]: LivestreamSession } = {};
   isLoading = true;
   error: string | null = null;
-
-  selectedCategory: number | null = null;
-  selectedDate: Date | null = null;
-  sortOrder: 'asc' | 'desc' | 'default' = 'default';
 
   constructor(
     private skillService: SkillService,
     private categoryService: CategoryService,
-    private livestreamService: LivestreamService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
     private router: Router
@@ -85,9 +64,21 @@ export class SkillsComponent implements OnInit {
 
     this.skillService.getMySkills().subscribe({
       next: (skills) => {
-        this.skills = skills.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        this.applyFiltersAndSort();
-        this.checkActiveSessions();
+        // Tri par date de streaming (plus récent vers plus ancien)
+        this.skills = skills.sort((a, b) => {
+          try {
+            // Créer des objets Date complets avec date et heure
+            const dateTimeA = this.createDateTime(a.streamingDate, a.streamingTime);
+            const dateTimeB = this.createDateTime(b.streamingDate, b.streamingTime);
+            
+            // Tri décroissant (plus récent en premier)
+            return dateTimeB.getTime() - dateTimeA.getTime();
+          } catch (error) {
+            console.error('Erreur lors du tri des compétences:', error);
+            // Fallback sur la date de création si problème
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          }
+        });
         this.isLoading = false;
       },
       error: () => {
@@ -96,62 +87,6 @@ export class SkillsComponent implements OnInit {
         this.snackBar.open(this.error, 'Fermer', { duration: 3000 });
       }
     });
-  }
-
-  checkActiveSessions(): void {
-  this.skills.forEach(skill => {
-    this.livestreamService.getSessionBySkillId(skill.id).subscribe({
-      next: session => {
-        if (session && (session.status === 'LIVE' || session.status === 'SCHEDULED')) {
-          this.sessions[skill.id] = session;
-        }
-      },
-      error: () => {} // Ignore errors if session not found
-    });
-  });
-}
-
-
-  applyFiltersAndSort(): void {
-    let filtered = [...this.skills];
-
-    if (this.selectedCategory) {
-      filtered = filtered.filter(skill => skill.categoryId === this.selectedCategory);
-    }
-
-    if (this.selectedDate) {
-      const selectedDateStr = this.selectedDate.toISOString().split('T')[0];
-      filtered = filtered.filter(skill => skill.streamingDate === selectedDateStr);
-    }
-
-    if (this.sortOrder === 'asc') {
-      filtered = filtered.sort((a, b) => a.nbInscrits - b.nbInscrits);
-    } else if (this.sortOrder === 'desc') {
-      filtered = filtered.sort((a, b) => b.nbInscrits - a.nbInscrits);
-    } else {
-      filtered = filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }
-
-    this.filteredSkills = filtered;
-  }
-
-  onCategoryChange(): void {
-    this.applyFiltersAndSort();
-  }
-
-  onDateChange(): void {
-    this.applyFiltersAndSort();
-  }
-
-  onSortChange(): void {
-    this.applyFiltersAndSort();
-  }
-
-  resetFilters(): void {
-    this.selectedCategory = null;
-    this.selectedDate = null;
-    this.sortOrder = 'default';
-    this.applyFiltersAndSort();
   }
 
   openCreateDialog(): void {
@@ -196,6 +131,15 @@ export class SkillsComponent implements OnInit {
   }
 
   openUpdateDialog(skill: Skill): void {
+    // Vérifier si la compétence peut être modifiée
+    if (!this.canEditSkill(skill)) {
+      this.snackBar.open('⏰ Cette compétence ne peut plus être modifiée car sa date est passée', 'Fermer', { 
+        duration: 4000,
+        panelClass: ['warning-snackbar']
+      });
+      return;
+    }
+
     const dialogRef = this.dialog.open(SkillFormComponent, {
       width: '600px',
       panelClass: 'skill-form-dialog',
@@ -213,54 +157,65 @@ export class SkillsComponent implements OnInit {
     const skill = this.skills.find(s => s.id === skillId);
     if (skill && skill.nbInscrits > 0) {
       this.dialog.open(AcceptedReceiversDialogComponent, {
-        width: '500px',
+        width: '800px',
+        maxWidth: '95vw',
+        maxHeight: '80vh',
         panelClass: 'receivers-dialog',
         data: { skillId, skillName: skill.name }
       });
     }
   }
-// skills.component.ts
-navigateToLivestream(sessionId: number): void {
-  this.router.navigate(['/producer/livestream', sessionId]);
-}
 
-// Dans skills.component.ts
-createLivestreamSession(skillId: number): void {
-  const dialogRef = this.dialog.open(ConfirmationDialogComponent, {
-    width: '350px',
-    data: {
-      title: 'Start Livestream',
-      message: 'Do you want to start the livestream now or schedule it?',
-      confirmText: 'Start Now',
-      cancelText: 'Schedule'
+  /**
+   * Vérifie si une compétence peut être modifiée
+   * Une compétence ne peut être modifiée que si sa date/heure n'est pas encore passée
+   */
+  canEditSkill(skill: Skill): boolean {
+    if (!skill.streamingDate || !skill.streamingTime) {
+      return true; // Si pas de date/heure, on autorise la modification
     }
-  });
 
-  dialogRef.afterClosed().subscribe(result => {
-    if (result !== undefined) {
-      const immediate = result === true;
-      this.livestreamService.createSession(skillId, immediate).subscribe({
-        next: (session) => {
-          this.sessions[skillId] = session;
-          this.snackBar.open(
-            immediate 
-              ? 'Livestream started successfully' 
-              : `Livestream scheduled for ${session.startTime}`,
-            'Close', 
-            { duration: 5000 }
-          );
-          if (immediate) {
-            // Make sure we have the session with producerToken
-            console.log('Session created with producerToken:', !!session.producerToken);
-            this.navigateToLivestream(session.id);
-          }
-        },
-        error: (err) => {
-          console.error('Error creating session:', err);
-          this.snackBar.open('Failed to create livestream session', 'Close', { duration: 3000 });
-        }
-      });
+    try {
+      // Créer un objet Date complet avec la date et l'heure
+      const [hours, minutes] = skill.streamingTime.split(':').map(Number);
+      const skillDateTime = new Date(skill.streamingDate);
+      skillDateTime.setHours(hours, minutes, 0, 0);
+
+      const now = new Date();
+      
+      // La compétence peut être modifiée si sa date/heure est dans le futur
+      return skillDateTime > now;
+    } catch (error) {
+      console.error('Erreur lors de la vérification de la date:', error);
+      return true; // En cas d'erreur, on autorise par défaut
     }
-  });
-}
+  }
+
+  /**
+   * Vérifie si une compétence est expirée (pour affichage visuel)
+   */
+  isSkillExpired(skill: Skill): boolean {
+    return !this.canEditSkill(skill);
+  }
+
+  /**
+   * Obtient le message tooltip pour le bouton de modification
+   */
+  getEditTooltip(skill: Skill): string {
+    if (this.canEditSkill(skill)) {
+      return 'Modifier cette compétence';
+    } else {
+      return 'Cette compétence ne peut plus être modifiée car sa date est passée';
+    }
+  }
+
+  /**
+   * Crée un objet Date complet à partir d'une date et d'une heure
+   */
+  private createDateTime(dateStr: string, timeStr: string): Date {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const dateTime = new Date(dateStr);
+    dateTime.setHours(hours, minutes, 0, 0);
+    return dateTime;
+  }
 }

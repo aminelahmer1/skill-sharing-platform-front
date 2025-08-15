@@ -1,117 +1,938 @@
+/* Skill Form Component - Modern Design Matching MyLivestreams */
+:root {
+  --primary: #6c5ce7;
+  --primary-dark: #5649c0;
+  --secondary: #a29bfe;
+  --dark: #2d3436;
+  --light: #f5f6fa;
+  --success: #00b894;
+  --warning: #fdcb6e;
+  --danger: #d63031;
+  --producer: #fd79a8;
+  --producer-dark: #e66797;
+  --receiver: #74b9ff;
+  --receiver-dark: #5aa8f5;
+}
+
 .skill-form-container {
-    padding: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(108, 92, 231, 0.15);
+  max-width: 650px;
+  width: 100%;
+  animation: slideInScale 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@keyframes slideInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Header moderne avec gradient - COULEURS CORRIGÉES */
+.dialog-title {
+  background: linear-gradient(135deg, #6c5ce7 0%, #fd79a8 100%);
+  color: white;
+  padding: 24px 32px;
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(108, 92, 231, 0.3);
+  position: relative;
+}
+
+.dialog-title::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+}
+
+.close-btn {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: rotate(90deg) scale(1.1);
+}
+
+.close-btn mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+/* Content area */
+mat-dialog-content {
+  padding: 32px;
+  background: white;
+}
+
+/* Section upload d'image moderne */
+.image-upload-section {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 32px;
+  position: relative;
+}
+
+.image-preview {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  transition: all 0.3s ease;
+}
+
+.image-preview:hover {
+  transform: scale(1.02);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(244, 67, 54, 0.9);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.remove-image-btn:hover {
+  background: #d32f2f;
+  transform: scale(1.1);
+}
+
+.remove-image-btn mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.upload-btn-wrapper {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  border: 3px dashed var(--primary);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, rgba(108, 92, 231, 0.05), rgba(162, 155, 254, 0.05));
+}
+
+.upload-btn-wrapper:hover {
+  border-color: var(--producer);
+  background: linear-gradient(135deg, rgba(108, 92, 231, 0.1), rgba(253, 121, 168, 0.1));
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(108, 92, 231, 0.2);
+}
+
+.upload-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--primary);
+  font-weight: 500;
+  text-align: center;
+}
+
+.upload-label mat-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  color: var(--primary);
+  transition: all 0.3s ease;
+}
+
+.upload-btn-wrapper:hover .upload-label mat-icon {
+  color: var(--producer);
+  transform: scale(1.1);
+}
+
+.upload-label span {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.upload-btn-wrapper input[type="file"] {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Form styling moderne */
+.skill-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+/* Champs de formulaire avec style moderne */
+mat-form-field {
+  margin-bottom: 0;
+}
+
+mat-form-field.mat-form-field {
+  font-size: 16px;
+}
+
+.mat-mdc-form-field {
+  --mdc-filled-text-field-container-color: #f8f9fa;
+  --mdc-filled-text-field-focus-active-indicator-color: var(--primary);
+  --mdc-filled-text-field-hover-active-indicator-color: var(--secondary);
+}
+
+.mat-mdc-form-field.mat-focused .mat-mdc-form-field-focus-overlay {
+  background-color: rgba(108, 92, 231, 0.04);
+}
+
+/* Style pour les icônes de suffixe */
+mat-form-field mat-icon[matSuffix] {
+  color: var(--primary);
+  transition: all 0.3s ease;
+}
+
+mat-form-field.mat-focused mat-icon[matSuffix] {
+  color: var(--producer);
+  transform: scale(1.1);
+}
+
+/* Date picker custom styling - COULEURS FIXES */
+.mat-mdc-form-field .mat-datepicker-toggle {
+  color: #6c5ce7 !important;
+}
+
+.mat-mdc-form-field.mat-focused .mat-datepicker-toggle {
+  color: #fd79a8 !important;
+}
+
+/* Améliorer l'apparence du date picker */
+.mat-datepicker-toggle-default-icon {
+  color: inherit !important;
+}
+
+/* Style pour les champs date et time actifs */
+.mat-mdc-form-field input[type="time"],
+.mat-mdc-form-field input[matDatepicker] {
+  cursor: pointer;
+}
+
+.mat-mdc-form-field input[matDatepicker] {
+  background: transparent;
+}
+
+/* Assurer que le champ date est cliquable */
+.mat-mdc-form-field input[matDatepicker]:not([readonly]) {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Style pour le toggle du datepicker */
+.mat-datepicker-toggle {
+  color: #6c5ce7 !important;
+  cursor: pointer !important;
+}
+
+.mat-datepicker-toggle:hover {
+  color: #fd79a8 !important;
+}
+
+/* Input time styling amélioré */
+input[type="time"] {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer !important;
+  background: transparent;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  color: #6c5ce7;
+  filter: brightness(0) saturate(100%) invert(29%) sepia(79%) saturate(2000%) hue-rotate(248deg) brightness(95%) contrast(89%);
+}
+
+input[type="time"]:focus::-webkit-calendar-picker-indicator {
+  filter: brightness(0) saturate(100%) invert(22%) sepia(77%) saturate(1653%) hue-rotate(318deg) brightness(95%) contrast(95%);
+}
+
+/* Style pour les icônes de suffixe - COULEURS FIXES */
+mat-form-field mat-icon[matSuffix] {
+  color: #6c5ce7 !important;
+  transition: all 0.3s ease;
+}
+
+mat-form-field.mat-focused mat-icon[matSuffix] {
+  color: #fd79a8 !important;
+  transform: scale(1.1);
+}
+
+/* Select dropdown styling */
+.mat-mdc-select-trigger {
+  height: auto;
+  min-height: 56px;
+}
+
+/* Textarea styling */
+textarea.mat-mdc-input-element {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Actions section moderne */
+mat-dialog-actions {
+  padding: 24px 32px 32px;
+  margin: 0;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-top: 1px solid rgba(108, 92, 231, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Boutons d'action modernes */
+mat-dialog-actions button {
+  margin: 0;
+  height: 48px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-transform: none;
+  min-width: 120px;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Bouton Annuler */
+mat-dialog-actions button[mat-button] {
+  color: #636e72;
+  background: transparent;
+  border: 2px solid #e9ecef;
+}
+
+mat-dialog-actions button[mat-button]:hover {
+  background: #f1f3f4;
+  border-color: #dee2e6;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Bouton Principal - COULEURS FIXES */
+mat-dialog-actions button[mat-raised-button] {
+  background: linear-gradient(135deg, #6c5ce7 0%, #fd79a8 100%) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4) !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+mat-dialog-actions button[mat-raised-button]:hover:not([disabled]) {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 8px 25px rgba(108, 92, 231, 0.5) !important;
+  background: linear-gradient(135deg, #5649c0 0%, #e66797 100%) !important;
+}
+
+mat-dialog-actions button[mat-raised-button]:disabled {
+  background: #e9ecef !important;
+  color: #adb5bd !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+
+/* Override complet de Material Design */
+.skill-form-container .mat-mdc-raised-button.mat-primary {
+  --mdc-protected-button-container-color: transparent !important;
+  --mdc-protected-button-label-text-color: white !important;
+  --mat-mdc-button-persistent-ripple-color: white !important;
+  --mat-mdc-button-ripple-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.skill-form-container .mat-mdc-raised-button.mat-primary:not([disabled]) {
+  background: linear-gradient(135deg, #6c5ce7 0%, #fd79a8 100%) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.skill-form-container .mat-mdc-raised-button.mat-primary:not([disabled]):hover {
+  background: linear-gradient(135deg, #5649c0 0%, #e66797 100%) !important;
+}
+
+/* Forcer l'override sur tous les états */
+.skill-form-container button[color="primary"] {
+  background: linear-gradient(135deg, #6c5ce7 0%, #fd79a8 100%) !important;
+  color: white !important;
+}
+
+.skill-form-container button[color="primary"]:hover:not([disabled]) {
+  background: linear-gradient(135deg, #5649c0 0%, #e66797 100%) !important;
+}
+
+/* Spinner dans le bouton */
+mat-dialog-actions button mat-spinner {
+  margin-left: 8px;
+}
+
+/* Animation de chargement pour le bouton */
+@keyframes buttonLoading {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+mat-dialog-actions button[disabled] {
+  animation: buttonLoading 1.5s infinite;
+}
+
+/* Messages d'erreur */
+mat-error {
+  font-size: 0.875rem;
+  color: var(--danger);
+  margin-top: 4px;
+  animation: fadeInError 0.3s ease;
+}
+
+@keyframes fadeInError {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Focus states pour l'accessibilité */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .skill-form-container {
+    margin: 16px;
+    border-radius: 16px;
   }
   
   .dialog-title {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: #3f51b5;
-    margin-bottom: 20px;
+    padding: 20px 24px;
+    font-size: 1.3rem;
   }
   
-  .close-btn {
-    margin-left: auto;
-  }
-  
-  .skill-form {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-  
-  .image-upload-section {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 20px;
-  }
-  
-  .image-preview {
-    position: relative;
-    width: 200px;
-    height: 200px;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  }
-  
-  .preview-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  
-  .remove-image-btn {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background-color: rgba(255, 255, 255, 0.8);
-  }
-  
-  .upload-btn-wrapper {
-    position: relative;
-    width: 200px;
-    height: 200px;
-    border: 2px dashed #ccc;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: border-color 0.3s;
-  }
-  
-  .upload-btn-wrapper:hover {
-    border-color: #3f51b5;
-  }
-  
-  .upload-label {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    color: #666;
-  }
-  
-  .upload-label mat-icon {
-    font-size: 48px;
-    width: 48px;
-    height: 48px;
-    margin-bottom: 10px;
-    color: #3f51b5;
-  }
-  
-  .upload-btn-wrapper input[type="file"] {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
+  mat-dialog-content {
+    padding: 24px;
   }
   
   .form-row {
-    display: flex;
-    gap: 20px;
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
   
-  .form-row mat-form-field {
-    flex: 1;
+  .image-preview,
+  .upload-btn-wrapper {
+    width: 150px;
+    height: 150px;
   }
   
-  .full-width {
-    width: 100%;
-  }
-  
-  mat-form-field {
-    margin-bottom: 10px;
+  .upload-label mat-icon {
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
   }
   
   mat-dialog-actions {
-    padding: 20px 0 0 0;
-    margin-top: 20px;
-    border-top: 1px solid #eee;
+    padding: 20px 24px 24px;
+    flex-direction: column-reverse;
+    gap: 12px;
   }
   
   mat-dialog-actions button {
-    margin-left: 10px;
+    width: 100%;
+    min-width: auto;
   }
+}
+
+@media (max-width: 480px) {
+  .skill-form-container {
+    margin: 8px;
+    border-radius: 12px;
+  }
+  
+  .dialog-title {
+    padding: 16px 20px;
+    font-size: 1.2rem;
+  }
+  
+  mat-dialog-content {
+    padding: 20px;
+  }
+  
+  .image-upload-section {
+    margin-bottom: 24px;
+  }
+  
+  .skill-form {
+    gap: 20px;
+  }
+}
+
+/* Form Status Indicator */
+.form-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+  border: 1px solid #ffcdd2;
+  border-radius: 8px;
+  color: #d32f2f;
+  font-size: 0.9rem;
+  margin-top: 8px;
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.form-status mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+/* Upload label styling amélioré */
+.upload-label small {
+  font-size: 0.75rem;
+  color: rgba(108, 92, 231, 0.7);
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+/* Input hints styling */
+.mat-mdc-form-field .mat-mdc-form-field-hint-wrapper {
+  color: rgba(108, 92, 231, 0.6);
+  font-size: 0.75rem;
+}
+
+/* Prefix styling pour le prix */
+.mat-mdc-form-field .mat-mdc-form-field-text-prefix {
+  color: var(--success);
+  font-weight: 600;
+}
+
+/* Amélioration des placeholders */
+.mat-mdc-input-element::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+  font-style: italic;
+}
+
+/* États de validation visuels */
+.mat-mdc-form-field.mat-form-field-invalid .mat-mdc-text-field-wrapper {
+  background-color: rgba(244, 67, 54, 0.02);
+}
+
+.mat-mdc-form-field.ng-valid.ng-touched .mat-mdc-text-field-wrapper {
+  background-color: rgba(76, 175, 80, 0.02);
+}
+
+/* Animation pour les champs valides */
+.mat-mdc-form-field.ng-valid.ng-touched mat-icon[matSuffix] {
+  color: var(--success);
+  animation: checkPulse 0.5s ease;
+}
+
+@keyframes checkPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* Amélioration de l'interaction tactile */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  .upload-btn-wrapper {
+    min-height: 44px;
+  }
+  
+  .close-btn {
+    width: 44px;
+    height: 44px;
+  }
+  
+  mat-form-field {
+    margin-bottom: 16px;
+  }
+}
+
+/* Animation d'entrée pour les erreurs */
+mat-error {
+  animation: slideInError 0.3s ease;
+}
+
+@keyframes slideInError {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}/* Dialog de confirmation personnalisé - AJOUTEZ CECI À VOTRE CSS EXISTANT */
+
+.confirmation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeInOverlay 0.3s ease;
+}
+
+@keyframes fadeInOverlay {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(8px);
+  }
+}
+
+.confirmation-dialog {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 25px 80px rgba(108, 92, 231, 0.25);
+  max-width: 480px;
+  width: 90%;
+  margin: 20px;
+  overflow: hidden;
+  animation: slideInConfirm 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@keyframes slideInConfirm {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Header du dialogue de confirmation */
+.confirmation-header {
+  background: linear-gradient(135deg, #fdcb6e 0%, #e17055 100%);
+  color: white;
+  padding: 24px 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 4px 20px rgba(225, 112, 85, 0.3);
+  position: relative;
+}
+
+.confirmation-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+}
+
+.warning-icon {
+  font-size: 32px !important;
+  width: 32px !important;
+  height: 32px !important;
+  color: white;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.confirmation-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+/* Contenu du dialogue */
+.confirmation-content {
+  padding: 32px;
+  text-align: center;
+  background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
+  background-size: 200% 200%;
+  animation: gradientShift 4s ease infinite;
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.confirmation-content p {
+  margin: 0 0 16px 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #2d3436;
+}
+
+.confirmation-content p:last-child {
+  margin-bottom: 0;
+  font-weight: 600;
+  color: #d63031;
+}
+
+/* Actions du dialogue */
+.confirmation-actions {
+  padding: 24px 32px 32px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid rgba(253, 203, 110, 0.2);
+}
+
+/* Bouton Continuer l'édition */
+.confirmation-cancel-btn {
+  color: #636e72 !important;
+  background: transparent !important;
+  border: 2px solid #e9ecef !important;
+  height: 48px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-transform: none;
+  min-width: 140px;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.confirmation-cancel-btn:hover {
+  background: #f1f3f4 !important;
+  border-color: #00b894 !important;
+  color: #00b894 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 184, 148, 0.2);
+}
+
+.confirmation-cancel-btn mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+/* Bouton Quitter */
+.confirmation-confirm-btn {
+  background: linear-gradient(135deg, #d63031 0%, #e17055 100%) !important;
+  color: white !important;
+  border: none !important;
+  height: 48px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-transform: none;
+  min-width: 140px;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 15px rgba(214, 48, 49, 0.4);
+}
+
+.confirmation-confirm-btn:hover {
+  background: linear-gradient(135deg, #b52d2d 0%, #d63031 100%) !important;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(214, 48, 49, 0.5);
+}
+
+.confirmation-confirm-btn mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+/* Override Material Design pour les boutons de confirmation */
+.confirmation-dialog .mat-mdc-button,
+.confirmation-dialog .mat-mdc-raised-button {
+  --mdc-protected-button-container-color: transparent !important;
+  --mat-mdc-button-persistent-ripple-color: currentColor !important;
+  --mat-mdc-button-ripple-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Responsive pour le dialogue de confirmation */
+@media (max-width: 768px) {
+  .confirmation-dialog {
+    margin: 16px;
+    border-radius: 16px;
+    max-width: none;
+  }
+  
+  .confirmation-header {
+    padding: 20px 24px;
+  }
+  
+  .confirmation-header h3 {
+    font-size: 1.2rem;
+  }
+  
+  .warning-icon {
+    font-size: 28px !important;
+    width: 28px !important;
+    height: 28px !important;
+  }
+  
+  .confirmation-content {
+    padding: 24px;
+  }
+  
+  .confirmation-actions {
+    padding: 20px 24px 24px;
+    flex-direction: column-reverse;
+    gap: 12px;
+  }
+  
+  .confirmation-cancel-btn,
+  .confirmation-confirm-btn {
+    width: 100%;
+    min-width: auto;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .confirmation-dialog {
+    margin: 8px;
+    border-radius: 12px;
+  }
+  
+  .confirmation-header {
+    padding: 16px 20px;
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+  
+  .confirmation-content {
+    padding: 20px;
+  }
+  
+  .confirmation-content p {
+    font-size: 0.95rem;
+  }
+}
+
+/* Animation de fermeture */
+.confirmation-overlay.closing {
+  animation: fadeOutOverlay 0.2s ease forwards;
+}
+
+.confirmation-overlay.closing .confirmation-dialog {
+  animation: slideOutConfirm 0.2s ease forwards;
+}
+
+@keyframes fadeOutOverlay {
+  to {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+}
+
+@keyframes slideOutConfirm {
+  to {
+    opacity: 0;
+    transform: scale(0.9) translateY(-30px);
+  }
+}
+
+/* Effet de focus pour l'accessibilité */
+.confirmation-cancel-btn:focus-visible,
+.confirmation-confirm-btn:focus-visible {
+  outline: 2px solid #6c5ce7;
+  outline-offset: 2px;
+}
+
+/* Animation d'entrée pour les icônes */
+.confirmation-cancel-btn mat-icon,
+.confirmation-confirm-btn mat-icon {
+  transition: transform 0.3s ease;
+}
+
+.confirmation-cancel-btn:hover mat-icon {
+  transform: translateX(-2px);
+}
+
+.confirmation-confirm-btn:hover mat-icon {
+  transform: translateX(2px);
+}

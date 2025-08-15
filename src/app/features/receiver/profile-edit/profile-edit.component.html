@@ -1,25 +1,68 @@
 <div class="edit-container">
-    <mat-card>
-      <mat-card-header>
-        <mat-card-title>Modifier le profil</mat-card-title>
-        <mat-card-subtitle *ngIf="isLoading">Chargement des données du profil...</mat-card-subtitle>
-      </mat-card-header>
-  
-      <mat-card-content>
-        <form [formGroup]="profileForm" (ngSubmit)="onSubmit()">
-          <div class="form-section">
-            <div class="avatar-upload">
-              <div class="avatar-preview">
-                <img 
-                  [src]="previewUrl" 
-                  alt="Photo de profil"
-                  (error)="previewUrl = 'assets/images/default-profile.png'"
-                  class="profile-image"
-                >
-                <div class="upload-overlay" *ngIf="isUploading">
-                  <mat-spinner diameter="30"></mat-spinner>
-                </div>
+  <!-- État de chargement global -->
+  <div *ngIf="isLoading && !profileForm.value.firstName" class="loading-overlay">
+    <div class="loading-content">
+      <mat-spinner diameter="60" color="primary"></mat-spinner>
+      <p class="loading-text">Chargement de vos informations...</p>
+    </div>
+  </div>
+
+  <!-- Formulaire principal -->
+  <mat-card class="edit-card" [class.loading]="isLoading">
+    <!-- Header -->
+    <mat-card-header class="edit-header">
+      <div class="header-content">
+        <mat-card-title class="edit-title">
+          <mat-icon class="title-icon">edit</mat-icon>
+          Modifier le profil
+        </mat-card-title>
+        <mat-card-subtitle class="edit-subtitle">
+          Personnalisez vos informations de profil
+        </mat-card-subtitle>
+      </div>
+    </mat-card-header>
+
+    <mat-card-content class="edit-content">
+      <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" novalidate>
+        
+        <!-- Section Photo de profil -->
+        <div class="avatar-section">
+          <h3 class="section-title">
+            <mat-icon>photo_camera</mat-icon>
+            Photo de profil
+          </h3>
+          
+          <div class="avatar-upload-container">
+            <div class="avatar-preview">
+              <img 
+                [src]="previewUrl" 
+                alt="Photo de profil"
+                (error)="previewUrl = 'assets/images/default-profile.png'"
+                class="profile-image"
+                [class.uploading]="isUploading"
+              >
+              
+              <!-- Overlay de chargement -->
+              <div class="upload-overlay" *ngIf="isUploading">
+                <mat-spinner diameter="40" color="accent"></mat-spinner>
+                <span class="upload-text">Téléchargement...</span>
               </div>
+              
+              <!-- Bouton de suppression -->
+              <button 
+                type="button" 
+                class="remove-photo-btn"
+                (click)="removePhoto()"
+                *ngIf="selectedFile"
+                mat-mini-fab
+                color="warn"
+                matTooltip="Supprimer la photo"
+              >
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+            
+            <div class="upload-actions">
               <input 
                 type="file" 
                 hidden 
@@ -28,122 +71,179 @@
                 accept="image/*"
                 aria-label="Télécharger une photo de profil"
               >
+              
               <button 
-                mat-stroked-button 
+                mat-raised-button 
                 type="button" 
                 (click)="fileInput.click()"
                 [disabled]="isUploading"
                 color="primary"
+                class="upload-btn"
               >
                 <mat-icon>photo_camera</mat-icon>
-                {{ isUploading ? 'Téléchargement...' : 'Changer de photo' }}
+                {{ selectedFile ? 'Changer de photo' : 'Ajouter une photo' }}
               </button>
-            </div>
-  
-            <div class="form-fields">
-              <mat-form-field appearance="outline">
-                <mat-label>Prénom</mat-label>
-                <input 
-                  matInput 
-                  formControlName="firstName" 
-                  required
-                  placeholder="Entrez votre prénom"
-                >
-                <mat-error *ngIf="profileForm.get('firstName')?.hasError('required')">
-                  Le prénom est obligatoire
-                </mat-error>
-              </mat-form-field>
-  
-              <mat-form-field appearance="outline">
-                <mat-label>Nom</mat-label>
-                <input 
-                  matInput 
-                  formControlName="lastName" 
-                  required
-                  placeholder="Entrez votre nom"
-                >
-                <mat-error *ngIf="profileForm.get('lastName')?.hasError('required')">
-                  Le nom est obligatoire
-                </mat-error>
-              </mat-form-field>
-  
-              <mat-form-field appearance="outline">
-                <mat-label>Téléphone</mat-label>
-                <input 
-                  matInput 
-                  formControlName="phoneNumber" 
-                  type="tel"
-                  placeholder="Entrez votre numéro de téléphone"
-                >
-                <mat-error *ngIf="profileForm.get('phoneNumber')?.hasError('pattern')">
-                  Veuillez entrer un numéro de téléphone valide
-                </mat-error>
-              </mat-form-field>
-  
-              <mat-form-field appearance="outline">
-                <mat-label>Biographie</mat-label>
-                <textarea 
-                  matInput 
-                  formControlName="bio" 
-                  rows="3"
-                  placeholder="Parlez-nous de vous"
-                  maxlength="500"
-                ></textarea>
-                <mat-hint align="end">
-                  {{ profileForm.get('bio')?.value?.length || 0 }}/500
-                </mat-hint>
-              </mat-form-field>
-  
-              <h3 class="section-title">Adresse</h3>
-              <div formGroupName="address" class="address-group">
-                <mat-form-field appearance="outline">
-                  <mat-label>Ville</mat-label>
-                  <input matInput formControlName="city" placeholder="Entrez votre ville">
-                  <mat-error *ngIf="profileForm.get('address.city')?.hasError('maxlength')">
-                    Le nom de la ville est trop long
-                  </mat-error>
-                </mat-form-field>
-  
-                <mat-form-field appearance="outline">
-                  <mat-label>Pays</mat-label>
-                  <input matInput formControlName="country" placeholder="Entrez votre pays">
-                  <mat-error *ngIf="profileForm.get('address.country')?.hasError('maxlength')">
-                    Le nom du pays est trop long
-                  </mat-error>
-                </mat-form-field>
-  
-                <mat-form-field appearance="outline">
-                  <mat-label>Code postal</mat-label>
-                  <input matInput formControlName="postalCode" placeholder="Entrez votre code postal">
-                  <mat-error *ngIf="profileForm.get('address.postalCode')?.hasError('maxlength')">
-                    Le code postal est trop long
-                  </mat-error>
-                </mat-form-field>
+              
+              <div class="upload-info">
+                <small class="help-text">
+                  <mat-icon class="info-icon">info</mat-icon>
+                  Formats acceptés: JPG, PNG, GIF, WebP (max. 2MB)
+                </small>
               </div>
             </div>
           </div>
-  
-          <div class="form-actions">
-            <button 
-              mat-raised-button 
-              color="primary" 
-              type="submit" 
-              [disabled]="profileForm.invalid || isLoading"
-              aria-label="Enregistrer les modifications"
-            >
-              <mat-spinner *ngIf="isLoading" diameter="20"></mat-spinner>
-              {{ isLoading ? 'Enregistrement...' : 'Enregistrer les modifications' }}
-            </button>
-            <button 
-            mat-stroked-button 
+        </div>
+
+        <!-- Section Informations personnelles -->
+        <div class="personal-info-section">
+          <h3 class="section-title">
+            <mat-icon>person</mat-icon>
+            Informations personnelles
+          </h3>
+          
+          <div class="form-grid">
+            <!-- Prénom -->
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Prénom</mat-label>
+              <input 
+                matInput 
+                formControlName="firstName" 
+                required
+                placeholder="Entrez votre prénom"
+                maxlength="50"
+              >
+              <mat-icon matPrefix>person</mat-icon>
+              <mat-hint align="end">{{ firstName?.value?.length || 0 }}/50</mat-hint>
+              <mat-error>{{ getFieldError('firstName') }}</mat-error>
+            </mat-form-field>
+
+            <!-- Nom de famille -->
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Nom de famille</mat-label>
+              <input 
+                matInput 
+                formControlName="lastName" 
+                required
+                placeholder="Entrez votre nom de famille"
+                maxlength="50"
+              >
+              <mat-icon matPrefix>person_outline</mat-icon>
+              <mat-hint align="end">{{ lastName?.value?.length || 0 }}/50</mat-hint>
+              <mat-error>{{ getFieldError('lastName') }}</mat-error>
+            </mat-form-field>
+
+            <!-- Téléphone -->
+            <mat-form-field appearance="outline" class="form-field full-width">
+              <mat-label>Numéro de téléphone</mat-label>
+              <input 
+                matInput 
+                formControlName="phoneNumber" 
+                type="tel"
+                placeholder="Ex: +216 20 123 456"
+              >
+              <mat-icon matPrefix>phone</mat-icon>
+              <mat-error>{{ getFieldError('phoneNumber') }}</mat-error>
+            </mat-form-field>
+
+            <!-- Biographie -->
+            <mat-form-field appearance="outline" class="form-field full-width">
+              <mat-label>Biographie</mat-label>
+              <textarea 
+                matInput 
+                formControlName="bio" 
+                rows="4"
+                placeholder="Parlez-nous de vous, vos compétences, vos passions..."
+                maxlength="500"
+                class="bio-textarea"
+              ></textarea>
+              <mat-icon matPrefix>info</mat-icon>
+              <mat-hint align="end" class="char-counter" [class.error]="isBioLimitExceeded()">
+                {{ getBioCharacterCount() }}/500 caractères
+              </mat-hint>
+              <mat-error>{{ getFieldError('bio') }}</mat-error>
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- Section Adresse -->
+        <div class="address-section" formGroupName="address">
+          <h3 class="section-title">
+            <mat-icon>location_on</mat-icon>
+            Informations d'adresse
+          </h3>
+          
+          <div class="form-grid">
+            <!-- Ville -->
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Ville</mat-label>
+              <input 
+                matInput 
+                formControlName="city" 
+                placeholder="Ex: Tunis"
+                maxlength="50"
+              >
+              <mat-icon matPrefix>location_city</mat-icon>
+              <mat-hint align="end">{{ city?.value?.length || 0 }}/50</mat-hint>
+              <mat-error>{{ getFieldError('address.city') }}</mat-error>
+            </mat-form-field>
+
+            <!-- Pays -->
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Pays</mat-label>
+              <input 
+                matInput 
+                formControlName="country" 
+                placeholder="Ex: Tunisie"
+                maxlength="50"
+              >
+              <mat-icon matPrefix>public</mat-icon>
+              <mat-hint align="end">{{ country?.value?.length || 0 }}/50</mat-hint>
+              <mat-error>{{ getFieldError('address.country') }}</mat-error>
+            </mat-form-field>
+
+            <!-- Code postal -->
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Code postal</mat-label>
+              <input 
+                matInput 
+                formControlName="postalCode" 
+                placeholder="Ex: 1000"
+                maxlength="20"
+              >
+              <mat-icon matPrefix>local_post_office</mat-icon>
+              <mat-hint align="end">{{ postalCode?.value?.length || 0 }}/20</mat-hint>
+              <mat-error>{{ getFieldError('address.postalCode') }}</mat-error>
+            </mat-form-field>
+          </div>
+        </div>
+
+        <!-- Actions du formulaire -->
+        <div class="form-actions">
+          <button 
+            mat-button
             type="button" 
             (click)="navigateToProfile()"
-            class="cancel-button"
+            class="cancel-btn"
+            [disabled]="isLoading"
           >
+            <mat-icon>close</mat-icon>
             Annuler
           </button>
-          </div>
-        </form>
-      </mat-card-content>
-    </mat-card>
-  </div>
+          
+          <button 
+            mat-raised-button 
+            color="primary" 
+            type="submit" 
+            [disabled]="profileForm.invalid || isLoading || isUploading"
+            class="save-btn"
+            aria-label="Enregistrer les modifications"
+          >
+            <mat-spinner *ngIf="isLoading" diameter="20" class="btn-spinner"></mat-spinner>
+            <mat-icon *ngIf="!isLoading">save</mat-icon>
+            {{ isLoading ? 'Enregistrement...' : 'Enregistrer les modifications' }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

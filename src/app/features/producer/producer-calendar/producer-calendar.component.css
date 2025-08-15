@@ -1,0 +1,465 @@
+/* ============================================================================
+   📅 CALENDAR.COMPONENT.CSS - VERSION OPTIMISÉE COMMUNE PRODUCER/RECEIVER
+   ============================================================================ */
+
+/* 🎯 Container principal */
+.producer-calendar-page,
+.receiver-calendar-page,
+.calendar-container {
+  padding: 0px 20px 20px 20px;
+  margin: -40px auto 0 auto;
+  max-width: 1200px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+  animation: fadeIn 0.8s ease-out;
+}
+
+/* 📋 Header section */
+.calendar-header-section {
+  text-align: center;
+  margin: 15px 0 2rem 0;
+  animation: fadeInDown 0.8s ease-out;
+}
+
+.calendar-main-title {
+  margin: 0 0 1.5rem 0;
+}
+
+.title-gradient {
+  font-size: 1.75rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+/* 📊 Quick stats */
+.quick-stats {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.stat-bubble {
+  background: white;
+  padding: 0.8rem 1.5rem;
+  border-radius: 25px;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  animation: slideIn 0.6s ease-out;
+}
+
+.stat-bubble:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+.stat-bubble.live { border-color: #ff6b6b; }
+.stat-bubble.upcoming { border-color: #74b9ff; }
+.stat-bubble.accepted { border-color: #a29bfe; }
+.stat-bubble.completed { border-color: #00b894; }
+
+.stat-icon {
+  font-size: 1.2rem;
+  animation: bounce 2s infinite;
+}
+
+.stat-text {
+  font-weight: 600;
+  color: #2d3436;
+  font-size: 0.9rem;
+}
+
+/* 🎯 Sessions suivantes */
+.next-sessions,
+.live-section {
+  max-width: 800px;
+  margin: 0 auto 2rem;
+  animation: fadeIn 0.8s ease-out;
+}
+
+.section-subtitle {
+  text-align: center;
+  color: #636e72;
+  font-size: 1.1rem;
+  margin-bottom: 1.2rem;
+  font-weight: 500;
+}
+
+.next-session-card,
+.live-card {
+  background: white;
+  border-radius: 15px;
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.next-session-card:hover,
+.live-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 15px 50px rgba(0,0,0,0.15);
+}
+
+.next-session-card::before,
+.live-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+  background-size: 200% 100%;
+  animation: shimmer 3s infinite;
+}
+
+.session-date-badge {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 1rem;
+  border-radius: 12px;
+  text-align: center;
+  min-width: 70px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.date-day {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.date-month {
+  font-size: 0.8rem;
+  margin-top: 0.2rem;
+  opacity: 0.9;
+}
+
+.session-info,
+.session-content {
+  flex: 1;
+}
+
+.session-info h3,
+.session-content h3 {
+  margin: 0 0 0.8rem 0;
+  color: #2d3436;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.session-info p,
+.session-content p {
+  margin: 0.4rem 0;
+  color: #636e72;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.info-icon,
+.trainer-icon,
+.time-icon {
+  font-size: 1rem;
+}
+
+.session-trainer {
+  font-weight: 600;
+  color: #2d3436;
+}
+
+.session-time {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #74b9ff;
+  font-weight: 600;
+}
+
+/* 🔴 Live indicator */
+.live-indicator {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: #ff6b6b;
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  animation: pulse 2s infinite;
+}
+
+.pulse-dot {
+  width: 6px;
+  height: 6px;
+  background: white;
+  border-radius: 50%;
+  animation: pulse 1s infinite;
+}
+
+/* 🔘 Boutons */
+.btn-start-session,
+.btn-join-session {
+  padding: 0.8rem 1.5rem;
+  border: none;
+  border-radius: 25px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.btn-start-session {
+  background: linear-gradient(135deg, #fd79a8, #a29bfe);
+  color: white;
+  box-shadow: 0 4px 15px rgba(253, 121, 168, 0.3);
+}
+
+.btn-join-session {
+  background: linear-gradient(135deg, #74b9ff, #0984e3);
+  color: white;
+  box-shadow: 0 4px 15px rgba(116, 185, 255, 0.3);
+}
+
+.btn-start-session:hover,
+.btn-join-session:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+}
+
+.time-until {
+  padding: 0.6rem 1.2rem;
+  background: rgba(108, 92, 231, 0.1);
+  color: #6c5ce7;
+  border-radius: 20px;
+  font-weight: 600;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+/* ⚠️ États de chargement et erreur */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255,255,255,0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.loader {
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(108, 92, 231, 0.2);
+  border-top-color: #6c5ce7;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.error-message {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  max-width: 400px;
+  margin: 2rem auto;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+  border-left: 4px solid #ff6b6b;
+}
+
+.error-message p {
+  color: #2d3436;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+}
+
+.btn-retry {
+  padding: 0.6rem 1.5rem;
+  background: #6c5ce7;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-retry:hover {
+  background: #5f4bd1;
+  transform: translateY(-2px);
+}
+
+/* 📅 Calendrier principal */
+.calendar-main {
+  animation: fadeIn 0.8s ease-out;
+}
+
+/* 🔍 État vide */
+.empty-calendar {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background: white;
+  border-radius: 15px;
+  max-width: 400px;
+  margin: 2rem auto;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+}
+
+.empty-illustration {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+.empty-calendar h3 {
+  color: #2d3436;
+  margin-bottom: 0.8rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.empty-calendar p {
+  color: #636e72;
+  font-size: 1rem;
+}
+
+/* 🎨 Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-15px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes glow {
+  from { filter: drop-shadow(0 0 8px rgba(102, 126, 234, 0.4)); }
+  to { filter: drop-shadow(0 0 15px rgba(118, 75, 162, 0.6)); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}
+
+/* 📱 Responsive Design */
+@media (max-width: 768px) {
+  .producer-calendar-page,
+  .receiver-calendar-page,
+  .calendar-container {
+    padding: 0px 16px 16px 16px;
+    margin: -30px auto 0 auto;
+  }
+
+  .title-gradient {
+    font-size: 1.5rem;
+  }
+
+  .quick-stats {
+    gap: 1rem;
+  }
+
+  .stat-bubble {
+    padding: 0.6rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .next-session-card,
+  .live-card {
+    flex-direction: column;
+    text-align: center;
+    padding: 1.2rem;
+    gap: 1rem;
+  }
+
+  .session-date-badge {
+    margin-bottom: 0.5rem;
+  }
+
+  .btn-start-session,
+  .btn-join-session {
+    width: 100%;
+    margin-top: 0.8rem;
+  }
+
+  .live-indicator {
+    position: static;
+    margin-bottom: 0.8rem;
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .producer-calendar-page,
+  .receiver-calendar-page,
+  .calendar-container {
+    padding: 0px 12px 12px 12px;
+    margin: -20px auto 0 auto;
+  }
+
+  .quick-stats {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .stat-bubble {
+    width: 80%;
+    justify-content: center;
+  }
+
+  .title-gradient {
+    font-size: 1.3rem;
+  }
+}
