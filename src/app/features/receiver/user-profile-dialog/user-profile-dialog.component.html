@@ -11,8 +11,8 @@
     </div>
     
     <div class="user-info">
-      <h2 class="user-name">{{ data.firstName }} {{ data.lastName }}</h2>
-      <p class="user-email">{{ data.email }}</p>
+      <h2 class="user-name">{{ getDisplayName() }}</h2>
+      <p class="user-email">{{ getSecondaryIdentifier() }}</p>
     </div>
     
     <button 
@@ -23,28 +23,56 @@
     </button>
   </div>
 
-  <!-- Content -->
+  <!-- Content avec scroll -->
   <div class="profile-content">
-    <!-- Quick stats -->
+    <!-- Quick stats - SUPPRESSION de la section Évaluations -->
     <div class="stats-row">
+      <!-- Note moyenne -->
       <div class="stat-item">
         <mat-icon>star</mat-icon>
-        <span class="stat-value">{{ averageRating }}</span>
-        <span class="stat-label">Note</span>
+        <span class="stat-value" 
+              [style.color]="getRatingColor()">
+          <ng-container *ngIf="isLoadingStats">
+            <mat-spinner diameter="16"></mat-spinner>
+          </ng-container>
+          <ng-container *ngIf="!isLoadingStats">
+            {{ averageRating }}
+          </ng-container>
+        </span>
+        <span class="stat-label">Note moyenne</span>
+        
+        <!-- Affichage des étoiles -->
+        <div class="stars-display" *ngIf="shouldShowStars()">
+          <mat-icon *ngFor="let star of getStarArray()" 
+                    [class.filled]="star"
+                    class="star-mini">
+            {{ star ? 'star' : 'star_border' }}
+          </mat-icon>
+        </div>
       </div>
+      
+      <!-- Nombre de compétences -->
       <div class="stat-item">
         <mat-icon>school</mat-icon>
-        <span class="stat-value">{{ skillsCount }}</span>
+        <span class="stat-value">
+          <ng-container *ngIf="isLoadingStats">
+            <mat-spinner diameter="16"></mat-spinner>
+          </ng-container>
+          <ng-container *ngIf="!isLoadingStats">
+            {{ skillsCount }}
+          </ng-container>
+        </span>
         <span class="stat-label">Compétences</span>
-      </div>
-      <div class="stat-item">
-        <mat-icon>people</mat-icon>
-        <span class="stat-value">{{ studentsCount }}</span>
-        <span class="stat-label">Étudiants</span>
       </div>
     </div>
 
-    <!-- Details -->
+    <!-- Message d'erreur pour les stats -->
+    <div class="stats-error" *ngIf="statsError && !isLoadingStats">
+      <mat-icon>warning</mat-icon>
+      <span>Statistiques non disponibles</span>
+    </div>
+
+    <!-- Details avec zone scrollable -->
     <div class="details-section">
       <div class="detail-item">
         <mat-icon>account_circle</mat-icon>
@@ -92,7 +120,7 @@
   <div class="profile-footer">
     <button 
       mat-raised-button 
-      color="primary" 
+      color="primary"
       (click)="closeDialog()"
       class="action-btn">
       Fermer

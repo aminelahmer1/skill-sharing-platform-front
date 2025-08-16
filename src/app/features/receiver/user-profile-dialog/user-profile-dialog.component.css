@@ -1,4 +1,4 @@
-/* Compact User Profile Dialog */
+/* Compact User Profile Dialog avec scroll */
 .compact-profile-dialog {
   width: 420px;
   max-width: 420px;
@@ -9,9 +9,12 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   font-family: 'Roboto', sans-serif;
   position: relative;
+  max-height: 95vh; /* ✨ HAUTEUR AUGMENTÉE de 90vh à 95vh */
+  display: flex;
+  flex-direction: column;
 }
 
-/* Header */
+/* Header - FIXE */
 .profile-header {
   background: linear-gradient(135deg, #5b73e8 0%, #8b68d1 100%);
   padding: 32px 24px;
@@ -21,6 +24,7 @@
   position: relative;
   color: white;
   min-height: 120px;
+  flex-shrink: 0; /* ✨ EMPÊCHE LA COMPRESSION */
 }
 
 .avatar-container {
@@ -93,20 +97,52 @@
   background: rgba(255, 255, 255, 0.35);
 }
 
-/* Content */
+/* Content avec SCROLL - ✨ ZONE SCROLLABLE */
 .profile-content {
   padding: 28px 24px;
+  overflow-y: auto; /* ✨ SCROLL VERTICAL */
+  overflow-x: hidden;
+  flex: 1; /* ✨ PREND TOUT L'ESPACE DISPONIBLE */
+  min-height: 0; /* ✨ PERMET AU FLEX DE FONCTIONNER */
+  max-height: calc(95vh - 120px - 70px); /* ✨ HAUTEUR AUGMENTÉE - header - footer */
 }
 
-/* Stats Row */
+/* ✨ STYLE PERSONNALISÉ POUR LA SCROLLBAR */
+.profile-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.profile-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.profile-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.profile-content::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Pour Firefox */
+.profile-content {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+/* Stats Row - MODIFIÉE pour 2 colonnes au lieu de 3 */
 .stats-row {
   display: flex;
   justify-content: space-around;
   margin-bottom: 32px;
   background: #f8f9ff;
   border-radius: 16px;
-  padding: 24px 12px;
+  padding: 24px 20px; /* ✨ PLUS DE PADDING horizontal pour 2 colonnes */
   border: 1px solid #e8eaff;
+  gap: 20px; /* ✨ ESPACE entre les colonnes */
 }
 
 .stat-item {
@@ -131,6 +167,11 @@
   font-weight: 700;
   color: #2d3748;
   margin-bottom: 2px;
+  min-height: 1.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.3s ease;
 }
 
 .stat-label {
@@ -141,11 +182,12 @@
   font-weight: 600;
 }
 
-/* Details Section */
+/* Details Section - ✨ OPTIMISÉE POUR LE SCROLL */
 .details-section {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  padding-bottom: 10px; /* ✨ ESPACE en bas pour le scroll */
 }
 
 .detail-item {
@@ -194,25 +236,24 @@
   color: #2d3748;
   font-weight: 500;
   word-wrap: break-word;
+  line-height: 1.4;
 }
 
 .bio-text {
-  line-height: 1.4;
-  max-height: 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+  line-height: 1.5;
+  /* ✨ SUPPRESSION de la limitation de hauteur pour permettre le scroll complet */
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-/* Footer */
+/* Footer - FIXE */
 .profile-footer {
   padding: 24px;
   background: white;
   border-top: 1px solid #e2e8f0;
   display: flex;
   justify-content: center;
+  flex-shrink: 0; /* ✨ EMPÊCHE LA COMPRESSION */
 }
 
 .action-btn {
@@ -233,7 +274,49 @@
   box-shadow: 0 6px 16px rgba(91, 115, 232, 0.4);
 }
 
-/* Responsive Design */
+/* Styles pour les étoiles dans les stats */
+.stars-display {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.star-mini {
+  font-size: 12px !important;
+  width: 12px !important;
+  height: 12px !important;
+  color: #ddd;
+  transition: color 0.2s ease;
+}
+
+.star-mini.filled {
+  color: #ffc107;
+}
+
+/* Message d'erreur pour les statistiques */
+.stats-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  margin-bottom: 20px;
+  color: #ff8f00;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.stats-error mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+/* ✨ RESPONSIVE AMÉLIORÉ avec scroll */
 @media (max-width: 480px) {
   .compact-profile-dialog {
     width: calc(100vw - 32px);
@@ -241,7 +324,7 @@
     min-width: calc(100vw - 32px);
     margin: 16px;
     border-radius: 16px;
-    max-height: calc(100vh - 64px);
+    max-height: calc(100vh - 40px); /* ✨ HAUTEUR MOBILE AUGMENTÉE */
   }
   
   .profile-header {
@@ -264,10 +347,12 @@
   
   .profile-content {
     padding: 20px 16px;
+    max-height: calc(100vh - 100px - 64px); /* ✨ HAUTEUR MOBILE AUGMENTÉE - header - footer */
   }
   
   .stats-row {
-    padding: 20px 8px;
+    padding: 20px 12px; /* ✨ MOINS DE PADDING sur mobile */
+    gap: 16px;
   }
   
   .stat-value {
@@ -286,6 +371,11 @@
     padding: 12px 32px;
     min-width: 120px;
   }
+  
+  /* ✨ SCROLLBAR MOBILE PLUS FINE */
+  .profile-content::-webkit-scrollbar {
+    width: 4px;
+  }
 }
 
 /* Animation */
@@ -302,4 +392,52 @@
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* Animation pour le chargement des stats */
+.stat-item {
+  animation: statFadeIn 0.5s ease-out;
+}
+
+@keyframes statFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* États des statistiques */
+.stat-item.loading .stat-value {
+  opacity: 0.7;
+}
+
+.stat-item.error .stat-value {
+  color: #e53e3e;
+}
+
+.stat-item.no-data .stat-value {
+  color: #a0aec0;
+  font-style: italic;
+}
+
+/* ✨ INDICATEUR DE SCROLL (optionnel) */
+.profile-content::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(to bottom, transparent, rgba(91, 115, 232, 0.1), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.profile-content:hover::after {
+  opacity: 1;
 }

@@ -1,7 +1,7 @@
 // core/services/skill.service.ts
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, from, throwError } from 'rxjs';
+import { Observable, from, of, throwError } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 import { Skill, SkillRequest, Category } from '../../../models/skill/skill.model';
 import { KeycloakService } from '../keycloak.service';
@@ -11,7 +11,19 @@ export class SkillService {
   private http = inject(HttpClient);
   private keycloakService = inject(KeycloakService);
   private apiUrl = 'http://localhost:8822/api/v1/skills';
-
+getSkillsCountByProducer(producerId: number): Observable<number> {
+  return from(this.keycloakService.getToken()).pipe(
+    switchMap(token => {
+      const headers = { Authorization: `Bearer ${token}` };
+      return this.http.get<number>(`${this.apiUrl}/producer/${producerId}/count`, { headers });
+    }),
+    catchError(error => {
+      console.error('Error fetching skills count:', error);
+      // Retourner 0 en cas d'erreur pour ne pas bloquer l'interface
+      return of(0);
+    })
+  );
+}
   getMySkills(): Observable<Skill[]> {
     return from(this.keycloakService.getToken()).pipe(
       switchMap(token => {

@@ -378,4 +378,5 @@ export class FinishedSkillsComponent implements OnInit {
   trackBySkillId(index: number, skill: SkillWithExchange): number {
     return skill.id;
   }
+  
 }
