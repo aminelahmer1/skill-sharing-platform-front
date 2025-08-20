@@ -1,0 +1,76 @@
+<div class="message-bubble-container" [class.own-message]="isOwnMessage">
+  <div class="message-avatar" *ngIf="!isOwnMessage">
+    <img [src]="message.senderAvatar || 'assets/default-avatar.png'" [alt]="message.senderName">
+  </div>
+
+  <div class="message-content-wrapper">
+    <div class="message-header" *ngIf="!isOwnMessage">
+      <span class="sender-name">{{ message.senderName }}</span>
+    </div>
+
+    <div class="message-bubble" 
+         [class.deleted]="message.isDeleted"
+         (mouseenter)="showOptions = true"
+         (mouseleave)="showOptions = false">
+      
+      <!-- Message supprimé -->
+      <div *ngIf="message.isDeleted" class="deleted-message">
+        <i>Message supprimé</i>
+      </div>
+
+      <!-- Message texte -->
+      <div *ngIf="!message.isDeleted && message.type === 'TEXT'" class="text-content">
+        {{ message.content }}
+      </div>
+
+      <!-- Message image -->
+      <div *ngIf="!message.isDeleted && isImageMessage()" class="media-content">
+        <img [src]="message.attachmentUrl" [alt]="message.content" (click)="onImageClick()">
+        <span class="media-caption" *ngIf="message.content">{{ message.content }}</span>
+      </div>
+
+      <!-- Message vidéo -->
+      <div *ngIf="!message.isDeleted && isVideoMessage()" class="media-content">
+        <video controls [src]="message.attachmentUrl"></video>
+        <span class="media-caption" *ngIf="message.content">{{ message.content }}</span>
+      </div>
+
+      <!-- Message audio -->
+      <div *ngIf="!message.isDeleted && isAudioMessage()" class="audio-content">
+        <audio controls [src]="message.attachmentUrl"></audio>
+        <span class="audio-name">{{ message.content }}</span>
+      </div>
+
+      <!-- Message fichier -->
+      <div *ngIf="!message.isDeleted && isFileMessage()" class="file-content">
+        <a [href]="message.attachmentUrl" target="_blank" class="file-link">
+          <span class="file-icon">{{ getFileIcon(message.type) }}</span>
+          <span class="file-name">{{ message.content }}</span>
+        </a>
+      </div>
+
+      <!-- Options du message -->
+      <div class="message-options" *ngIf="showOptions && isOwnMessage && !message.isDeleted">
+        <button class="option-btn" (click)="onEdit()" title="Modifier">
+          ✏️
+        </button>
+        <button class="option-btn" (click)="onDelete()" title="Supprimer">
+          🗑️
+        </button>
+      </div>
+
+      <!-- Métadonnées du message -->
+      <div class="message-meta">
+        <span class="message-time">{{ formatTime(message.sentAt) }}</span>
+        <span class="message-status" *ngIf="isOwnMessage">
+          <span *ngIf="message.status === 'SENT'">✓</span>
+          <span *ngIf="message.status === 'DELIVERED'">✓✓</span>
+          <span *ngIf="message.status === 'READ'" class="read">✓✓</span>
+        </span>
+        <span class="edited-indicator" *ngIf="message.editedAt">
+          (modifié)
+        </span>
+      </div>
+    </div>
+  </div>
+</div>

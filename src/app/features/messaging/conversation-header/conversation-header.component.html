@@ -1,0 +1,101 @@
+<!-- conversation-header.component.html - VERSION CORRIGÉE -->
+<header class="conversation-header">
+  <div class="header-left">
+    <div class="header-avatar">
+      <img [src]="getConversationAvatar()" [alt]="conversation.name">
+      <span class="status-dot" 
+            *ngIf="conversation.type === 'DIRECT' && conversation.participants.length > 0"
+            [class.online]="getOtherParticipant()?.isOnline">
+      </span>
+    </div>
+    
+    <div class="header-info">
+      <h3 class="conversation-title">
+        <span class="conversation-icon">{{ getConversationIcon() }}</span>
+        {{ getConversationName() }}
+      </h3>
+      <span class="conversation-subtitle">{{ getSubtitle() }}</span>
+    </div>
+  </div>
+
+  <div class="header-actions">
+    <button class="action-btn" (click)="onVoiceCall()" title="Appel vocal">
+      📞
+    </button>
+    <button class="action-btn" (click)="onVideoCall()" title="Appel vidéo">
+      📹
+    </button>
+    <button class="action-btn" (click)="toggleInfo()" title="Informations">
+      ℹ️
+    </button>
+  </div>
+
+  <!-- Panel d'information -->
+  <div class="info-panel" *ngIf="showInfo" [@slideDown]="showInfo ? 'open' : 'closed'">
+    <div class="info-header">
+      <h4>Informations</h4>
+      <button class="close-btn" (click)="toggleInfo()">✕</button>
+    </div>
+    
+    <div class="info-content">
+      <div class="info-section">
+        <h5>Type de conversation</h5>
+        <p>{{ getConversationTypeText() }}</p>
+      </div>
+      
+      <div class="info-section" *ngIf="conversation.skillId">
+        <h5>Compétence liée</h5>
+        <p>ID: {{ conversation.skillId }}</p>
+      </div>
+      
+      <div class="info-section">
+        <h5>Participants ({{ conversation.participants.length }})</h5>
+        <div class="participants-list">
+          <div *ngFor="let participant of conversation.participants" class="participant-item">
+            <!-- ✅ CORRECTION: Utiliser getParticipantAvatar() au lieu de participant.avatarUrl -->
+            <img [src]="getParticipantAvatar(participant)" [alt]="participant.userName">
+            <span class="participant-name">{{ participant.userName }}</span>
+            <span class="participant-role" *ngIf="participant.role === 'ADMIN'">Admin</span>
+            <span class="participant-status" [class.online]="participant.isOnline">
+              {{ participant.isOnline ? '●' : '○' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section" *ngIf="conversation.status">
+        <h5>Statut</h5>
+        <p>
+          <span class="status-indicator" [style.color]="getStatusColor()">●</span>
+          {{ getStatusText() }}
+        </p>
+      </div>
+
+      <div class="info-section" *ngIf="conversation.createdAt">
+        <h5>Créée le</h5>
+        <p>{{ formatDate(conversation.createdAt) }}</p>
+      </div>
+
+      <div class="info-section" *ngIf="canManageConversation()">
+        <h5>Actions</h5>
+        <div class="action-buttons">
+          <button class="info-action-btn" (click)="onSearchInConversation()">
+            🔍 Rechercher dans la conversation
+          </button>
+          <button class="info-action-btn" (click)="onMuteConversation()">
+            🔇 Notifications
+          </button>
+          <button class="info-action-btn" *ngIf="!isDirectConversation()" (click)="onManageParticipants()">
+            👥 Gérer les participants
+          </button>
+          <button class="info-action-btn" *ngIf="isGroupConversation()" (click)="onLeaveConversation()">
+            🚪 Quitter le groupe
+          </button>
+          <button class="info-action-btn danger" (click)="onArchiveConversation()">
+            📁 Archiver la conversation
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>

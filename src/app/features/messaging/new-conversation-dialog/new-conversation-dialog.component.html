@@ -1,0 +1,202 @@
+<!-- new-conversation-dialog.component.html -->
+<div class="dialog-overlay" *ngIf="isOpen" (click)="close()" [@fadeIn]>
+  <div class="dialog-container" (click)="$event.stopPropagation()" [@slideUp]>
+    
+    <!-- Header du Dialog -->
+    <div class="dialog-header">
+      <h2>
+        <span class="icon">💬</span>
+        Nouvelle conversation
+      </h2>
+      <button class="close-btn" (click)="close()" [disabled]="isCreating">
+        ✕
+      </button>
+    </div>
+
+    <!-- Sélecteur de type de conversation -->
+    <div class="conversation-type-selector">
+      <button 
+        class="type-btn"
+        [class.active]="conversationType === 'direct'"
+        (click)="conversationType = 'direct'; onConversationTypeChange()"
+        [disabled]="isCreating">
+        <span class="type-icon">👤</span>
+        <span class="type-label">Message direct</span>
+        <span class="type-desc">Conversation privée avec une personne</span>
+      </button>
+      
+      <button 
+        class="type-btn"
+        [class.active]="conversationType === 'group'"
+        (click)="conversationType = 'group'; onConversationTypeChange()"
+        [disabled]="isCreating">
+        <span class="type-icon">👥</span>
+        <span class="type-label">Groupe</span>
+        <span class="type-desc">Conversation avec plusieurs participants</span>
+      </button>
+      
+      <button 
+        class="type-btn"
+        [class.active]="conversationType === 'skill'"
+        (click)="conversationType = 'skill'; onConversationTypeChange()"
+        [disabled]="isCreating">
+        <span class="type-icon">🎓</span>
+        <span class="type-label">Compétence</span>
+        <span class="type-desc">Discussion autour d'une compétence</span>
+      </button>
+    </div>
+
+    <!-- Contenu selon le type sélectionné -->
+    <div class="dialog-content">
+      
+      <!-- Message direct -->
+      <div *ngIf="conversationType === 'direct'" class="direct-conversation-form">
+        <div class="form-group">
+          <label>Rechercher un utilisateur</label>
+          <div class="search-input-container">
+            <input 
+              type="text"
+              class="search-input"
+              [(ngModel)]="userSearch"
+              (input)="searchUsers()"
+              placeholder="Tapez le nom d'un utilisateur..."
+              [disabled]="isCreating"
+              autocomplete="off">
+            <span class="search-icon">🔍</span>
+          </div>
+          
+          <!-- Résultats de recherche -->
+          <div class="search-results" *ngIf="searchResults.length > 0">
+            <div 
+              *ngFor="let user of searchResults" 
+              class="user-result"
+              (click)="selectUser(user)"
+              [class.selected]="selectedUserId === user.id">
+              <img [src]="user.avatar || 'assets/default-avatar.png'" [alt]="user.name" class="user-avatar">
+              <div class="user-info">
+                <span class="user-name">{{ user.name }}</span>
+                <span class="user-role">{{ user.role === 'PRODUCER' ? 'Producteur' : 'Demandeur' }}</span>
+              </div>
+              <span class="select-indicator" *ngIf="selectedUserId === user.id">✓</span>
+            </div>
+          </div>
+          
+          <!-- Message si aucun résultat -->
+          <div class="no-results" *ngIf="userSearch && searchResults.length === 0">
+            <span class="icon">🔍</span>
+            <p>Aucun utilisateur trouvé</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conversation de groupe -->
+      <div *ngIf="conversationType === 'group'" class="group-conversation-form">
+        <div class="form-group">
+          <label>Nom du groupe</label>
+          <input 
+            type="text"
+            class="form-input"
+            [(ngModel)]="groupName"
+            placeholder="Entrez le nom du groupe..."
+            [disabled]="isCreating"
+            maxlength="50">
+        </div>
+
+        <div class="form-group">
+          <label>Ajouter des participants</label>
+          <div class="search-input-container">
+            <input 
+              type="text"
+              class="search-input"
+              [(ngModel)]="participantSearch"
+              (input)="searchParticipants()"
+              placeholder="Rechercher des utilisateurs..."
+              [disabled]="isCreating"
+              autocomplete="off">
+            <span class="search-icon">🔍</span>
+          </div>
+          
+          <!-- Résultats de recherche participants -->
+          <div class="search-results" *ngIf="participantSearchResults.length > 0">
+            <div 
+              *ngFor="let user of participantSearchResults" 
+              class="user-result"
+              (click)="addParticipant(user)">
+              <img [src]="user.avatar || 'assets/default-avatar.png'" [alt]="user.name" class="user-avatar">
+              <div class="user-info">
+                <span class="user-name">{{ user.name }}</span>
+                <span class="user-role">{{ user.role === 'PRODUCER' ? 'Producteur' : 'Demandeur' }}</span>
+              </div>
+              <button class="add-btn">+</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Participants sélectionnés -->
+        <div class="selected-participants" *ngIf="selectedParticipants.length > 0">
+          <h4>Participants sélectionnés ({{ selectedParticipants.length }})</h4>
+          <div class="participants-grid">
+            <div 
+              *ngFor="let participant of selectedParticipants" 
+              class="participant-chip">
+              <img [src]="participant.avatar || 'assets/default-avatar.png'" [alt]="participant.name" class="chip-avatar">
+              <span class="chip-name">{{ participant.name }}</span>
+              <button class="remove-btn" (click)="removeParticipant(participant)" [disabled]="isCreating">✕</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conversation de compétence -->
+      <div *ngIf="conversationType === 'skill'" class="skill-conversation-form">
+        <div class="form-group">
+          <label>Sélectionner une compétence</label>
+          <select 
+            class="form-select"
+            [(ngModel)]="selectedSkillId"
+            [disabled]="isCreating">
+            <option value="">Choisissez une compétence...</option>
+            <option *ngFor="let skill of availableSkills" [value]="skill.id">
+              {{ skill.name }}
+            </option>
+          </select>
+        </div>
+        
+        <div class="skill-info" *ngIf="selectedSkillId">
+          <div class="info-card">
+            <span class="info-icon">🎓</span>
+            <div class="info-content">
+              <h4>{{ getSelectedSkillName() }}</h4>
+              <p>Une conversation sera créée pour discuter de cette compétence avec d'autres utilisateurs intéressés.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Message d'erreur -->
+    <div class="error-message" *ngIf="error" [@slideDown]>
+      <span class="error-icon">⚠️</span>
+      <span class="error-text">{{ error }}</span>
+    </div>
+
+    <!-- Actions du dialog -->
+    <div class="dialog-actions">
+      <button 
+        class="btn-secondary" 
+        (click)="close()" 
+        [disabled]="isCreating">
+        Annuler
+      </button>
+      
+      <button 
+        class="btn-primary" 
+        (click)="createConversation()"
+        [disabled]="!canCreate() || isCreating">
+        <span class="btn-spinner" *ngIf="isCreating">🔄</span>
+        <span *ngIf="!isCreating">{{ getCreateButtonText() }}</span>
+        <span *ngIf="isCreating">Création...</span>
+      </button>
+    </div>
+  </div>
+</div>

@@ -21,6 +21,7 @@ import { MyLivestreamsComponent } from './features/producer/my-livestreams/my-li
 import { FinishedSkillsComponent } from './features/receiver/finished-skills/finished-skills.component';
 import { ProducerCalendarComponent } from './features/producer/producer-calendar/producer-calendar.component';
 import { ReceiverCalendarComponent } from './features/receiver/receiver-calendar/receiver-calendar.component';
+import { MessengerComponent } from './features/messaging/messenger/messenger.component';
 
 export const routes: Routes = [
   { path: '', component: MainTemplateComponent },
@@ -36,6 +37,7 @@ export const routes: Routes = [
       { path: 'requests', component: ProducerRequestsComponent }, 
        { path: 'livestreams', component: MyLivestreamsComponent },
        { path: 'calendarP', component: ProducerCalendarComponent },
+       { path: 'messenger', component: MessengerComponent },
       { path: 'livestream/:sessionId', component: LivestreamComponent },
       
       { path: '', redirectTo: '', pathMatch: 'full' }
@@ -53,6 +55,7 @@ export const routes: Routes = [
       { path: 'accepted-skills', component: AcceptedSkillsComponent },
        { path: 'finished-skills', component: FinishedSkillsComponent },
        { path: 'calendarR', component: ReceiverCalendarComponent },
+       { path: 'messenger', component: MessengerComponent },
       { path: '', redirectTo: '', pathMatch: 'full' },
       { path: 'livestream/:sessionId', component: LivestreamComponent },
     ],

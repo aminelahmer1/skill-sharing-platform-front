@@ -4,11 +4,13 @@ import { RouterModule } from '@angular/router';
 import { NotificationDropdownComponent } from '../../../features/shared/notification-dropdown/notification-dropdown.component';
 import { NotificationService } from '../../../core/services/notification/notification.service';
 import { Subscription } from 'rxjs';
+import { QuickChatComponent } from "../../../features/messaging/quick-chat/quick-chat.component";
+import { MessageNotificationBadgeComponent } from '../../../features/shared/message-notification-badge/message-notification-badge.component';
 
 @Component({
   selector: 'app-navbar-receiver',
   standalone: true,
-  imports: [CommonModule, RouterModule, NotificationDropdownComponent],
+  imports: [CommonModule, RouterModule, NotificationDropdownComponent, QuickChatComponent,    MessageNotificationBadgeComponent],
   templateUrl: './navbar-receiver.component.html',
   styleUrls: ['./navbar-receiver.component.css']
 })

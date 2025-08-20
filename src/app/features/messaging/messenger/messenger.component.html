@@ -1,0 +1,182 @@
+<div class="messenger-container" (keydown)="onKeyDown($event)">
+  
+  
+
+  <!-- Sidebar avec liste des conversations -->
+  <aside class="conversations-sidebar" [@slideIn]>
+    <div class="sidebar-header">
+      <h2>
+        <span class="icon">💬</span>
+        Messages
+        <!-- ✅ NOUVEAU: Compteur de conversations -->
+        <span class="count" *ngIf="conversations.length > 0">({{ conversations.length }})</span>
+      </h2>
+      <button 
+        class="btn-new-conversation" 
+        (click)="onCreateConversation()"
+        [disabled]="!canCreateConversations()"
+        [title]="getCreateButtonText()">
+        <span class="icon">+</span>
+        <span class="text">Nouvelle</span>
+      </button>
+    </div>
+
+    <div class="search-container">
+      <input 
+        type="text" 
+        class="search-input"
+        [placeholder]="getSearchPlaceholder()"
+        [(ngModel)]="searchQuery"
+        (input)="onSearchChange()"
+        [disabled]="conversations.length === 0"
+        title="Rechercher dans les conversations"
+        aria-label="Rechercher dans les conversations"
+        autocomplete="off"
+      >
+      <span class="search-icon">🔍</span>
+      <!-- ✅ NOUVEAU: Bouton pour effacer la recherche -->
+      <button 
+        *ngIf="hasActiveSearch()" 
+        class="clear-search"
+        (click)="clearSearch()"
+        title="Effacer la recherche">
+        ✕
+      </button>
+    </div>
+
+    <!-- ✅ NOUVEAU: Résultats de recherche -->
+    <div class="search-results" *ngIf="hasActiveSearch() && filteredConversations.length > 0">
+      <small>{{ filteredConversations.length }} résultat{{ filteredConversations.length > 1 ? 's' : '' }} pour "{{ searchQuery }}"</small>
+    </div>
+
+    <div class="conversations-wrapper">
+      <!-- ✅ NOUVEAU: État de chargement -->
+      <div *ngIf="isLoading && conversations.length === 0" class="loading-state">
+        <div class="loading-spinner"></div>
+        <p>Chargement des conversations...</p>
+      </div>
+
+      <!-- ✅ NOUVEAU: État d'erreur -->
+      <div *ngIf="hasError && !isLoading && conversations.length === 0" class="error-state">
+        <span class="error-icon">⚠️</span>
+        <p class="error-message">{{ errorMessage }}</p>
+        <button *ngIf="shouldShowRetryButton()" 
+                class="btn-retry" 
+                (click)="onRetry()">
+          🔄 Réessayer
+        </button>
+      </div>
+
+      <!-- Liste des conversations -->
+      <app-conversation-list
+        *ngIf="!isLoading && !hasError"
+        [conversations]="filteredConversations"
+        [selectedConversation]="selectedConversation"
+        [currentUserId]="currentUserId!"
+        (conversationSelected)="onConversationSelect($event)"
+      ></app-conversation-list>
+
+      <!-- ✅ NOUVEAU: État vide pour recherche -->
+      <div *ngIf="!isLoading && !hasError && hasActiveSearch() && filteredConversations.length === 0" 
+           class="empty-search-state">
+        <span class="empty-icon">🔍</span>
+        <p>Aucun résultat pour "{{ searchQuery }}"</p>
+        <button class="btn-clear-search" (click)="clearSearch()">
+          Effacer la recherche
+        </button>
+      </div>
+
+      
+    </div>
+  </aside>
+
+  <!-- Zone de chat principale -->
+  <main class="chat-area">
+    <app-chat-window
+      *ngIf="selectedConversation && !isLoading"
+      [conversation]="selectedConversation"
+      [currentUserId]="currentUserId!"
+    ></app-chat-window>
+
+    <!-- État vide si aucune conversation sélectionnée -->
+    <div *ngIf="!selectedConversation && !isLoading" class="empty-state">
+      <div class="empty-content">
+        <span class="empty-icon">💬</span>
+        <h3>Sélectionnez une conversation</h3>
+        <p>{{ getEmptyStateText() }}</p>
+        
+        <!-- ✅ NOUVEAU: Actions rapides -->
+        <div class="quick-actions" *ngIf="conversations.length > 0">
+          <button class="quick-action-btn" (click)="onCreateConversation()" [disabled]="!canCreateConversations()">
+            <span class="icon">➕</span>
+            <span class="text">Nouvelle conversation</span>
+          </button>
+        </div>
+
+        <!-- ✅ NOUVEAU: Raccourcis clavier -->
+        <div class="keyboard-shortcuts" *ngIf="conversations.length > 0">
+          <h4>Raccourcis clavier</h4>
+          <div class="shortcuts-list">
+            <div class="shortcut">
+              <kbd>Ctrl</kbd> + <kbd>N</kbd> : Nouvelle conversation
+            </div>
+            <div class="shortcut">
+              <kbd>Échap</kbd> : Fermer les dialogs
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ✅ NOUVEAU: État de chargement du chat -->
+    <div *ngIf="isLoading" class="loading-chat-state">
+      <div class="loading-content">
+        <div class="loading-spinner large"></div>
+        <h3>Chargement...</h3>
+        <p>Préparation de votre messagerie</p>
+        <div class="loading-steps">
+          <div class="step" [class.active]="connectionStatus === 'CONNECTING'">
+            <span class="step-icon">🔌</span>
+            <span class="step-text">Connexion au serveur</span>
+          </div>
+          <div class="step" [class.active]="connectionStatus === 'CONNECTED'">
+            <span class="step-icon">📡</span>
+            <span class="step-text">Synchronisation des données</span>
+          </div>
+          <div class="step" [class.active]="conversations.length > 0">
+            <span class="step-icon">💬</span>
+            <span class="step-text">Chargement des conversations</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ✅ NOUVEAU: Overlay d'erreur critique -->
+    <div *ngIf="hasError && conversations.length === 0 && !isLoading" class="critical-error-overlay">
+      <div class="error-content">
+        <span class="error-icon">🚫</span>
+        <h3>Erreur de connexion</h3>
+        <p>{{ errorMessage }}</p>
+        <div class="error-actions">
+          <button class="btn-retry-main" (click)="onRetry()">
+            🔄 Réessayer
+          </button>
+          <button class="btn-reconnect-main" (click)="onReconnect()">
+            🔌 Reconnecter
+          </button>
+        </div>
+        <small class="error-help">
+          Si le problème persiste, vérifiez votre connexion internet.
+        </small>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ✅ NOUVEAU: Dialog de nouvelle conversation -->
+<app-new-conversation-dialog
+  [isOpen]="showNewConversationDialog"
+  [currentUserId]="currentUserId"
+  (conversationCreated)="onConversationCreated($event)"
+  (cancelled)="onNewConversationCancelled()"
+></app-new-conversation-dialog>

@@ -1,0 +1,60 @@
+<div class="message-input-container">
+  <!-- Emoji Picker -->
+  <div class="emoji-picker" *ngIf="showEmojiPicker" [@slideUp]>
+    <div class="emoji-grid">
+      <span *ngFor="let emoji of emojis" 
+            class="emoji-item" 
+            (click)="insertEmoji(emoji)">
+        {{ emoji }}
+      </span>
+    </div>
+  </div>
+
+  <div class="input-wrapper">
+    <!-- Actions gauche -->
+    <div class="input-actions-left">
+      <button class="action-btn" (click)="triggerFileInput()" title="Joindre un fichier">
+        📎
+      </button>
+      <input type="file" 
+             #fileInput 
+             (change)="onFileSelect($event)"
+             accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
+             style="display: none">
+    </div>
+
+    <!-- Zone de texte -->
+    <div class="input-field">
+      <textarea
+        #messageTextarea
+        [(ngModel)]="messageContent"
+        (input)="onInput()"
+        (keypress)="onKeyPress($event)"
+        placeholder="Écrivez un message..."
+        rows="1"
+        class="message-textarea"
+      ></textarea>
+    </div>
+
+    <!-- Actions droite -->
+    <div class="input-actions-right">
+      <button class="action-btn" (click)="toggleEmojiPicker()" title="Emojis">
+        😊
+      </button>
+      
+      <button class="action-btn" 
+              (click)="toggleRecording()" 
+              [class.recording]="isRecording"
+              title="Message vocal">
+        🎤
+      </button>
+
+      <button class="send-btn" 
+              (click)="onSend()"
+              [disabled]="!messageContent.trim()"
+              title="Envoyer">
+        <span class="send-icon">➤</span>
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,3 +1,5 @@
+<!-- Fichier : src/app/templates/receiver-template/receiver-template/receiver-template.component.html (navbar mise à jour) -->
+
 <nav class="navbar">
   <div class="logo">
     <span class="logo-icon">💡</span>
@@ -10,8 +12,16 @@
     <a routerLink="accepted-skills" [routerLinkActive]="['active']">Mes compétences acceptées</a>
     <a routerLink="finished-skills" [routerLinkActive]="['active']">Mes compétences terminées</a>
     <a routerLink="calendarR" [routerLinkActive]="['active']">Calendrier</a>
+    <!-- NOUVEAU: Lien vers Messenger -->
+    <a routerLink="/receiver/messenger" [routerLinkActive]="['active']" class="messenger-link">
+      💬 Messages
+    </a>
   </div>
   <div class="auth-buttons">
+    <!-- NOUVEAU: Badge de notification pour les messages -->
+    <app-message-notification-badge></app-message-notification-badge>
+    
+    <!-- Notifications normales -->
     <div class="notification-container">
       <div 
         class="notification-icon" 
@@ -39,3 +49,6 @@
     </button>
   </div>
 </nav>
+
+<!-- NOUVEAU: Quick Chat flottant -->
+<app-quick-chat></app-quick-chat>

@@ -1,0 +1,104 @@
+<!-- chat-window.component.html - VERSION MISE À JOUR -->
+<div class="chat-window">
+  <!-- Header de la conversation -->
+  <app-conversation-header 
+    [conversation]="conversation"
+    [currentUserId]="currentUserId">
+  </app-conversation-header>
+
+  <!-- Zone des messages -->
+  <div class="messages-container" #messagesContainer (scroll)="onScroll()">
+    
+    <!-- État de chargement initial -->
+    <div *ngIf="isLoading && messages.length === 0" class="loading-messages">
+      <div class="loading-spinner"></div>
+      <p>Chargement des messages...</p>
+    </div>
+
+    <!-- État d'erreur -->
+    <div *ngIf="hasError && messages.length === 0" class="error-messages">
+      <span class="error-icon">⚠️</span>
+      <p class="error-text">{{ errorMessage }}</p>
+      <button class="btn-retry" (click)="onRetry()">
+        🔄 Réessayer
+      </button>
+    </div>
+
+    <!-- Indicateur de chargement pour plus de messages -->
+    <div *ngIf="isLoadingMore" class="loading-more">
+      <div class="loading-spinner small"></div>
+      <span>Chargement des messages précédents...</span>
+    </div>
+
+    <!-- Messages -->
+    <div *ngIf="!isLoading || messages.length > 0" class="messages-wrapper">
+      
+      <!-- Bouton pour charger plus de messages -->
+      <button *ngIf="hasMoreMessages && !isLoadingMore && messages.length > 0" 
+              class="btn-load-more"
+              (click)="loadMoreMessages()">
+        📜 Charger les messages précédents
+      </button>
+
+      <!-- Liste des messages avec séparateurs de date -->
+      <div *ngFor="let message of messages; let i = index" class="message-container">
+        
+        <!-- Séparateur de date -->
+        <div *ngIf="shouldShowDateSeparator(message, messages[i-1])" class="date-separator">
+          <span class="date-text">{{ formatDateSeparator(message.sentAt) }}</span>
+        </div>
+
+        <!-- Message -->
+        <app-message-bubble
+          [message]="message"
+          [isOwnMessage]="message.senderId === currentUserId"
+          (edit)="onEditMessage(message)"
+          (delete)="onDeleteMessage(message)">
+        </app-message-bubble>
+      </div>
+
+      <!-- Indicateur de frappe -->
+      <div *ngIf="typingUsers.length > 0" class="typing-indicator">
+        <div class="typing-bubble">
+          <div class="typing-animation">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+        </div>
+        <span class="typing-text">{{ getTypingText() }}</span>
+      </div>
+    </div>
+
+    <!-- État vide -->
+    <div *ngIf="!isLoading && !hasError && messages.length === 0" class="no-messages">
+      <span class="empty-icon">💬</span>
+      <h3>Conversation vide</h3>
+      <p>{{ getEmptyStateText() }}</p>
+    </div>
+  </div>
+
+  <!-- Input pour envoyer des messages -->
+  <div class="message-input-wrapper">
+    <!-- Message d'état si on ne peut pas envoyer -->
+    <div *ngIf="!canSendMessages()" class="input-disabled-message">
+      <span class="icon">🚫</span>
+      <span class="text">
+        <ng-container *ngIf="conversation.status !== 'ACTIVE'">
+          Cette conversation est {{ conversation.status === 'ARCHIVED' ? 'archivée' : 'terminée' }}
+        </ng-container>
+        <ng-container *ngIf="conversation.status === 'ACTIVE' && !conversation.canSendMessage">
+          Vous n'avez pas la permission d'envoyer des messages
+        </ng-container>
+      </span>
+    </div>
+
+    <!-- Input normal -->
+    <app-message-input
+      *ngIf="canSendMessages()"
+      (sendMessage)="onSendMessage($event)"
+      (fileSelected)="onFileSelect($event)"
+      (typing)="onTyping()">
+    </app-message-input>
+  </div>
+</div>

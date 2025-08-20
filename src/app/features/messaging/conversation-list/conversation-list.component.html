@@ -1,0 +1,37 @@
+<div class="conversation-list">
+  <div 
+    *ngFor="let conversation of conversations" 
+    class="conversation-item"
+    [class.active]="selectedConversation?.id === conversation.id"
+    [class.has-unread]="conversation.unreadCount > 0"
+    (click)="selectConversation(conversation)"
+  >
+    <div class="conversation-avatar">
+      <img [src]="getConversationAvatar(conversation)" [alt]="conversation.name">
+      <span class="status-indicator" *ngIf="conversation.type === 'DIRECT'"></span>
+    </div>
+    
+    <div class="conversation-info">
+      <div class="conversation-header">
+        <h4 class="conversation-name">
+          <span class="conversation-icon">{{ getConversationIcon(conversation) }}</span>
+          {{ getConversationName(conversation) }}
+        </h4>
+        <span class="conversation-time">{{ formatLastMessageTime(conversation.lastMessageTime) }}</span>
+      </div>
+      
+      <div class="conversation-preview">
+        <p class="last-message">{{ conversation.lastMessage || 'Aucun message' }}</p>
+        <span class="unread-badge" *ngIf="conversation.unreadCount > 0">
+          {{ conversation.unreadCount > 99 ? '99+' : conversation.unreadCount }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="conversations.length === 0" class="no-conversations">
+    <span class="empty-icon">📭</span>
+    <p>Aucune conversation</p>
+    <small>Commencez une nouvelle conversation</small>
+  </div>
+</div>

@@ -1,0 +1,189 @@
+/* Suite du fichier : src/app/features/messaging/quick-chat/quick-chat.component.css */
+
+.message-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #e9ecef;
+  border-radius: 20px;
+  outline: none;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.message-input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.send-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.send-btn:hover:not(:disabled) {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Format du temps */
+.formatTime {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Scrollbar pour la zone de messages */
+.messages-area::-webkit-scrollbar {
+  width: 4px;
+}
+
+.messages-area::-webkit-scrollbar-track {
+  background: #f1f3f5;
+}
+
+.messages-area::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 2px;
+}
+
+.messages-area::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+/* Animations */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.chat-window {
+  animation: slideInFromRight 0.3s ease-out;
+}
+
+.quick-message {
+  animation: bounceIn 0.4s ease;
+}
+
+/* États de la fenêtre */
+.chat-window.minimized .chat-body {
+  display: none;
+}
+
+.chat-window.minimized {
+  height: 48px !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .chat-window {
+    width: 280px;
+    right: 10px !important;
+  }
+  
+  .quick-chat-container {
+    right: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-window {
+    width: calc(100vw - 20px);
+    right: 10px !important;
+    left: 10px !important;
+    position: fixed;
+  }
+}
+
+/* Badge de notification sur l'avatar */
+.chat-avatar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  background: #00b894;
+  border: 2px solid white;
+  border-radius: 50%;
+}
+
+/* Indicateur de saisie */
+.typing-indicator {
+  padding: 5px 10px;
+  font-style: italic;
+  color: #636e72;
+  font-size: 0.8rem;
+  background: #f8f9fa;
+  margin: 5px 0;
+  border-radius: 10px;
+}
+
+/* Effets hover */
+.chat-header:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4c93 100%);
+}
+
+.minimize-btn:hover,
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(1.1);
+}
+
+/* Loading state */
+.loading-chat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #636e72;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e9ecef;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 10px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

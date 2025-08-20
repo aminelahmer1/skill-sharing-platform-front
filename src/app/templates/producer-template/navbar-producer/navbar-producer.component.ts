@@ -1,14 +1,24 @@
+// Fichier : src/app/templates/producer-template/navbar-producer/navbar-producer.component.ts (corrigé)
+
 import { Component, Input, Output, EventEmitter, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { NotificationDropdownComponent } from '../../../features/shared/notification-dropdown/notification-dropdown.component';
+import { MessageNotificationBadgeComponent } from '../../../features/shared/message-notification-badge/message-notification-badge.component';
+import { QuickChatComponent } from '../../../features/messaging/quick-chat/quick-chat.component';
 import { NotificationService } from '../../../core/services/notification/notification.service';
 import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-navbar-producer',
   standalone: true,
-  imports: [CommonModule, RouterModule, NotificationDropdownComponent],
+  imports: [
+    CommonModule, 
+    RouterModule, 
+    NotificationDropdownComponent,
+    MessageNotificationBadgeComponent, // AJOUT: Import du badge de notification messages
+    QuickChatComponent
+  ],
   templateUrl: './navbar-producer.component.html',
   styleUrls: ['./navbar-producer.component.css'],
 })

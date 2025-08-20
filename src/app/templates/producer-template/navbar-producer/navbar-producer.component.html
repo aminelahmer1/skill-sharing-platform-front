@@ -1,3 +1,5 @@
+<!-- Fichier : src/app/templates/producer-template/producer-template/producer-template.component.html (navbar mise à jour) -->
+
 <nav class="navbar">
   <div class="logo">
     <span class="logo-icon">💡</span>
@@ -10,8 +12,16 @@
     <a routerLink="/producer/livestreams" [routerLinkActive]="['active']">🎥 Mes Livestreams</a>
     <a routerLink="requests" [routerLinkActive]="['active']">Demandes</a>
     <a routerLink="calendarP" [routerLinkActive]="['active']">Calendrier</a>
+    <!-- NOUVEAU: Lien vers Messenger -->
+    <a routerLink="/producer/messenger" [routerLinkActive]="['active']" class="messenger-link">
+      💬 Messages
+    </a>
   </div>
   <div class="auth-buttons">
+    <!-- NOUVEAU: Badge de notification pour les messages -->
+    <app-message-notification-badge></app-message-notification-badge>
+    
+    <!-- Notification normale (existante) -->
     <div class="notification-icon" 
          [class.disabled]="!userId" 
          (click)="toggleNotifications()" 
@@ -21,6 +31,7 @@
       🔔
       <span *ngIf="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
     </div>
+    
     <button
       class="btn btn-primary"
       (mouseover)="onLogoutHover()"
@@ -31,9 +42,11 @@
     </button>
   </div>
   
-  <!-- SUPPRIMER l'événement unreadCountChange -->
   <app-notification-dropdown
     *ngIf="showNotifications && userId"
     [userId]="userId"
   ></app-notification-dropdown>
 </nav>
+
+<!-- NOUVEAU: Quick Chat flottant -->
+<app-quick-chat></app-quick-chat>

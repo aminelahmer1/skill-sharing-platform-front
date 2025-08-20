@@ -7,8 +7,8 @@ import { catchError, switchMap } from 'rxjs/operators';
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const keycloakService = inject(KeycloakService);
   console.log('Intercepting request to:', req.url); 
-  const authRoutes = ['/api/v1/users', '/api/v1/skills', '/api/v1/exchanges', '/api/v1/categories','/api/v1/notifications','/api/v1/livestream'];
-  const uploadRoutes = ['/Uploads', '/skill-Uploads',];
+  const authRoutes = ['/api/v1/users', '/api/v1/skills', '/api/v1/exchanges', '/api/v1/categories','/api/v1/notifications','/api/v1/livestream','/api/v1/messages'];
+  const uploadRoutes = ['/Uploads', '/skill-Uploads','/message-uploads'];
   const needsAuth = authRoutes.some(route => req.url.includes(route)) 
     && !uploadRoutes.some(route => req.url.includes(route));
 
