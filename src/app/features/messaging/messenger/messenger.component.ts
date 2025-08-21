@@ -52,65 +52,120 @@ export class MessengerComponent implements OnInit, OnDestroy {
   constructor(
     private messagingService: MessagingService,
     private keycloakService: KeycloakService
-  ) {}
-
-  async ngOnInit() {
+  ) {
     console.log('🚀 MessengerComponent initializing...');
+  }
+
+ async ngOnInit() {
+    console.log('🚀 MessengerComponent ngOnInit started');
     
     try {
-      await this.loadUserInfo();
-      this.setupSearch();
-      await this.loadConversations();
-      this.subscribeToUpdates();
-      this.subscribeToConnectionStatus();
-      
-      console.log('✅ MessengerComponent initialized successfully');
+        // IMPORTANT: Attendre que l'ID soit complètement résolu
+        await this.loadUserInfo();
+        
+        // Vérifier que l'ID est bien défini
+        if (!this.currentUserId) {
+            console.error('❌ No user ID available after loading');
+            this.hasError = true;
+            this.errorMessage = 'Impossible de charger l\'identifiant utilisateur';
+            return;
+        }
+        
+        console.log('✅ User ID resolved:', this.currentUserId);
+        
+        // Maintenant charger les conversations
+        this.setupSearch();
+        this.loadConversations();
+        this.subscribeToUpdates();
+        this.subscribeToConnectionStatus();
+        
+        console.log('✅ MessengerComponent initialized successfully');
     } catch (error) {
-      console.error('❌ Error initializing MessengerComponent:', error);
-      this.hasError = true;
-      this.errorMessage = 'Erreur lors de l\'initialisation';
-      this.isLoading = false;
+        console.error('❌ Error initializing MessengerComponent:', error);
+        this.hasError = true;
+        this.errorMessage = 'Erreur lors de l\'initialisation';
     }
-  }
+}
 
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
   }
-
   // ===== CHARGEMENT UTILISATEUR =====
-  private async loadUserInfo() {
+ private async loadUserInfo() {
+    console.log('👤 Loading user info...');
+    
     try {
-      console.log('👤 Loading user info...');
-      
       const profile = await this.keycloakService.getUserProfile();
       console.log('👤 Keycloak profile:', profile);
       
-      if (profile) {
-        if (!isNaN(Number(profile.id))) {
-          this.currentUserId = parseInt(profile.id || '0');
+      if (profile?.id) {
+        // ✅ NOUVEAU: Utiliser l'ID réel du service de messagerie
+        const realUserId = await this.messagingService.getCurrentUserIdAsync();
+        
+        if (realUserId) {
+          this.currentUserId = realUserId;
+          console.log('✅ Using real user ID from messaging service:', this.currentUserId);
         } else {
-          this.currentUserId = this.generateNumericIdFromUUID(profile.id || '');
+          // ✅ FALLBACK: Appeler directement le service utilisateur
+          const realUserIdFromAPI = await this.fetchRealUserIdFromAPI(profile.id);
+          
+          if (realUserIdFromAPI) {
+            this.currentUserId = realUserIdFromAPI;
+            console.log('✅ Using real user ID from API:', this.currentUserId);
+          } else {
+            // Dernier recours : générer un ID
+            this.currentUserId = this.generateNumericIdFromUUID(profile.id);
+            console.log('⚠️ Using generated ID as last resort:', this.currentUserId);
+          }
         }
         
         const roles = this.keycloakService.getRoles();
         this.userRole = roles.includes('PRODUCER') ? 'PRODUCER' : 'RECEIVER';
         
-        console.log('✅ User info loaded:', { 
-          userId: this.currentUserId, 
+        console.log('✅ User info loaded:', {
+          userId: this.currentUserId,
           role: this.userRole,
-          keycloakId: profile.id 
+          keycloakId: profile.id
         });
-      } else {
-        throw new Error('No user profile found');
       }
     } catch (error) {
       console.error('❌ Error loading user info:', error);
       this.hasError = true;
       this.errorMessage = 'Impossible de charger les informations utilisateur';
-      throw error;
     }
   }
+
+  // ✅ NOUVEAU: Récupérer l'ID réel depuis l'API utilisateur
+  private async fetchRealUserIdFromAPI(keycloakId: string): Promise<number | null> {
+    try {
+      const token = await this.keycloakService.getToken();
+      if (!token) return null;
+
+      const response = await fetch(
+        `http://localhost:8822/api/v1/users/by-keycloak-id?keycloakId=${keycloakId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.ok) {
+        const userData = await response.json();
+        console.log('✅ Real user data from API:', userData);
+        return userData.id || null;
+      }
+
+      console.warn('⚠️ User not found in API');
+      return null;
+    } catch (error) {
+      console.error('❌ Error fetching real user ID from API:', error);
+      return null;
+    }
+  }
+
 
   private generateNumericIdFromUUID(uuid: string): number {
     let hash = 0;
@@ -123,97 +178,81 @@ export class MessengerComponent implements OnInit, OnDestroy {
   }
 
   // ===== CHARGEMENT CONVERSATIONS =====
-  private async loadConversations() {
-    console.log('📋 Loading conversations...');
+// messenger.component.ts - CORRECTION CRITIQUE
+private loadConversations() {
+  if (!this.currentUserId) {
+    console.error('❌ Cannot load conversations: no user ID');
+    this.hasError = true;
+    this.errorMessage = 'ID utilisateur manquant';
+    this.isLoading = false;
+    return;
+  }
+
+  console.log('📋 Loading conversations for user ID:', this.currentUserId);
+  this.isLoading = true;
+  this.hasError = false;
+  
+  this.messagingService.getUserConversations(0, 50) // Augmenter la taille
+    .pipe(takeUntil(this.destroy$))
+    .subscribe({
+      next: (conversations) => {
+        console.log('✅ Conversations loaded:', conversations);
+        console.log('📊 Number of conversations:', conversations.length);
+        
+        // Debug détaillé
+        conversations.forEach((conv, index) => {
+          console.log(`📋 Conversation ${index + 1}:`, {
+            id: conv.id,
+            name: conv.name,
+            type: conv.type,
+            participants: conv.participants,
+            lastMessage: conv.lastMessage
+          });
+        });
+
+        this.conversations = conversations;
+        this.applyCurrentFilter();
+        this.isLoading = false;
+        this.hasError = false;
+      },
+      error: (error) => {
+        console.error('❌ Error loading conversations:', error);
+        console.error('❌ Error details:', error.error);
+        this.isLoading = false;
+        this.hasError = true;
+        this.errorMessage = 'Erreur lors du chargement des conversations';
+      }
+    });
+}
+
+  // ✅ NOUVEAU: Méthode de diagnostic
+  diagnoseUserIdIssue() {
+    console.log('🔍 DIAGNOSTIC - User ID Issue:');
+    console.log('- Current User ID:', this.currentUserId);
+    console.log('- Messaging Service User ID:', this.messagingService.getCurrentUserId());
     
-    this.isLoading = true;
-    this.hasError = false;
+    this.keycloakService.getUserProfile().then(profile => {
+      console.log('- Keycloak Profile:', profile);
+      console.log('- Generated ID would be:', this.generateNumericIdFromUUID(profile?.id || ''));
+    });
+  }
+
+  // ✅ NOUVEAU: Forcer la synchronisation des IDs
+  async forceSyncUserIds() {
+    console.log('🔄 Force syncing user IDs...');
     
     try {
-      // ✅ : S'assurer que l'utilisateur est chargé
-      if (!this.currentUserId) {
-        console.warn('⚠️ No current user ID, retrying user load...');
-        await this.loadUserInfo();
+      const realUserId = await this.messagingService.syncUserId();
+      if (realUserId) {
+        this.currentUserId = realUserId;
+        console.log('✅ User ID synchronized:', this.currentUserId);
+        this.loadConversations(); // Recharger les conversations
       }
-      
-      console.log('📡 Fetching conversations from service...');
-      
-      const conversations$ = this.messagingService.getUserConversations();
-      
-      // ✅ AJOUT: Debug des appels réseau
-      conversations$.pipe(
-        tap(conversations => {
-          console.log('📋 Raw conversations response:', conversations);
-          console.log('📋 Number of conversations:', conversations?.length || 0);
-          
-          if (conversations && conversations.length > 0) {
-            conversations.forEach((conv, index) => {
-              console.log(`📋 Conversation ${index + 1}:`, {
-                id: conv.id,
-                name: conv.name,
-                type: conv.type,
-                participants: conv.participants?.length || 0,
-                lastMessage: conv.lastMessage,
-                unreadCount: conv.unreadCount
-              });
-            });
-          }
-        }),
-        takeUntil(this.destroy$)
-      ).subscribe({
-        next: (conversations) => {
-          console.log('✅ Conversations loaded successfully:', conversations.length);
-          
-          this.conversations = conversations || [];
-          this.applyCurrentFilter();
-          this.isLoading = false;
-          this.hasError = false;
-          
-          // ✅ AJOUT: Log détaillé de l'état final
-          console.log('📋 Final state:', {
-            totalConversations: this.conversations.length,
-            filteredConversations: this.filteredConversations.length,
-            isLoading: this.isLoading,
-            hasError: this.hasError,
-            currentUserId: this.currentUserId
-          });
-        },
-        error: (error) => {
-          console.error('❌ Error loading conversations:', error);
-          
-          // ✅ AJOUT: Log détaillé de l'erreur
-          console.error('❌ Error details:', {
-            status: error.status,
-            statusText: error.statusText,
-            message: error.message,
-            url: error.url,
-            error: error.error
-          });
-          
-          this.isLoading = false;
-          this.hasError = true;
-          
-          if (error.status === 401) {
-            this.errorMessage = 'Session expirée. Veuillez vous reconnecter.';
-          } else if (error.status === 403) {
-            this.errorMessage = 'Accès refusé aux conversations';
-          } else if (error.status === 503) {
-            this.errorMessage = 'Service temporairement indisponible';
-          } else if (error.status === 0) {
-            this.errorMessage = 'Impossible de contacter le serveur. Vérifiez votre connexion.';
-          } else {
-            this.errorMessage = `Erreur lors du chargement des conversations (${error.status})`;
-          }
-        }
-      });
-      
     } catch (error) {
-      console.error('❌ Exception in loadConversations:', error);
-      this.isLoading = false;
-      this.hasError = true;
-      this.errorMessage = 'Erreur inattendue lors du chargement';
+      console.error('❌ Error syncing user IDs:', error);
     }
   }
+
 
   // ===== AUTRES MÉTHODES =====
   private setupSearch() {

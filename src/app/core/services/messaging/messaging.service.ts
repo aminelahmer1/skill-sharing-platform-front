@@ -2,7 +2,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { BehaviorSubject, Observable, from, interval, Subject, timer, of, throwError } from 'rxjs';
-import { catchError, map, switchMap, tap, takeUntil, retry, delay, filter } from 'rxjs/operators';
+import { catchError, map, switchMap, tap, takeUntil, retry, delay, filter, retryWhen, take } from 'rxjs/operators';
 import { KeycloakService } from '../keycloak.service';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -134,18 +134,19 @@ export class MessagingService {
   }
 
   // ===== INITIALISATION =====
-  private async initializeService() {
+ private async initializeService() {
     try {
+      // Attendre d'abord que l'ID utilisateur soit chargé
       await this.loadUserInfo();
       
-      // Attendre que l'authentification soit prête
+      // Puis attendre l'authentification
       this.keycloakService.authStatus$
         .pipe(
           filter(status => status === true),
           takeUntil(this.destroy$)
         )
         .subscribe(() => {
-          if (!this.isInitialized) {
+          if (!this.isInitialized && this.currentUserId) {
             this.isInitialized = true;
             this.initializeStompConnection();
             this.startPolling();
@@ -161,17 +162,48 @@ export class MessagingService {
     try {
       const profile = await this.keycloakService.getUserProfile();
       if (profile?.id) {
-        // Gérer l'ID utilisateur correctement
-        if (!isNaN(Number(profile.id))) {
-          this.currentUserId = parseInt(profile.id);
+        console.log('🔍 Keycloak profile loaded:', profile);
+        
+        // ✅ NOUVEAU: Appeler le service utilisateur pour obtenir l'ID réel
+        const realUserId = await this.getRealUserId(profile.id);
+        if (realUserId) {
+          this.currentUserId = realUserId;
+          console.log('✅ Real user ID loaded from backend:', this.currentUserId);
         } else {
-          // Si c'est un UUID, utiliser le hash
+          // Fallback vers la génération d'ID
           this.currentUserId = this.generateNumericIdFromUUID(profile.id);
+          console.log('⚠️ Using generated ID as fallback:', this.currentUserId);
         }
-        console.log('✅ Current user ID loaded:', this.currentUserId);
       }
     } catch (error) {
       console.error('❌ Failed to load user info:', error);
+    }
+  }
+private async getRealUserId(keycloakId: string): Promise<number | null> {
+    try {
+      const token = await this.keycloakService.getToken();
+      if (!token) return null;
+
+      const headers = new HttpHeaders({
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      });
+
+      // Appeler l'API pour obtenir l'utilisateur par Keycloak ID
+      const response = await this.http.get<any>(
+        `http://localhost:8822/api/v1/users/by-keycloak-id?keycloakId=${keycloakId}`,
+        { headers }
+      ).toPromise();
+
+      if (response && response.id) {
+        console.log('✅ User found in backend:', response);
+        return response.id;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('❌ Error fetching real user ID:', error);
+      return null;
     }
   }
 
@@ -309,7 +341,20 @@ private async initializeStompConnection() {
       console.error('❌ Failed to subscribe to topics:', error);
     }
   }
+ async syncUserId(): Promise<number | undefined> {
+    if (!this.currentUserId) {
+      await this.loadUserInfo();
+    }
+    return this.currentUserId;
+  }
 
+  // ✅ NOUVEAU: Méthode publique pour obtenir l'ID utilisateur réel
+  async getCurrentUserIdAsync(): Promise<number | undefined> {
+    if (this.currentUserId) {
+      return this.currentUserId;
+    }
+    return await this.syncUserId();
+  }
   private scheduleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('❌ Max reconnection attempts reached');
@@ -398,138 +443,400 @@ private async initializeStompConnection() {
 // Dans la méthode getUserConversations:
 
 //   PRINCIPALE: Améliorer la méthode getUserConversations
-getUserConversations(page = 0, size = 20): Observable<Conversation[]> {
+/**
+ * Récupère les conversations de l'utilisateur avec synchronisation de l'ID
+ * @param page - Numéro de page (défaut: 0)
+ * @param size - Taille de page (défaut: 20)
+ * @returns Observable<Conversation[]>
+ */
+/**
+   * ✅ NOUVEAU: Méthode de diagnostic complète
+   */
+  async diagnoseUserAndConversations(): Promise<void> {
+    console.log('🔍 === DIAGNOSTIC COMPLET ===');
+    
+    try {
+      // 1. Vérifier l'ID utilisateur
+      const userId = await this.ensureUserIdSynchronized();
+      console.log('1. User ID resolved:', userId);
+      
+      // 2. Vérifier le token
+      const token = await this.keycloakService.getToken();
+      console.log('2. Token available:', !!token);
+      
+      // 3. Tester la connexion backend
+      if (token && userId) {
+        const backendConnected = await this.testBackendConnection().toPromise();
+        console.log('3. Backend connection:', backendConnected);
+        
+        // 4. Appeler l'endpoint de diagnostic backend
+        try {
+          const debugResponse = await this.callBackendDiagnostic(token).toPromise();
+          console.log('4. Backend diagnostic response:', debugResponse);
+        } catch (error) {
+          console.error('4. Backend diagnostic failed:', error);
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Diagnostic error:', error);
+    }
+    
+    console.log('🔍 === FIN DIAGNOSTIC ===');
+  }
+
+  /**
+   * ✅ NOUVEAU: Appeler l'endpoint de diagnostic backend
+   */
+  private callBackendDiagnostic(token: string): Observable<any> {
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    });
+    
+    return this.http.get(`${this.apiUrl}/debug/user-conversations`, { headers });
+  }
+
+  /**
+   * ✅ AMÉLIORATION: getUserConversations avec retry et diagnostic
+   */
+   getUserConversations(page = 0, size = 20): Observable<Conversation[]> {
     console.log('📡 MessagingService: getUserConversations called', { page, size });
     
-    return from(this.keycloakService.getToken()).pipe(
-        tap(token => {
-            console.log('🔑 Token obtained:', token ? 'Present' : 'Missing');
-        }),
-        switchMap(token => {
-            if (!token) {
-                console.error('❌ No token available for fetching conversations');
-                return of([]);
-            }
-            
-            const headers = new HttpHeaders({ 
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json'
+    return from(this.ensureUserIdSynchronized()).pipe(
+      switchMap(userId => {
+        if (!userId) {
+          console.error('❌ No user ID available after synchronization');
+          // Lancer le diagnostic en cas d'échec
+          this.diagnoseUserAndConversations();
+          return of([]);
+        }
+        
+        console.log('✅ User ID synchronized:', userId);
+        return from(this.keycloakService.getToken()).pipe(
+          map(token => ({ token, userId } as { token: string | null; userId: number }))
+        );
+      }),
+      
+      switchMap((data: { token: string | null; userId: number } | never[]) => {
+        // ✅ CORRECTION: Vérification de type explicite
+        if (Array.isArray(data) || !data) {
+          return of([]);
+        }
+        
+        const { token, userId } = data;
+        
+        if (!token) {
+          console.error('❌ No token available for fetching conversations');
+          return of([]);
+        }
+        
+        return this.fetchConversationsFromAPI(token, userId, page, size);
+      }),
+      
+      map(response => this.processConversationsResponse(response)),
+      
+      tap(conversations => {
+        console.log('✅ Conversations loaded and processed:', conversations.length);
+        this.conversationsSubject.next(conversations);
+        
+        // Si aucune conversation trouvée et c'est la première page, lancer le diagnostic
+        if (conversations.length === 0 && page === 0) {
+          console.warn('⚠️ No conversations found, running diagnostic...');
+          setTimeout(() => this.diagnoseUserAndConversations(), 1000);
+        }
+        
+        if (conversations.length > 0) {
+          conversations.forEach((conv, index) => {
+            console.log(`📋 Conversation ${index + 1}:`, {
+              id: conv.id,
+              name: conv.name,
+              type: conv.type,
+              participantsCount: conv.participants?.length || 0
             });
-            
-            const url = `${this.apiUrl}/conversations`;
-            console.log('📡 Making HTTP request to:', url);
-            console.log('📡 Request headers:', headers);
-            console.log('📡 Request params:', { page: page.toString(), size: size.toString() });
-            
-            return this.http.get<any>(url, {
-                headers,
-                params: { 
-                    page: page.toString(), 
-                    size: size.toString() 
-                }
-            }).pipe(
-                tap(response => {
-                    console.log('📡 Raw HTTP response:', response);
-                    console.log('📡 Response type:', typeof response);
-                    console.log('📡 Response keys:', Object.keys(response || {}));
-                }),
-                catchError(error => {
-                    console.error('❌ HTTP Error in getUserConversations:', {
-                        status: error.status,
-                        statusText: error.statusText,
-                        message: error.message,
-                        error: error.error,
-                        url: error.url
-                    });
-                    
-                    // ✅ : Ne pas retourner un objet vide, mais propager l'erreur
-                    throw error;
-                })
-            );
-        }),
-        map(response => {
-            console.log('🔧 Processing response in map operator:', response);
-            
-            // ✅ : Gestion plus robuste des différents formats de réponse
-            let conversations: Conversation[] = [];
-            
-            if (!response) {
-                console.warn('⚠️ Empty response received');
-                return [];
-            }
-            
-            // Format 1: Array direct
-            if (Array.isArray(response)) {
-                console.log('📋 Response is direct array');
-                conversations = response;
-            }
-            // Format 2: Page avec content
-            else if (response.content && Array.isArray(response.content)) {
-                console.log('📋 Response is paginated with content');
-                conversations = response.content;
-            }
-            // Format 3: Spring HATEOAS avec _embedded
-            else if (response._embedded && Array.isArray(response._embedded.conversations)) {
-                console.log('📋 Response is HATEOAS format');
-                conversations = response._embedded.conversations;
-            }
-            // Format 4: Objet avec propriété conversations
-            else if (response.conversations && Array.isArray(response.conversations)) {
-                console.log('📋 Response has conversations property');
-                conversations = response.conversations;
-            }
-            else {
-                console.warn('⚠️ Unexpected response format:', response);
-                return [];
-            }
-            
-            console.log('📋 Extracted conversations:', conversations);
-            console.log('📋 Number of conversations:', conversations.length);
-            
-            // ✅ VALIDATION: Vérifier que chaque conversation a les propriétés requises
-            const validConversations = conversations.filter(conv => {
-                const isValid = conv && 
-                    typeof conv.id !== 'undefined' && 
-                    typeof conv.name !== 'undefined' &&
-                    Array.isArray(conv.participants);
-                
-                if (!isValid) {
-                    console.warn('⚠️ Invalid conversation found:', conv);
-                }
-                
-                return isValid;
-            });
-            
-            console.log('✅ Valid conversations:', validConversations.length);
-            return validConversations;
-        }),
-        tap(conversations => {
-            console.log('✅ Final conversations to emit:', conversations.length);
-            conversations.forEach((conv, index) => {
-                console.log(`📋 Conversation ${index + 1}:`, {
-                    id: conv.id,
-                    name: conv.name,
-                    type: conv.type,
-                    participantCount: conv.participants?.length || 0,
-                    lastMessage: conv.lastMessage,
-                    status: conv.status
-                });
-            });
-            
-            // ✅ : Mettre à jour le Subject des conversations
-            this.conversationsSubject.next(conversations);
-        }),
-        catchError(error => {
-            console.error('❌ Final error in getUserConversations:', error);
-            
-            // ✅ : En cas d'erreur, émettre un tableau vide et propager l'erreur
-            this.conversationsSubject.next([]);
-            
-            // Retourner un Observable d'erreur pour que le composant puisse gérer l'erreur
-            return throwError(() => error);
-        }),
-        retry(1) // ✅ : Retry une seule fois en cas d'erreur réseau
+          });
+        }
+      }),
+      
+      catchError(error => {
+        console.error('❌ Fatal error in getUserConversations:', error);
+        this.handleConversationLoadError(error);
+        
+        // Lancer le diagnostic en cas d'erreur
+        setTimeout(() => this.diagnoseUserAndConversations(), 1000);
+        
+        return of([]);
+      }),
+      
+      // ✅ CORRECTION: Retry avec gestion d'erreur plus simple
+      retry(2) // Réessayer 2 fois en cas d'erreur
     );
+  }
+
+  /**
+   * ✅ NOUVEAU: Forcer un rechargement complet avec diagnostic
+   */
+  forceReloadWithDiagnostic(): Observable<Conversation[]> {
+    console.log('🔄 Force reload with diagnostic...');
+    
+    return from(this.diagnoseUserAndConversations()).pipe(
+      delay(1000), // Attendre que le diagnostic se termine
+      switchMap(() => this.forceReloadConversations())
+    );
+  }
+
+/**
+ * S'assure que l'ID utilisateur est correctement synchronisé
+ */
+private async ensureUserIdSynchronized(): Promise<number | undefined> {
+  // Si l'ID est déjà défini et valide, le retourner
+  if (this.currentUserId && this.currentUserId > 0) {
+    console.log('✅ Using existing user ID:', this.currentUserId);
+    return this.currentUserId;
+  }
+  
+  console.log('🔄 Synchronizing user ID...');
+  
+  try {
+    // Obtenir le profil Keycloak
+    const profile = await this.keycloakService.getUserProfile();
+    if (!profile?.id) {
+      throw new Error('No Keycloak profile available');
+    }
+    
+    console.log('🔍 Keycloak profile ID:', profile.id);
+    
+    // Essayer de récupérer l'ID réel depuis le backend
+    const token = await this.keycloakService.getToken();
+    if (token) {
+      const realUserId = await this.fetchRealUserIdFromBackend(profile.id, token);
+      if (realUserId) {
+        this.currentUserId = realUserId;
+        console.log('✅ Real user ID fetched from backend:', this.currentUserId);
+        return this.currentUserId;
+      }
+    }
+    
+    // Fallback: générer un ID depuis l'UUID
+    this.currentUserId = this.generateNumericIdFromUUID(profile.id);
+    console.log('⚠️ Using generated ID as fallback:', this.currentUserId);
+    return this.currentUserId;
+    
+  } catch (error) {
+    console.error('❌ Error synchronizing user ID:', error);
+    return undefined;
+  }
+}
+
+/**
+ * Récupère l'ID utilisateur réel depuis le backend
+ */
+private async fetchRealUserIdFromBackend(keycloakId: string, token: string): Promise<number | null> {
+  try {
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    });
+    
+    const response = await this.http.get<any>(
+      `${this.apiUrl.replace('/messages', '/users')}/by-keycloak-id`,
+      { 
+        headers,
+        params: { keycloakId }
+      }
+    ).toPromise();
+    
+    if (response?.id) {
+      return response.id;
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn('⚠️ Could not fetch real user ID from backend:', error);
+    return null;
+  }
+}
+
+/**
+ * Effectue l'appel HTTP pour récupérer les conversations
+ */
+private fetchConversationsFromAPI(
+  token: string, 
+  userId: number, 
+  page: number, 
+  size: number
+): Observable<any> {
+  const headers = new HttpHeaders({ 
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    'X-User-Id': userId.toString() // Envoyer l'ID dans le header pour debug
+  });
+  
+  const url = `${this.apiUrl}/conversations`;
+  const params = { 
+    page: page.toString(), 
+    size: size.toString() 
+  };
+  
+  console.log('📡 Making HTTP request:', {
+    url,
+    userId,
+    page,
+    size
+  });
+  
+  return this.http.get<any>(url, { headers, params }).pipe(
+    tap(response => {
+      console.log('📡 Raw API response:', {
+        hasContent: !!response,
+        isArray: Array.isArray(response),
+        hasContentProperty: !!(response?.content),
+        contentLength: response?.content?.length || response?.length || 0
+      });
+    }),
+    retry(2), // Réessayer 2 fois en cas d'échec
+    catchError(error => {
+      console.error('❌ HTTP Error:', {
+        status: error.status,
+        message: error.message,
+        url: error.url,
+        error: error.error
+      });
+      
+      // Retourner une réponse vide plutôt que de propager l'erreur
+      return of({ content: [], totalElements: 0 });
+    })
+  );
+}
+
+/**
+ * Traite la réponse de l'API pour extraire les conversations
+ */
+private processConversationsResponse(response: any): Conversation[] {
+  console.log('🔄 Processing API response...');
+  
+  if (!response) {
+    console.warn('⚠️ Empty response received');
+    return [];
+  }
+  
+  let conversations: Conversation[] = [];
+  
+  // Cas 1: Réponse est directement un tableau
+  if (Array.isArray(response)) {
+    conversations = response;
+    console.log('✅ Direct array response:', conversations.length);
+  }
+  // Cas 2: Réponse paginée Spring (Page<T>)
+  else if (response.content && Array.isArray(response.content)) {
+    conversations = response.content;
+    console.log('✅ Paginated response:', {
+      content: conversations.length,
+      totalElements: response.totalElements,
+      totalPages: response.totalPages,
+      currentPage: response.number
+    });
+  }
+  // Cas 3: Réponse HAL (Spring Data REST)
+  else if (response._embedded?.conversations) {
+    conversations = response._embedded.conversations;
+    console.log('✅ HAL response:', conversations.length);
+  }
+  // Cas 4: Réponse avec data wrapper
+  else if (response.data && Array.isArray(response.data)) {
+    conversations = response.data;
+    console.log('✅ Data wrapper response:', conversations.length);
+  }
+  // Cas non géré
+  else {
+    console.warn('⚠️ Unknown response format:', response);
+  }
+  
+  return conversations;
+}
+
+/**
+ * Gère les erreurs de chargement des conversations
+ */
+private handleConversationLoadError(error: any): void {
+  let errorMessage = 'Erreur lors du chargement des conversations';
+  
+  if (error.status === 401) {
+    errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+    // Optionnel: déclencher une reconnexion
+    // this.keycloakService.login();
+  } else if (error.status === 403) {
+    errorMessage = 'Accès refusé aux conversations.';
+  } else if (error.status === 404) {
+    errorMessage = 'Service de messagerie non disponible.';
+  } else if (error.status === 500) {
+    errorMessage = 'Erreur serveur. Veuillez réessayer plus tard.';
+  } else if (error.status === 0) {
+    errorMessage = 'Impossible de contacter le serveur. Vérifiez votre connexion.';
+  }
+  
+  console.error('❌ Conversation load error:', errorMessage);
+  
+  // Émettre un événement d'erreur si nécessaire
+  // this.errorSubject.next(errorMessage);
+}
+
+/**
+ * Méthode publique pour forcer le rechargement des conversations
+ */
+forceReloadConversations(): Observable<Conversation[]> {
+  console.log('🔄 Force reloading conversations...');
+  
+  // Réinitialiser l'ID utilisateur pour forcer la resynchronisation
+  this.currentUserId = undefined;
+  
+  // Vider le cache actuel
+  this.conversationsSubject.next([]);
+  
+  // Recharger
+  return this.getUserConversations();
+}
+
+/**
+ * Méthode de diagnostic pour debug
+ */
+async diagnoseConnectionIssues(): Promise<void> {
+  console.log('🔍 === DIAGNOSING CONNECTION ISSUES ===');
+  
+  const diagnosis = {
+    currentUserId: this.currentUserId,
+    apiUrl: this.apiUrl,
+    connectionStatus: this.connectionStatusSubject.value,
+    conversationsCount: this.conversationsSubject.value.length,
+    hasToken: false,
+    keycloakProfile: null as any,
+    backendConnection: false
+  };
+  
+  try {
+    // Test 1: Token
+    const token = await this.keycloakService.getToken();
+    diagnosis.hasToken = !!token;
+    
+    // Test 2: Profil Keycloak
+    diagnosis.keycloakProfile = await this.keycloakService.getUserProfile();
+    
+    // Test 3: Connexion backend
+    if (token) {
+      const testResponse = await fetch(`${this.apiUrl}/conversations?page=0&size=1`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      diagnosis.backendConnection = testResponse.ok;
+    }
+    
+  } catch (error) {
+    console.error('❌ Diagnosis error:', error);
+  }
+  
+  console.table(diagnosis);
+  console.log('🔍 === END DIAGNOSIS ===');
 }
 
 // ✅ AJOUT: Méthode pour tester la connexion au backend
@@ -560,41 +867,7 @@ testBackendConnection(): Observable<boolean> {
     );
 }
 
-// ✅ AJOUT: Méthode pour forcer le rechargement des conversations
-forceReloadConversations(): Observable<Conversation[]> {
-    console.log('🔄 Force reloading conversations...');
-    
-    // Réinitialiser l'état
-    this.conversationsSubject.next([]);
-    
-    // Recharger
-    return this.getUserConversations().pipe(
-        tap(conversations => {
-            console.log('🔄 Force reload completed:', conversations.length);
-        })
-    );
-}
 
-// ✅ AJOUT: Méthode de diagnostic
-diagnoseConnectionIssues(): Observable<any> {
-    console.log('🔍 Diagnosing connection issues...');
-    
-    return from(this.keycloakService.getToken()).pipe(
-        switchMap(token => {
-            const diagnosis = {
-                hasToken: !!token,
-                tokenLength: token?.length || 0,
-                apiUrl: this.apiUrl,
-                currentUserId: this.currentUserId,
-                connectionStatus: this.connectionStatusSubject.value,
-                isInitialized: this.isInitialized
-            };
-            
-            console.log('🔍 Diagnosis:', diagnosis);
-            return of(diagnosis);
-        })
-    );
-}
 
   // Récupération d'une conversation
   getConversation(conversationId: number): Observable<Conversation> {

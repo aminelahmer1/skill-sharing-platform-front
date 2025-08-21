@@ -105,26 +105,9 @@
         <h3>Sélectionnez une conversation</h3>
         <p>{{ getEmptyStateText() }}</p>
         
-        <!-- ✅ NOUVEAU: Actions rapides -->
-        <div class="quick-actions" *ngIf="conversations.length > 0">
-          <button class="quick-action-btn" (click)="onCreateConversation()" [disabled]="!canCreateConversations()">
-            <span class="icon">➕</span>
-            <span class="text">Nouvelle conversation</span>
-          </button>
-        </div>
+       
 
-        <!-- ✅ NOUVEAU: Raccourcis clavier -->
-        <div class="keyboard-shortcuts" *ngIf="conversations.length > 0">
-          <h4>Raccourcis clavier</h4>
-          <div class="shortcuts-list">
-            <div class="shortcut">
-              <kbd>Ctrl</kbd> + <kbd>N</kbd> : Nouvelle conversation
-            </div>
-            <div class="shortcut">
-              <kbd>Échap</kbd> : Fermer les dialogs
-            </div>
-          </div>
-        </div>
+        
       </div>
     </div>
 
