@@ -1,29 +1,69 @@
-// new-conversation-dialog.component.ts - VERSION FINALE COMPLÈTE
 import { Component, EventEmitter, Input, Output, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Subject, takeUntil, debounceTime, switchMap, of } from 'rxjs';
-import { MessagingService, Conversation } from '../../../core/services/messaging/messaging.service';
+import { Subject, takeUntil, debounceTime, switchMap, of, map, forkJoin } from 'rxjs';
+import { MessagingService, Conversation, UserResponse, SkillResponse } from '../../../core/services/messaging/messaging.service';
 import { KeycloakService } from '../../../core/services/keycloak.service';
 import { trigger, transition, style, animate } from '@angular/animations';
 
+
 interface User {
   id: number;
-  name: string;
-  role: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  pictureUrl?: string;
+  profileImageUrl?: string;
   avatar?: string;
-  email?: string;
-  firstName?: string;
-  lastName?: string;
-  profilePicture?: string;
+  roles?: string[];
+  city?: string;
+  country?: string;
+  phoneNumber?: string;
+  createdAt?: string;
+  bio?: string;
+  name: string; 
+  role: string; 
 }
+
 
 interface Skill {
   id: number;
   name: string;
   description?: string;
   category?: string;
+  participantsCount?: number;
+  producer?: User;
+  receivers?: User[];
+}
+
+//  Interface pour les données de compétences enrichies
+interface EnrichedSkillData {
+  skillId: number;
+  skillName: string;
+  skillDescription?: string;
+  skillProducer: UserResponse;
+  receivers: UserResponse[];
+  userRole: 'PRODUCER' | 'RECEIVER';
+  stats: {
+    totalReceivers: number;
+    totalUsers: number;
+    statusBreakdown: { [key: string]: number };
+  };
+}
+
+//  Interface pour la réponse /my-skills/users
+interface MySkillsUsersResponse {
+  currentUser: UserResponse;
+  userPrimaryRole: 'PRODUCER' | 'RECEIVER';
+  skills: EnrichedSkillData[];
+  globalStats: {
+    totalSkills: number;
+    totalUsers: number;
+    totalProducers: number;
+    totalReceivers: number;
+    statusBreakdown: { [key: string]: number };
+  };
 }
 
 @Component({
@@ -65,9 +105,6 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
   @Output() conversationCreated = new EventEmitter<Conversation>();
   @Output() cancelled = new EventEmitter<void>();
 
-  // Configuration API
-  private readonly apiUrl = 'http://localhost:8822/api/v1';
-
   // Type de conversation
   conversationType: 'direct' | 'group' | 'skill' = 'direct';
 
@@ -86,12 +123,19 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
   // Pour conversation de compétence
   selectedSkillId?: number;
   availableSkills: Skill[] = [];
+  
+  //  Données enrichies des compétences
+  mySkillsData?: MySkillsUsersResponse;
+  selectedSkillData?: EnrichedSkillData;
+  skillParticipants: User[] = [];
 
   // État
   isCreating = false;
   error = '';
   isLoadingSkills = false;
   isSearching = false;
+  currentUserRole?: string;
+  availableUsers: User[] = [];
   
   // Sujets pour la recherche avec debounce
   private searchSubject = new Subject<string>();
@@ -100,14 +144,14 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
 
   constructor(
     private messagingService: MessagingService,
-    private keycloakService: KeycloakService,
-    private http: HttpClient
+    private keycloakService: KeycloakService
   ) {}
 
   ngOnInit() {
     this.setupSearch();
     this.loadUserInfo();
-    this.loadAvailableSkills();
+    this.loadAvailableUsers();
+    this.loadMySkillsData(); //  Charger les données enrichies
   }
 
   ngOnDestroy() {
@@ -115,7 +159,7 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // ✅ === INITIALISATION ===
+  // ===== INITIALISATION =====
 
   private async loadUserInfo() {
     try {
@@ -127,7 +171,14 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
             : this.generateNumericIdFromUUID(profile.id);
         }
       }
-      console.log('✅ Current user ID for dialog:', this.currentUserId);
+
+      const roles = this.keycloakService.getRoles();
+      this.currentUserRole = roles.includes('PRODUCER') ? 'PRODUCER' : 'RECEIVER';
+      
+      console.log('✅ Current user info for dialog:', {
+        userId: this.currentUserId,
+        role: this.currentUserRole
+      });
     } catch (error) {
       console.error('❌ Error loading user info:', error);
     }
@@ -144,7 +195,7 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
   }
 
   private setupSearch() {
-    // ✅ Recherche d'utilisateurs pour conversation directe
+    // Recherche d'utilisateurs pour conversation directe
     this.searchSubject.pipe(
       debounceTime(300),
       takeUntil(this.destroy$),
@@ -152,7 +203,7 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
         if (!query.trim()) {
           return of([]);
         }
-        return this.searchUsersApi(query);
+        return this.searchUsersForDirectConversation(query);
       })
     ).subscribe({
       next: (users) => {
@@ -166,7 +217,7 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
       }
     });
 
-    // ✅ Recherche de participants pour groupe
+    // Recherche de participants pour groupe
     this.participantSearchSubject.pipe(
       debounceTime(300),
       takeUntil(this.destroy$),
@@ -174,7 +225,7 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
         if (!query.trim()) {
           return of([]);
         }
-        return this.searchUsersApi(query);
+        return this.searchUsersForGroupConversation(query);
       })
     ).subscribe({
       next: (users) => {
@@ -191,110 +242,161 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ✅ === CHARGEMENT DES DONNÉES ===
-
-  private async loadAvailableSkills() {
+  //  Charger les données enrichies depuis /my-skills/users
+  private loadMySkillsData() {
     this.isLoadingSkills = true;
-    try {
-      const token = await this.keycloakService.getToken();
-      const headers = new HttpHeaders({
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+    console.log('🔄 Loading enriched skills data from /my-skills/users');
+    
+    this.messagingService.getUserSkillsWithUsers()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data: MySkillsUsersResponse) => {
+          this.mySkillsData = data;
+          
+          // Transformer les données pour le sélecteur de compétences
+          this.availableSkills = data.skills.map(skill => ({
+            id: skill.skillId,
+            name: skill.skillName,
+            description: skill.skillDescription,
+            participantsCount: skill.stats.totalUsers,
+            producer: this.mapUserResponseToUser(skill.skillProducer),
+            receivers: skill.receivers.map(r => this.mapUserResponseToUser(r))
+          }));
+          
+          console.log('✅ Enriched skills loaded:', {
+            role: data.userPrimaryRole,
+            skillsCount: data.skills.length,
+            totalUsers: data.globalStats.totalUsers
+          });
+          
+          this.isLoadingSkills = false;
+        },
+        error: (error: any) => {
+          console.error('❌ Error loading enriched skills:', error);
+          this.availableSkills = this.getFallbackSkills();
+          this.isLoadingSkills = false;
+        }
       });
+  }
 
-      this.http.get<any>(`${this.apiUrl}/skills`, { headers })
-        .pipe(takeUntil(this.destroy$))
-        .subscribe({
-          next: (response) => {
-            if (Array.isArray(response)) {
-              this.availableSkills = response;
-            } else if (response.content && Array.isArray(response.content)) {
-              this.availableSkills = response.content;
-            } else {
-              this.availableSkills = [];
-            }
-            
-            console.log('✅ Skills loaded:', this.availableSkills.length);
-            this.isLoadingSkills = false;
-          },
-          error: (error) => {
-            console.error('❌ Error loading skills:', error);
-            this.availableSkills = [
-              { id: 1, name: 'Angular Development', category: 'Frontend' },
-              { id: 2, name: 'Java Backend', category: 'Backend' },
-              { id: 3, name: 'UI/UX Design', category: 'Design' },
-              { id: 4, name: 'DevOps', category: 'Infrastructure' },
-              { id: 5, name: 'Project Management', category: 'Management' }
-            ];
-            this.isLoadingSkills = false;
-          }
-        });
-    } catch (error) {
-      console.error('❌ Error in loadAvailableSkills:', error);
-      this.isLoadingSkills = false;
+  // ===== CHARGEMENT DES DONNÉES =====
+
+  private loadAvailableUsers() {
+    console.log('🔄 Loading available users for role:', this.currentUserRole);
+    
+    this.messagingService.getAvailableUsersForConversation('direct')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (users) => {
+          this.availableUsers = users.map(user => this.mapUserResponseToUser(user));
+          console.log('✅ Available users loaded:', this.availableUsers.length);
+        },
+        error: (error) => {
+          console.error('❌ Error loading available users:', error);
+          this.availableUsers = this.getFallbackUsers();
+        }
+      });
+  }
+
+  // ===== HANDLERS DE SÉLECTION DE COMPÉTENCE =====
+
+  //  Handler amélioré pour la sélection de compétence
+  onSkillSelected() {
+    if (!this.selectedSkillId || !this.mySkillsData) {
+      this.skillParticipants = [];
+      this.selectedSkillData = undefined;
+      return;
     }
-  }
 
-  // ✅ === RECHERCHE D'UTILISATEURS ===
-
-  private searchUsersApi(query: string) {
-    return new Promise<User[]>((resolve) => {
-      this.keycloakService.getToken().then(token => {
-        const headers = new HttpHeaders({
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+    // Trouver les données de la compétence sélectionnée
+    const skillData = this.mySkillsData.skills.find(s => s.skillId === this.selectedSkillId);
+    
+    if (skillData) {
+      this.selectedSkillData = skillData;
+      
+      // Préparer la liste des participants (producteur + receivers) en excluant l'utilisateur actuel
+      const participants: User[] = [];
+      
+      // Ajouter le producteur si ce n'est pas l'utilisateur actuel
+      if (skillData.skillProducer.id !== this.currentUserId) {
+        participants.push(this.mapUserResponseToUser(skillData.skillProducer));
+      }
+      
+      // Ajouter les receivers (exclure self)
+      skillData.receivers
+        .filter(receiver => receiver.id !== this.currentUserId)
+        .forEach(receiver => {
+          participants.push(this.mapUserResponseToUser(receiver));
         });
-
-        this.http.get<any>(`${this.apiUrl}/users/search`, {
-          headers,
-          params: { q: query, limit: '10' }
-        }).pipe(takeUntil(this.destroy$))
-        .subscribe({
-          next: (response) => {
-            let users: User[] = [];
-            
-            if (Array.isArray(response)) {
-              users = response;
-            } else if (response.content && Array.isArray(response.content)) {
-              users = response.content;
-            }
-            
-            const mappedUsers = users
-              .filter(user => user.id !== this.currentUserId)
-              .map(user => ({
-                id: user.id,
-                name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-                role: user.role || 'USER',
-                avatar: user.avatar || user.profilePicture,
-                email: user.email
-              }));
-            
-            resolve(mappedUsers);
-          },
-          error: (error) => {
-            console.warn('⚠️ API search failed, using fallback:', error);
-            const fallbackUsers: User[] = [
-              { id: 1, name: 'Alice Martin', role: 'PRODUCER', avatar: '/assets/avatars/alice.jpg' },
-              { id: 2, name: 'Bob Dupont', role: 'RECEIVER', avatar: '/assets/avatars/bob.jpg' },
-              { id: 3, name: 'Charlie Brown', role: 'PRODUCER', avatar: '/assets/avatars/charlie.jpg' },
-              { id: 4, name: 'Diana Prince', role: 'RECEIVER', avatar: '/assets/avatars/diana.jpg' },
-              { id: 5, name: 'Eve Adams', role: 'PRODUCER', avatar: '/assets/avatars/eve.jpg' }
-            ].filter(user => 
-              user.name.toLowerCase().includes(query.toLowerCase()) && 
-              user.id !== this.currentUserId
-            );
-            
-            resolve(fallbackUsers);
-          }
-        });
-      }).catch(error => {
-        console.error('❌ Token error:', error);
-        resolve([]);
+      
+      this.skillParticipants = participants;
+      
+      console.log('📋 Skill selected:', {
+        skillId: this.selectedSkillId,
+        skillName: skillData.skillName,
+        participantsCount: participants.length,
+        userRole: skillData.userRole
       });
-    });
+    }
+    
+    this.error = '';
   }
 
-  // ✅ === HANDLERS DE RECHERCHE ===
+  // ===== RECHERCHE D'UTILISATEURS =====
+
+  private searchUsersForDirectConversation(query: string) {
+    // Recherche locale d'abord pour performance
+    const localResults = this.availableUsers.filter(user => 
+      user.name.toLowerCase().includes(query.toLowerCase()) ||
+      user.email?.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 10);
+
+    if (localResults.length > 0) {
+      return of(localResults);
+    }
+
+    // Recherche via API si pas de résultats locaux
+    return this.messagingService.getAvailableUsersForConversation('direct').pipe(
+      map(users => users
+        .filter(user => 
+          user.firstName?.toLowerCase().includes(query.toLowerCase()) ||
+          user.lastName?.toLowerCase().includes(query.toLowerCase()) ||
+          user.username?.toLowerCase().includes(query.toLowerCase()) ||
+          user.email?.toLowerCase().includes(query.toLowerCase())
+        )
+        .map(user => this.mapUserResponseToUser(user))
+        .slice(0, 10)
+      )
+    );
+  }
+
+  private searchUsersForGroupConversation(query: string) {
+    const localResults = this.availableUsers.filter(user => 
+      user.name.toLowerCase().includes(query.toLowerCase()) ||
+      user.email?.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 10);
+
+    if (localResults.length > 0) {
+      return of(localResults);
+    }
+
+    return this.messagingService.getAvailableUsersForConversation('group').pipe(
+      map(users => users
+        .filter(user => 
+          user.firstName?.toLowerCase().includes(query.toLowerCase()) ||
+          user.lastName?.toLowerCase().includes(query.toLowerCase()) ||
+          user.username?.toLowerCase().includes(query.toLowerCase()) ||
+          user.email?.toLowerCase().includes(query.toLowerCase())
+        )
+        .map(user => this.mapUserResponseToUser(user))
+        .slice(0, 10)
+      )
+    );
+  }
+
+ 
+
+  // ===== HANDLERS DE RECHERCHE =====
 
   searchUsers() {
     if (this.userSearch.trim()) {
@@ -335,7 +437,22 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
     this.selectedParticipants = this.selectedParticipants.filter(p => p.id !== participant.id);
   }
 
-  // ✅ === VALIDATION ===
+  // ===== GESTIONNAIRE DE CHANGEMENT DE TYPE =====
+
+  onConversationTypeChange() {
+    this.resetForm();
+    this.error = '';
+    
+    if (this.conversationType === 'direct' || this.conversationType === 'group') {
+      this.loadAvailableUsers();
+    } else if (this.conversationType === 'skill') {
+      if (!this.mySkillsData) {
+        this.loadMySkillsData();
+      }
+    }
+  }
+
+  // ===== VALIDATION =====
 
   canCreate(): boolean {
     switch (this.conversationType) {
@@ -350,7 +467,7 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ✅ === CRÉATION DE CONVERSATIONS ===
+  // ===== CRÉATION DE CONVERSATIONS =====
 
   async createConversation() {
     if (!this.canCreate() || this.isCreating) {
@@ -410,15 +527,42 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
     if (!this.selectedSkillId) {
       throw new Error('Aucune compétence sélectionnée');
     }
-    return this.messagingService.createSkillConversation(this.selectedSkillId).toPromise();
+    
+    console.log('🚀 Creating skill conversation:', {
+      skillId: this.selectedSkillId,
+      skillData: this.selectedSkillData,
+      participants: this.skillParticipants.length
+    });
+    
+    // Créer la conversation de compétence
+    const conversation = await this.messagingService.createSkillConversation(this.selectedSkillId).toPromise();
+    
+    if (conversation && this.selectedSkillData) {
+      // Enrichir la conversation avec les données locales pour un affichage immédiat
+      conversation.participants = this.skillParticipants.map(p => ({
+        userId: p.id,
+        userName: p.name,
+        role: p.role === 'PRODUCER' ? 'ADMIN' : 'MEMBER',
+        isOnline: false,
+        avatar: p.avatar
+      }));
+      
+      console.log('✅ Skill conversation created with participants:', conversation);
+    }
+    
+    return conversation;
   }
 
   private handleCreationError(error: any) {
     if (error.status === 400) {
       if (error.error?.message?.includes('yourself')) {
         this.error = 'Vous ne pouvez pas créer une conversation avec vous-même';
-      } else if (error.error?.message?.includes('already exists')) {
-        this.error = 'Une conversation existe déjà avec cet utilisateur';
+      } else if (error.error?.message?.includes('not connected')) {
+        this.error = 'Vous n\'êtes pas connecté avec cet utilisateur';
+      } else if (error.error?.message?.includes('not authorized')) {
+        this.error = 'Vous n\'êtes pas autorisé à accéder à cette compétence';
+      } else if (error.error?.message?.includes('cannot be added')) {
+        this.error = 'Certains participants ne peuvent pas être ajoutés à ce groupe';
       } else {
         this.error = 'Données invalides';
       }
@@ -431,7 +575,7 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
     }
   }
 
-  // ✅ === MÉTHODES PUBLIQUES POUR LE TEMPLATE ===
+  // ===== MÉTHODES PUBLIQUES POUR LE TEMPLATE =====
 
   getCreateButtonText(): string {
     switch (this.conversationType) {
@@ -440,6 +584,9 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
       case 'group':
         return `Créer le groupe (${this.selectedParticipants.length + 1} membres)`;
       case 'skill':
+        if (this.selectedSkillData) {
+          return `Rejoindre la discussion (${this.selectedSkillData.stats.totalUsers} participants)`;
+        }
         return 'Rejoindre la discussion';
       default:
         return 'Créer';
@@ -447,8 +594,49 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
   }
 
   getSelectedSkillName(): string {
+    if (this.selectedSkillData) {
+      return this.selectedSkillData.skillName;
+    }
     const skill = this.availableSkills.find(s => s.id === this.selectedSkillId);
     return skill?.name || '';
+  }
+
+  getSelectedSkillDescription(): string {
+    if (this.selectedSkillData) {
+      return this.selectedSkillData.skillDescription || 'Discussion autour de cette compétence';
+    }
+    const skill = this.availableSkills.find(s => s.id === this.selectedSkillId);
+    return skill?.description || 'Discussion autour de cette compétence';
+  }
+
+  //  Obtenir les informations détaillées de la compétence sélectionnée
+  getSelectedSkillInfo(): string {
+    if (!this.selectedSkillData) {
+      return '';
+    }
+    
+    const role = this.selectedSkillData.userRole;
+    const stats = this.selectedSkillData.stats;
+    
+    if (role === 'PRODUCER') {
+      return `${stats.totalReceivers} participant${stats.totalReceivers > 1 ? 's' : ''} inscrit${stats.totalReceivers > 1 ? 's' : ''}`;
+    } else {
+      return `Animée par ${this.selectedSkillData.skillProducer.firstName} ${this.selectedSkillData.skillProducer.lastName}`;
+    }
+  }
+
+  //  Obtenir la liste formatée des participants
+  getSkillParticipantsList(): string {
+    if (!this.skillParticipants || this.skillParticipants.length === 0) {
+      return 'Vous serez le premier participant';
+    }
+    
+    const names = this.skillParticipants.slice(0, 3).map(p => p.name);
+    if (this.skillParticipants.length > 3) {
+      names.push(`et ${this.skillParticipants.length - 3} autre${this.skillParticipants.length - 3 > 1 ? 's' : ''}`);
+    }
+    
+    return names.join(', ');
   }
 
   resetForm() {
@@ -461,6 +649,8 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
     this.participantSearchResults = [];
     this.selectedParticipants = [];
     this.selectedSkillId = undefined;
+    this.selectedSkillData = undefined;
+    this.skillParticipants = [];
     this.error = '';
   }
 
@@ -471,10 +661,7 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
     }
   }
 
-  onConversationTypeChange() {
-    this.resetForm();
-    this.error = '';
-  }
+  // ===== MÉTHODES UTILITAIRES =====
 
   getDefaultAvatar(name: string): string {
     const colors = ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe'];
@@ -483,14 +670,208 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
     return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${colors[index]}"/><text x="50" y="50" font-size="40" text-anchor="middle" dy=".35em" fill="white">${initial}</text></svg>`;
   }
 
-  getUserRoleText(role: string): string {
-    switch (role.toUpperCase()) {
-      case 'PRODUCER':
-        return 'Producteur';
-      case 'RECEIVER':
-        return 'Demandeur';
+etUserRoleText(user: User): string {
+  if (user.roles?.includes('PRODUCER')) return 'Producteur';
+  if (user.roles?.includes('RECEIVER')) return 'Demandeur';
+  return user.role || 'Utilisateur';
+}
+
+  getConversationTypeInfo(): { [key: string]: { title: string; description: string; availableUsers: number } } {
+    return {
+      direct: {
+        title: 'Message direct',
+        description: this.currentUserRole === 'PRODUCER' 
+          ? 'Conversation privée avec vos abonnés'
+          : 'Conversation privée avec les membres de votre communauté',
+        availableUsers: this.availableUsers.length
+      },
+      group: {
+        title: 'Groupe',
+        description: this.currentUserRole === 'PRODUCER'
+          ? 'Groupe avec plusieurs de vos abonnés'
+          : 'Groupe avec plusieurs membres de votre communauté',
+        availableUsers: this.availableUsers.length
+      },
+      skill: {
+        title: 'Compétence',
+        description: this.currentUserRole === 'PRODUCER'
+          ? 'Discussion avec tous les participants de vos compétences'
+          : 'Discussion avec tous les participants des compétences auxquelles vous êtes inscrit',
+        availableUsers: this.availableSkills.length
+      }
+    };
+  }
+
+  isConversationTypeAvailable(type: 'direct' | 'group' | 'skill'): boolean {
+    switch (type) {
+      case 'direct':
+      case 'group':
+        return this.availableUsers.length > 0;
+      case 'skill':
+        return this.availableSkills.length > 0;
       default:
-        return 'Utilisateur';
+        return false;
     }
   }
+
+  getHelpMessage(): string {
+    if (!this.currentUserRole) {
+      return 'Chargement...';
+    }
+
+    switch (this.conversationType) {
+      case 'direct':
+        return this.currentUserRole === 'PRODUCER'
+          ? 'Vous pouvez créer des conversations directes avec vos abonnés.'
+          : 'Vous pouvez créer des conversations directes avec les membres de votre communauté.';
+      case 'group':
+        return this.currentUserRole === 'PRODUCER'
+          ? 'Créez un groupe avec plusieurs de vos abonnés pour des discussions collectives.'
+          : 'Créez un groupe avec plusieurs membres de votre communauté.';
+      case 'skill':
+        return this.currentUserRole === 'PRODUCER'
+          ? 'Rejoignez les discussions de vos compétences avec tous les participants.'
+          : 'Rejoignez les discussions des compétences auxquelles vous êtes inscrit.';
+      default:
+        return '';
+    }
+  }
+
+  hasFormData(): boolean {
+    switch (this.conversationType) {
+      case 'direct':
+        return !!this.userSearch || !!this.selectedUserId;
+      case 'group':
+        return !!this.groupName || this.selectedParticipants.length > 0 || !!this.participantSearch;
+      case 'skill':
+        return !!this.selectedSkillId;
+      default:
+        return false;
+    }
+  }
+
+  getFormStats(): { [key: string]: any } {
+    return {
+      conversationType: this.conversationType,
+      userRole: this.currentUserRole,
+      availableUsers: this.availableUsers.length,
+      availableSkills: this.availableSkills.length,
+      selectedParticipants: this.selectedParticipants.length,
+      canCreate: this.canCreate(),
+      isCreating: this.isCreating,
+      hasError: !!this.error,
+      enrichedData: !!this.mySkillsData
+    };
+  }
+
+  // ===== FALLBACK DATA =====
+
+  private getFallbackUsers(): User[] {
+  return [
+    { 
+      id: 1, 
+      username: 'alice.martin', 
+      firstName: 'Alice', 
+      lastName: 'Martin', 
+      email: 'alice@example.com', 
+      name: 'Alice Martin', 
+      role: 'PRODUCER', 
+      pictureUrl: '/assets/avatars/alice.jpg' 
+    },
+    { 
+      id: 2, 
+      username: 'bob.dupont', 
+      firstName: 'Bob', 
+      lastName: 'Dupont', 
+      email: 'bob@example.com', 
+      name: 'Bob Dupont', 
+      role: 'RECEIVER', 
+      pictureUrl: '/assets/avatars/bob.jpg' 
+    },
+    { 
+      id: 3, 
+      username: 'charlie.brown', 
+      firstName: 'Charlie', 
+      lastName: 'Brown', 
+      email: 'charlie@example.com', 
+      name: 'Charlie Brown', 
+      role: 'PRODUCER', 
+      pictureUrl: '/assets/avatars/charlie.jpg' 
+    },
+    { 
+      id: 4, 
+      username: 'diana.prince', 
+      firstName: 'Diana', 
+      lastName: 'Prince', 
+      email: 'diana@example.com', 
+      name: 'Diana Prince', 
+      role: 'RECEIVER', 
+      pictureUrl: '/assets/avatars/diana.jpg' 
+    },
+    { 
+      id: 5, 
+      username: 'eve.adams', 
+      firstName: 'Eve', 
+      lastName: 'Adams', 
+      email: 'eve@example.com', 
+      name: 'Eve Adams', 
+      role: 'PRODUCER', 
+      pictureUrl: '/assets/avatars/eve.jpg' 
+    }
+  ].filter(user => user.id !== this.currentUserId);
+}
+
+
+  private getFallbackSkills(): Skill[] {
+    return [
+      { id: 1, name: 'Angular Development', category: 'Frontend', participantsCount: 5 },
+      { id: 2, name: 'Java Backend', category: 'Backend', participantsCount: 3 },
+      { id: 3, name: 'UI/UX Design', category: 'Design', participantsCount: 7 },
+      { id: 4, name: 'DevOps Practices', category: 'Infrastructure', participantsCount: 4 },
+      { id: 5, name: 'Machine Learning Basics', category: 'AI', participantsCount: 6 }
+    ];
+  }
+  getUserAvatar(user: User): string {
+  return user.pictureUrl || user.profileImageUrl || user.avatar || this.generateDefaultAvatar(user.name || '');
+}
+
+private generateDefaultAvatar(name: string): string {
+  if (!name || name.trim() === '') {
+    return 'assets/default-avatar.png';
+  }
+  
+  const colors = ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe'];
+  const colorIndex = Math.abs(name.charCodeAt(0)) % colors.length;
+  const initial = name.charAt(0).toUpperCase();
+  
+  return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${colors[colorIndex]}"/><text x="50" y="50" font-size="35" text-anchor="middle" dy=".35em" fill="white" font-family="Arial">${initial}</text></svg>`;
+}
+
+// ✅ Correction pour mapper correctement les données
+private mapUserResponseToUser(userResponse: any): User {
+  const user = userResponse as any;
+  
+  return {
+    id: user.id || user.userId,
+    username: user.username || user.email,
+    firstName: user.firstName || '',
+    lastName: user.lastName || '',
+    email: user.email,
+    pictureUrl: this.extractPictureUrl(user),
+    avatar: this.extractPictureUrl(user),
+    roles: user.roles || [],
+    city: user.city,
+    country: user.country,
+    phoneNumber: user.phoneNumber,
+    createdAt: user.createdAt,
+    bio: user.bio,
+    name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || user.name,
+    role: user.roles?.includes('PRODUCER') ? 'PRODUCER' : 'RECEIVER'
+  };
+}
+
+// Corriger extractPictureUrl() :
+private extractPictureUrl(user: any): string {
+  return user.pictureUrl || user.profileImageUrl || user.avatar || null;
+}
 }

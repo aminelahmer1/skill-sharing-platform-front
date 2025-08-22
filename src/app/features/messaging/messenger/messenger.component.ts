@@ -48,7 +48,7 @@ export class MessengerComponent implements OnInit, OnDestroy {
   
   private destroy$ = new Subject<void>();
   private searchSubject = new Subject<string>();
-
+  
   constructor(
     private messagingService: MessagingService,
     private keycloakService: KeycloakService

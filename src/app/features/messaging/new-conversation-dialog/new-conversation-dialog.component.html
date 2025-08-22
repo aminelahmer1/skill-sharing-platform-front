@@ -1,4 +1,3 @@
-<!-- new-conversation-dialog.component.html -->
 <div class="dialog-overlay" *ngIf="isOpen" (click)="close()" [@fadeIn]>
   <div class="dialog-container" (click)="$event.stopPropagation()" [@slideUp]>
     
@@ -72,7 +71,10 @@
               class="user-result"
               (click)="selectUser(user)"
               [class.selected]="selectedUserId === user.id">
-              <img [src]="user.avatar || 'assets/default-avatar.png'" [alt]="user.name" class="user-avatar">
+              <img [src]="getUserAvatar(user)" 
+                   [alt]="user.name" 
+                   class="user-avatar"
+                   onerror="this.src='assets/default-avatar.png'">
               <div class="user-info">
                 <span class="user-name">{{ user.name }}</span>
                 <span class="user-role">{{ user.role === 'PRODUCER' ? 'Producteur' : 'Demandeur' }}</span>
@@ -122,7 +124,10 @@
               *ngFor="let user of participantSearchResults" 
               class="user-result"
               (click)="addParticipant(user)">
-              <img [src]="user.avatar || 'assets/default-avatar.png'" [alt]="user.name" class="user-avatar">
+              <img [src]="getUserAvatar(user)" 
+                   [alt]="user.name" 
+                   class="user-avatar"
+                   onerror="this.src='assets/default-avatar.png'">
               <div class="user-info">
                 <span class="user-name">{{ user.name }}</span>
                 <span class="user-role">{{ user.role === 'PRODUCER' ? 'Producteur' : 'Demandeur' }}</span>
@@ -139,7 +144,10 @@
             <div 
               *ngFor="let participant of selectedParticipants" 
               class="participant-chip">
-              <img [src]="participant.avatar || 'assets/default-avatar.png'" [alt]="participant.name" class="chip-avatar">
+              <img [src]="getUserAvatar(participant)" 
+                   [alt]="participant.name" 
+                   class="chip-avatar"
+                   onerror="this.src='assets/default-avatar.png'">
               <span class="chip-name">{{ participant.name }}</span>
               <button class="remove-btn" (click)="removeParticipant(participant)" [disabled]="isCreating">✕</button>
             </div>
@@ -147,29 +155,63 @@
         </div>
       </div>
 
-      <!-- Conversation de compétence -->
+      <!-- Conversation de compétence - VERSION CORRIGÉE -->
       <div *ngIf="conversationType === 'skill'" class="skill-conversation-form">
         <div class="form-group">
           <label>Sélectionner une compétence</label>
-          <select 
-            class="form-select"
-            [(ngModel)]="selectedSkillId"
-            [disabled]="isCreating">
-            <option value="">Choisissez une compétence...</option>
-            <option *ngFor="let skill of availableSkills" [value]="skill.id">
-              {{ skill.name }}
-            </option>
-          </select>
+          <div class="skill-selector-container">
+            <select 
+              class="form-select"
+              [(ngModel)]="selectedSkillId"
+              (change)="onSkillSelected()"
+              [disabled]="isCreating">
+              <option value="">Choisissez une compétence...</option>
+              <option *ngFor="let skill of availableSkills" [value]="skill.id">
+                {{ skill.name }}
+              </option>
+            </select>
+            <span class="loading-indicator" *ngIf="isLoadingSkills">🔄</span>
+          </div>
         </div>
         
-        <div class="skill-info" *ngIf="selectedSkillId">
-          <div class="info-card">
-            <span class="info-icon">🎓</span>
-            <div class="info-content">
-              <h4>{{ getSelectedSkillName() }}</h4>
-              <p>Une conversation sera créée pour discuter de cette compétence avec d'autres utilisateurs intéressés.</p>
+        <!-- Détails de la compétence sélectionnée -->
+        <div class="skill-details" *ngIf="selectedSkillData">
+          <div class="skill-card">
+            <div class="skill-header">
+              [src]="getUserAvatar(mapUserResponseToUser(selectedSkillData.skillProducer))" 
+                   [alt]="selectedSkillData.skillProducer.firstName"
+                   class="producer-avatar-large">
+              <div class="skill-info">
+                <h3>{{ selectedSkillData.skillName }}</h3>
+                <p class="producer-name">Par {{ selectedSkillData.skillProducer.firstName }} {{ selectedSkillData.skillProducer.lastName }}</p>
+                <p class="participants-count">{{ getSelectedSkillInfo() }}</p>
+              </div>
+            </div>
+            
+            <div class="skill-description" *ngIf="selectedSkillData.skillDescription">
+              <p>{{ selectedSkillData.skillDescription }}</p>
+            </div>
+            
+            <!-- Participants de la compétence -->
+            <div class="skill-participants" *ngIf="skillParticipants.length > 0">
+              <h4>Participants ({{ skillParticipants.length }})</h4>
+              <div class="participants-list">
+                <div *ngFor="let participant of skillParticipants" class="participant-item">
+                  <img [src]="getUserAvatar(participant)" 
+                       [alt]="participant.name" 
+                       class="participant-avatar"
+                       onerror="this.src='assets/default-avatar.png'">
+                  <span class="participant-name">{{ participant.name }}</span>
+                </div>
+              </div>
             </div>
           </div>
+        </div>
+
+        <!-- État de chargement -->
+        <div class="loading-state" *ngIf="isLoadingSkills">
+          <div class="loading-spinner"></div>
+          <p>Chargement des compétences...</p>
         </div>
       </div>
     </div>

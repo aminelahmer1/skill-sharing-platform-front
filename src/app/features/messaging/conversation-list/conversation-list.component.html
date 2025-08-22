@@ -7,9 +7,12 @@
     (click)="selectConversation(conversation)"
   >
     <div class="conversation-avatar">
-      <img [src]="getConversationAvatar(conversation)" [alt]="conversation.name">
-      <span class="status-indicator" *ngIf="conversation.type === 'DIRECT'"></span>
-    </div>
+  <img *ngIf="getConversationAvatar(conversation)" 
+       [src]="getConversationAvatar(conversation)" 
+       [alt]="conversation.name"
+       class="conversation-image">
+  <!-- ✅ Pas d'image par défaut pour les utilisateurs -->
+</div>
     
     <div class="conversation-info">
       <div class="conversation-header">

@@ -209,29 +209,12 @@ export class QuickChatComponent implements OnInit, OnDestroy {
     return conversation.name;
   }
 
-  getConversationAvatar(conversation: Conversation): string {
-    // ✅ CORRECTION: Utiliser conversationAvatar du backend
-    if (conversation.conversationAvatar) {
-      return conversation.conversationAvatar;
-    }
-    
-    // ✅ Pour les conversations directes, utiliser l'avatar du participant
-    if (conversation.type === 'DIRECT') {
-      const other = conversation.participants.find(p => p.userId !== this.currentUserId);
-      if (other?.avatar) {
-        return other.avatar;
-      }
-    }
-    
-    // ✅ Générer un avatar par défaut
-    const name = this.getConversationName(conversation);
-    const colors = ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe'];
-    const index = name.charCodeAt(0) % colors.length;
-    const initial = name.charAt(0).toUpperCase();
-    
-    return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${colors[index]}"/><text x="50" y="50" font-size="40" text-anchor="middle" dy=".35em" fill="white">${initial}</text></svg>`;
+ getConversationAvatar(conversation: Conversation): string {
+  if (conversation.type === 'SKILL_GROUP' && conversation.skillImageUrl) {
+    return conversation.skillImageUrl;
   }
-
+  return ''; // Pas d'avatar pour les utilisateurs
+}
   formatTime(date: Date): string {
     const messageDate = new Date(date);
     const hours = messageDate.getHours().toString().padStart(2, '0');

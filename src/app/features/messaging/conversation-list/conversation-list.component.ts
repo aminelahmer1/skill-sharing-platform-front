@@ -25,23 +25,23 @@ export class ConversationListComponent implements OnInit {
     this.conversationSelected.emit(conversation);
   }
 
-  getConversationAvatar(conversation: Conversation): string {
-    // ✅ CORRECTION: Utiliser conversationAvatar du backend
-    if (conversation.conversationAvatar) {
-      return conversation.conversationAvatar;
-    }
-    
-    // ✅ Pour les conversations directes, utiliser l'avatar du participant
-    if (conversation.type === 'DIRECT') {
-      const otherParticipant = conversation.participants.find(p => p.userId !== this.currentUserId);
-      if (otherParticipant?.avatar) {
-        return otherParticipant.avatar;
-      }
-      return this.getDefaultAvatar(otherParticipant?.userName || conversation.name);
-    }
-    
-    return this.getDefaultAvatar(conversation.name);
+  // conversation-list.component.ts
+getConversationAvatar(conversation: Conversation): string {
+  // ✅ Priorité à l'image de la compétence pour les SKILL_GROUP
+  if (conversation.type === 'SKILL_GROUP' && conversation.skillImageUrl) {
+    return conversation.skillImageUrl;
   }
+  
+  // ✅ Pas d'avatar pour les utilisateurs (retourner une string vide ou une image par défaut neutre)
+  if (conversation.type === 'DIRECT' || conversation.type === 'GROUP') {
+    return ''; // ou retourner une image neutre
+  }
+  
+  return '';
+}
+
+// quick-chat.component.ts
+
 
   getDefaultAvatar(name: string): string {
     // ✅ Générer une couleur basée sur le nom
