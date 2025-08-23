@@ -914,52 +914,45 @@ private getAvailableUsersForDirectOrGroupFallback(): Observable<UserResponse[]> 
     return await this.syncUserId();
   }
 
-  getUserConversations(page = 0, size = 20): Observable<Conversation[]> {
-    console.log('📡 MessagingService: getUserConversations called', { page, size });
-    
-    return from(this.ensureUserIdSynchronized()).pipe(
-      switchMap(userId => {
-        if (!userId) {
-          console.error('❌ No user ID available after synchronization');
-          return of([]);
-        }
-        
-        console.log('✅ User ID synchronized:', userId);
-        return from(this.keycloakService.getToken()).pipe(
-          map(token => ({ token, userId } as { token: string | null; userId: number }))
-        );
-      }),
+ // REMPLACER getUserConversations par :
+ 
+getUserConversations(page = 0, size = 20): Observable<Conversation[]> {
+  return from(this.ensureUserIdSynchronized()).pipe(
+    switchMap(userId => {
+      if (!userId) return of([]);
       
-      switchMap((data: { token: string | null; userId: number } | never[]) => {
-        if (Array.isArray(data) || !data) {
-          return of([]);
-        }
-        
-        const { token, userId } = data;
-        
-        if (!token) {
-          console.error('❌ No token available for fetching conversations');
-          return of([]);
-        }
-        
-        return this.fetchConversationsFromAPI(token, userId, page, size);
-      }),
-      
-      map(response => this.processConversationsResponse(response)),
-      
-      tap(conversations => {
-        console.log('✅ Conversations loaded and processed:', conversations.length);
-        this.conversationsSubject.next(conversations);
-      }),
-      
-      catchError(error => {
-        console.error('❌ Fatal error in getUserConversations:', error);
-        return of([]);
-      }),
-      
-      retry(2)
-    );
-  }
+      return from(this.keycloakService.getToken()).pipe(
+        switchMap(token => {
+          if (!token) return of([]);
+          
+          const headers = new HttpHeaders({ 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          });
+          
+          return this.http.get<any>(`${this.apiUrl}/conversations`, {
+            headers,
+            params: { page: page.toString(), size: size.toString() }
+          }).pipe(
+            map(response => {
+              const conversations = response.content || response || [];
+              console.log('✅ Conversations loaded:', conversations.length);
+              return conversations;
+            }),
+            tap(conversations => {
+              this.conversationsSubject.next(conversations);
+            }),
+            catchError(error => {
+              console.error('❌ Error loading conversations:', error);
+              return of([]);
+            })
+          );
+        })
+      );
+    }),
+    retry(1)
+  );
+}
 
   private async ensureUserIdSynchronized(): Promise<number | undefined> {
     if (this.currentUserId && this.currentUserId > 0) {

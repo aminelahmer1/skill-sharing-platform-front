@@ -3,13 +3,15 @@
   flex-direction: column;
   height: 100%;
   background: white;
+  overflow: hidden; /* ✅ AJOUT: Empêcher le scroll sur toute la fenêtre */
 }
 
 .messages-container {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: auto; /* ✅ CORRECTION: Scroll seulement sur les messages */
   padding: 20px;
   background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
+  min-height: 0; /* ✅ AJOUT: Important pour flex */
 }
 
 .messages-container::-webkit-scrollbar {
@@ -62,6 +64,21 @@
 .message-wrapper {
   animation: messageSlide 0.3s ease;
 }
+.messages-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding-bottom: 20px;
+  min-height: 100%; /* ✅ AJOUT: Hauteur minimale */
+}
+
+/* ✅ CORRECTION: Zone d'input fixe */
+.message-input-wrapper {
+  flex-shrink: 0; /* ✅ AJOUT: Empêcher la compression */
+  background: white;
+  border-top: 1px solid #e9ecef;
+  padding: 15px 20px;
+}
 
 @keyframes messageSlide {
   from {
@@ -81,7 +98,67 @@
   padding: 10px;
   margin-top: 10px;
 }
+.messages-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding-bottom: 20px;
+  min-height: 100%; /* ✅ AJOUT: Hauteur minimale */
+}
 
+/* ✅ CORRECTION: Zone d'input fixe */
+.message-input-wrapper {
+  flex-shrink: 0; /* ✅ AJOUT: Empêcher la compression */
+  background: white;
+  border-top: 1px solid #e9ecef;
+  padding: 15px 20px;
+}
+
+/* ✅ AJOUT: États vides et de chargement avec hauteur fixe */
+.loading-messages,
+.error-messages,
+.no-messages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%; /* ✅ CORRECTION: Prendre toute la hauteur disponible */
+  min-height: 300px; /* ✅ AJOUT: Hauteur minimale */
+  color: #636e72;
+}
+
+/* ✅ AJOUT: Container principal avec hauteur fixe */
+.chat-area {
+  height: calc(100vh - 80px); /* ✅ AJOUT: Hauteur fixe */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ✅ CORRECTION: États vides centrés */
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 400px; /* ✅ AJOUT: Hauteur minimale */
+}
+
+/* ✅ AJOUT: Responsive pour mobile */
+@media (max-width: 768px) {
+  .chat-area {
+    height: calc(100vh - 60px);
+  }
+  
+  .messages-container {
+    padding: 15px;
+  }
+  
+  .message-input-wrapper {
+    padding: 12px 15px;
+  }
+}
 .typing-bubble {
   background: #e9ecef;
   padding: 10px 15px;

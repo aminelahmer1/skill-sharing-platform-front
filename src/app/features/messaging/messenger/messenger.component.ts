@@ -49,6 +49,17 @@ export class MessengerComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private searchSubject = new Subject<string>();
   
+  private conversationsCache: {
+  data: Conversation[];
+  timestamp: number;
+  ttl: number;
+} = {
+  data: [],
+  timestamp: 0,
+  ttl: 30000 // 30 secondes
+};
+
+
   constructor(
     private messagingService: MessagingService,
     private keycloakService: KeycloakService
@@ -177,47 +188,33 @@ export class MessengerComponent implements OnInit, OnDestroy {
     return Math.abs(hash) % 999999 + 1;
   }
 
-  // ===== CHARGEMENT CONVERSATIONS =====
-// messenger.component.ts - CORRECTION CRITIQUE
 private loadConversations() {
-  if (!this.currentUserId) {
-    console.error('❌ Cannot load conversations: no user ID');
-    this.hasError = true;
-    this.errorMessage = 'ID utilisateur manquant';
+  // Vérifier cache
+  const now = Date.now();
+  if (this.conversationsCache.data.length > 0 && 
+      (now - this.conversationsCache.timestamp) < this.conversationsCache.ttl) {
+    console.log('📋 Using cached conversations');
+    this.conversations = this.conversationsCache.data;
+    this.applyCurrentFilter();
     this.isLoading = false;
     return;
   }
-
-  console.log('📋 Loading conversations for user ID:', this.currentUserId);
-  this.isLoading = true;
-  this.hasError = false;
   
-  this.messagingService.getUserConversations(0, 50) // Augmenter la taille
+  // Charger depuis API
+  this.isLoading = true;
+  this.messagingService.getUserConversations(0, 50)
     .pipe(takeUntil(this.destroy$))
     .subscribe({
       next: (conversations) => {
-        console.log('✅ Conversations loaded:', conversations);
-        console.log('📊 Number of conversations:', conversations.length);
+        this.conversationsCache.data = conversations;
+        this.conversationsCache.timestamp = now;
         
-        // Debug détaillé
-        conversations.forEach((conv, index) => {
-          console.log(`📋 Conversation ${index + 1}:`, {
-            id: conv.id,
-            name: conv.name,
-            type: conv.type,
-            participants: conv.participants,
-            lastMessage: conv.lastMessage
-          });
-        });
-
         this.conversations = conversations;
         this.applyCurrentFilter();
         this.isLoading = false;
-        this.hasError = false;
       },
       error: (error) => {
         console.error('❌ Error loading conversations:', error);
-        console.error('❌ Error details:', error.error);
         this.isLoading = false;
         this.hasError = true;
         this.errorMessage = 'Erreur lors du chargement des conversations';

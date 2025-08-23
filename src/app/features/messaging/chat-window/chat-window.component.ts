@@ -280,51 +280,54 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewChecked,
   }
 
   // ✅ NOUVEAU: Méthode interne pour envoyer le message
- private sendMessageInternal(content: string) {
-    const request: MessageRequest = {
-        conversationId: this.conversation.id,
-        content: content.trim(),
-        type: 'TEXT'
-    };
+ // REMPLACER sendMessageInternal par :
+private sendMessageInternal(content: string) {
+  const request: MessageRequest = {
+    conversationId: this.conversation.id,
+    content: content.trim(),
+    type: 'TEXT'
+  };
 
-    this.messagingService.sendMessage(request)
-        .pipe(
-            takeUntil(this.destroy$),
-            // ✅ AJOUT: Retry automatique en cas d'erreur temporaire
-            retry({
-                count: 2,
-                delay: 1000,
-                resetOnSuccess: true
-            })
-        )
-        .subscribe({
-            next: (message) => {
-                console.log('✅ Message sent:', message);
-                this.shouldScrollToBottom = true;
-                this.stopTyping();
-                this.joinAttempted = false;
-            },
-            error: (error) => {
-                console.error('❌ Error sending message:', error);
-                
-                // ✅ AMÉLIORATION: Gestion d'erreur plus détaillée
-                if (error.status === 500) {
-                    // Erreur serveur - réessayer une fois après un délai
-                    setTimeout(() => {
-                        console.log('🔄 Retrying message send...');
-                        this.sendMessageInternal(content);
-                    }, 2000);
-                } else if (error.status === 403) {
-                    this.showErrorMessage('Vous n\'avez pas la permission d\'envoyer des messages dans cette conversation');
-                } else if (error.status === 404) {
-                    this.showErrorMessage('Conversation introuvable');
-                } else {
-                    this.showErrorMessage('Erreur lors de l\'envoi du message. Veuillez réessayer.');
-                }
-                
-                this.joinAttempted = false;
-            }
-        });
+  this.messagingService.sendMessage(request)
+    .pipe(takeUntil(this.destroy$))
+    .subscribe({
+      next: (message) => {
+        console.log('✅ Message sent:', message);
+        this.shouldScrollToBottom = true;
+        this.stopTyping();
+        
+        // Recharger les participants si c'est une skill conversation
+        if (this.conversation.type === 'SKILL_GROUP') {
+          this.refreshConversation();
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error sending message:', error);
+        
+        let errorMessage = 'Erreur lors de l\'envoi du message';
+        
+        if (error.status === 500) {
+          errorMessage = 'Erreur serveur. Veuillez réessayer dans quelques instants.';
+        } else if (error.status === 403) {
+          errorMessage = 'Vous n\'avez pas la permission d\'envoyer des messages.';
+        } else if (error.status === 404) {
+          errorMessage = 'Conversation introuvable.';
+        }
+        
+        this.showErrorMessage(errorMessage);
+      }
+    });
+}
+
+// AJOUTER cette méthode :
+private refreshConversation() {
+  if (!this.conversation) return;
+  
+  this.messagingService.getConversation(this.conversation.id)
+    .pipe(takeUntil(this.destroy$))
+    .subscribe(updatedConversation => {
+      this.conversation = updatedConversation;
+    });
 }
 
   // ✅ Afficher un message d'erreur
@@ -512,34 +515,24 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewChecked,
   }
 
   // ✅ CORRECTION: Vérifier si on peut envoyer des messages
-  canSendMessages(): boolean {
-    if (!this.conversation) {
-      return false;
-    }
-    
-    // ✅ CORRECTION: Vérifier les différents critères
-    const isActive = this.conversation.status === 'ACTIVE';
-    const hasPermission = this.conversation.canSendMessage !== false;
-    const isParticipant = this.conversation.participants.some(p => p.userId === this.currentUserId);
-    
-    console.log('🔍 canSendMessages check:', {
-      conversationId: this.conversation.id,
-      isActive,
-      hasPermission,
-      isParticipant,
-      canSendMessage: this.conversation.canSendMessage,
-      status: this.conversation.status,
-      type: this.conversation.type
-    });
-    
-    // ✅ CORRECTION: Pour les conversations de compétence, être plus permissif
-    if (this.conversation.type === 'SKILL_GROUP') {
-      return isActive; // Les conversations de compétence sont ouvertes
-    }
-    
-    // Pour les autres types, vérifier les permissions normales
-    return isActive && hasPermission && isParticipant;
+ // REMPLACER canSendMessages par :
+canSendMessages(): boolean {
+  if (!this.conversation) return false;
+  
+  const isActive = this.conversation.status === 'ACTIVE';
+  
+  // Pour les conversations de compétence, toujours permettre (auto-join backend)
+  if (this.conversation.type === 'SKILL_GROUP') {
+    return isActive;
   }
+  
+  // Pour les autres, vérifier la participation
+  const isParticipant = this.conversation.participants && 
+                       this.conversation.participants.length > 0 &&
+                       this.conversation.participants.some(p => p.userId === this.currentUserId);
+  
+  return isActive && isParticipant;
+}
 
   // ✅ Obtenir le texte d'état vide
   getEmptyStateText(): string {
