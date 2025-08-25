@@ -85,31 +85,58 @@ export class MessageNotificationService implements OnDestroy {
     }
   }
 
-  private async loadCurrentUser() {
-    try {
-      // ✅ Utiliser directement KeycloakService
-      const profile = await this.keycloakService.getUserProfile();
-      
-      if (profile?.id) {
-        // ✅ Essayer de parser l'ID directement
-        if (!isNaN(Number(profile.id))) {
-          this.currentUserId = parseInt(profile.id);
-        } else {
-          // ✅ Si c'est un UUID Keycloak, générer un ID numérique
-          this.currentUserId = this.generateNumericIdFromUUID(profile.id);
+ private async loadCurrentUser() {
+  try {
+    const profile = await this.keycloakService.getUserProfile();
+    
+    if (profile?.id) {
+      // Récupérer l'ID réel depuis le backend via messaging service
+      const token = await this.keycloakService.getToken();
+      if (token) {
+        const realUserId = await this.fetchRealUserId(profile.id, token);
+        if (realUserId) {
+          this.currentUserId = realUserId;
+          console.log('✅ Notification service user ID:', this.currentUserId);
+          return;
         }
-      } else {
-        // ✅ Fallback avec l'ID du token
-        const userId = await this.keycloakService.getUserId();
-        this.currentUserId = this.generateNumericIdFromUUID(userId);
       }
-      
-      console.log('✅ Current user ID loaded for notifications:', this.currentUserId);
-    } catch (error) {
-      console.error('❌ Error loading current user ID:', error);
-      this.currentUserId = 1; // Fallback
     }
+    
+    console.error('❌ Could not load user ID for notifications');
+    this.currentUserId = undefined;
+    
+  } catch (error) {
+    console.error('❌ Error loading current user ID:', error);
+    this.currentUserId = undefined;
   }
+}
+
+// AJOUTER cette méthode:
+private async fetchRealUserId(keycloakId: string, token: string): Promise<number | null> {
+  try {
+    const response = await fetch(
+      `http://localhost:8822/api/v1/users/by-keycloak-id?keycloakId=${keycloakId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.id || null;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('❌ Error fetching real user ID:', error);
+    return null;
+  }
+}
+
+// SUPPRIMER generateNumericIdFromUUID() - ne plus l'utiliser
 
   private generateNumericIdFromUUID(uuid: string): number {
     // ✅ Générer un ID numérique à partir d'un UUID
@@ -199,39 +226,38 @@ export class MessageNotificationService implements OnDestroy {
 
   // ✅ === TRAITEMENT DES MESSAGES ===
 
-  private processNewMessages(
-    messages: Message[],
-    conversations: Conversation[],
-    currentConversation: Conversation | null
-  ) {
-    // ✅ Filtrer les nouveaux messages
-    const recentThreshold = new Date(Date.now() - 30000); // 30 secondes
-    const newMessages = messages.filter(m => 
-      new Date(m.sentAt) > recentThreshold &&
-      m.status !== 'READ' && // ✅ CORRECTION: Utiliser 'READ' au lieu de 'read'
-      !m.isDeleted &&
-      m.senderId !== this.currentUserId // ✅ Pas ses propres messages
-    );
+  // REMPLACER dans processNewMessages():
+private processNewMessages(
+  messages: Message[],
+  conversations: Conversation[],
+  currentConversation: Conversation | null
+) {
+  const recentThreshold = new Date(Date.now() - 30000);
+  const newMessages = messages.filter(m => 
+    new Date(m.sentAt) > recentThreshold &&
+    // CORRIGER: Utiliser la bonne casse pour le status
+    (m.status !== 'READ' && m.status !== 'DELIVERED') && // Vérifier les deux casses
+    !m.isDeleted &&
+    m.senderId !== this.currentUserId
+  );
 
-    newMessages.forEach(message => {
-      // ✅ Ne pas notifier pour la conversation active si la page est visible
-      if (currentConversation && 
-          message.conversationId === currentConversation.id && 
-          this.isPageVisible) {
-        return;
-      }
+  newMessages.forEach(message => {
+    if (currentConversation && 
+        message.conversationId === currentConversation.id && 
+        this.isPageVisible) {
+      return;
+    }
 
-      // ✅ Vérifier si la notification n'existe pas déjà
-      if (this.isNotificationExists(message.id!)) {
-        return;
-      }
+    if (this.isNotificationExists(message.id!)) {
+      return;
+    }
 
-      const conversation = conversations.find(c => c.id === message.conversationId);
-      if (conversation) {
-        this.createNotification(message, conversation);
-      }
-    });
-  }
+    const conversation = conversations.find(c => c.id === message.conversationId);
+    if (conversation) {
+      this.createNotification(message, conversation);
+    }
+  });
+}
 
   private createNotification(message: Message, conversation: Conversation) {
     const preferences = this.getNotificationPreferences();

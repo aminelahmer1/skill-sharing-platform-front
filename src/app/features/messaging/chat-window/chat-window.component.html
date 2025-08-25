@@ -1,104 +1,468 @@
-<!-- chat-window.component.html - VERSION MISE À JOUR -->
-<div class="chat-window">
-  <!-- Header de la conversation -->
-  <app-conversation-header 
-    [conversation]="conversation"
-    [currentUserId]="currentUserId">
-  </app-conversation-header>
+<!-- chat-window.component.html - VERSION DÉFINITIVE LAYOUT FIXE -->
+<div class="chat-container">
+  
+  <!-- HEADER FIXE -->
+  <div class="chat-header">
+    <app-conversation-header 
+      [conversation]="conversation"
+      [currentUserId]="currentUserId">
+    </app-conversation-header>
+  </div>
 
-  <!-- Zone des messages -->
-  <div class="messages-container" #messagesContainer (scroll)="onScroll()">
+  <!-- ZONE MESSAGES SCROLLABLE -->
+  <div class="chat-messages" #scrollContainer>
     
-    <!-- État de chargement initial -->
-    <div *ngIf="isLoading && messages.length === 0" class="loading-messages">
-      <div class="loading-spinner"></div>
-      <p>Chargement des messages...</p>
+    <!-- État: Chargement initial -->
+    <div *ngIf="isLoading && messages.length === 0" class="state-container">
+      <div class="state-loading">
+        <div class="spinner"></div>
+        <p>Chargement des messages...</p>
+      </div>
     </div>
 
-    <!-- État d'erreur -->
-    <div *ngIf="hasError && messages.length === 0" class="error-messages">
-      <span class="error-icon">⚠️</span>
-      <p class="error-text">{{ errorMessage }}</p>
-      <button class="btn-retry" (click)="onRetry()">
-        🔄 Réessayer
-      </button>
+    <!-- État: Erreur -->
+    <div *ngIf="hasError && messages.length === 0" class="state-container">
+      <div class="state-error">
+        <span class="error-icon">⚠️</span>
+        <p>{{ errorMessage }}</p>
+        <button (click)="onRetry()" class="btn-retry">
+          🔄 Réessayer
+        </button>
+      </div>
     </div>
 
-    <!-- Indicateur de chargement pour plus de messages -->
-    <div *ngIf="isLoadingMore" class="loading-more">
-      <div class="loading-spinner small"></div>
-      <span>Chargement des messages précédents...</span>
+    <!-- État: Conversation vide -->
+    <div *ngIf="!isLoading && !hasError && messages.length === 0" class="state-container">
+      <div class="state-empty">
+        <span class="empty-icon">💬</span>
+        <h3>Commencez la conversation</h3>
+        <p>{{ getEmptyStateText() }}</p>
+      </div>
     </div>
 
-    <!-- Messages -->
-    <div *ngIf="!isLoading || messages.length > 0" class="messages-wrapper">
+    <!-- Messages existants -->
+    <div *ngIf="messages.length > 0" class="messages-wrapper">
       
-      <!-- Bouton pour charger plus de messages -->
-      <button *ngIf="hasMoreMessages && !isLoadingMore && messages.length > 0" 
-              class="btn-load-more"
-              (click)="loadMoreMessages()">
-        📜 Charger les messages précédents
+      <!-- Bouton "Charger plus" -->
+      <button 
+        *ngIf="hasMoreMessages && !isLoadingMore" 
+        (click)="loadMoreMessages()"
+        class="btn-load-more"
+        [disabled]="isLoadingMore">
+        <span *ngIf="!isLoadingMore">📄 Charger plus</span>
+        <span *ngIf="isLoadingMore">⏳ Chargement...</span>
       </button>
 
-      <!-- Liste des messages avec séparateurs de date -->
-      <div *ngFor="let message of messages; let i = index" class="message-container">
-        
-        <!-- Séparateur de date -->
-        <div *ngIf="shouldShowDateSeparator(message, messages[i-1])" class="date-separator">
-          <span class="date-text">{{ formatDateSeparator(message.sentAt) }}</span>
-        </div>
+      <!-- Liste des messages -->
+      <div class="messages-list">
+        <ng-container *ngFor="let message of messages; let i = index; trackBy: trackByMessageId">
+          
+          <!-- Séparateur de date -->
+          <div *ngIf="shouldShowDateSeparator(message, messages[i-1])" class="date-separator">
+            <span>{{ formatDateSeparator(message.sentAt) }}</span>
+          </div>
 
-        <!-- Message -->
-        <app-message-bubble
-          [message]="message"
-          [isOwnMessage]="message.senderId === currentUserId"
-          (edit)="onEditMessage(message)"
-          (delete)="onDeleteMessage(message)">
-        </app-message-bubble>
+          <!-- Message bubble -->
+          <div class="message-wrapper" [class.own]="message.senderId === currentUserId">
+            <app-message-bubble
+              [message]="message"
+              [isOwnMessage]="message.senderId === currentUserId"
+              (edit)="onEditMessage(message)"
+              (delete)="onDeleteMessage(message)">
+            </app-message-bubble>
+          </div>
+          
+        </ng-container>
       </div>
 
       <!-- Indicateur de frappe -->
       <div *ngIf="typingUsers.length > 0" class="typing-indicator">
-        <div class="typing-bubble">
-          <div class="typing-animation">
-            <span class="dot"></span>
-            <span class="dot"></span>
-            <span class="dot"></span>
-          </div>
+        <div class="typing-dots">
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
         <span class="typing-text">{{ getTypingText() }}</span>
       </div>
+      
     </div>
 
-    <!-- État vide -->
-    <div *ngIf="!isLoading && !hasError && messages.length === 0" class="no-messages">
-      <span class="empty-icon">💬</span>
-      <h3>Conversation vide</h3>
-      <p>{{ getEmptyStateText() }}</p>
-    </div>
+    <!-- Notification nouveau message -->
+    <button 
+      *ngIf="showScrollToBottomButton" 
+      class="scroll-to-bottom"
+      (click)="scrollToBottom()">
+      <span class="icon">⬇</span>
+      <span class="text">Nouveaux messages</span>
+    </button>
+    
   </div>
 
-  <!-- Input pour envoyer des messages -->
-  <div class="message-input-wrapper">
-    <!-- Message d'état si on ne peut pas envoyer -->
-    <div *ngIf="!canSendMessages()" class="input-disabled-message">
+  <!-- INPUT FIXE EN BAS -->
+  <div class="chat-input">
+    
+    <!-- Input désactivé -->
+    <div *ngIf="!canSendMessages()" class="input-disabled">
       <span class="icon">🚫</span>
       <span class="text">
-        <ng-container *ngIf="conversation.status !== 'ACTIVE'">
-          Cette conversation est {{ conversation.status === 'ARCHIVED' ? 'archivée' : 'terminée' }}
-        </ng-container>
-        <ng-container *ngIf="conversation.status === 'ACTIVE' && !conversation.canSendMessage">
-          Vous n'avez pas la permission d'envoyer des messages
-        </ng-container>
+        {{ getDisabledInputText() }}
       </span>
     </div>
 
-    <!-- Input normal -->
+    <!-- Input actif -->
     <app-message-input
       *ngIf="canSendMessages()"
       (sendMessage)="onSendMessage($event)"
       (fileSelected)="onFileSelect($event)"
       (typing)="onTyping()">
     </app-message-input>
+    
   </div>
+
 </div>
+
+<!-- =============== CSS =============== -->
+<style>
+/* STRUCTURE PRINCIPALE - 3 ZONES FIXES */
+.chat-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  overflow: hidden;
+}
+
+/* 1. HEADER - HAUTEUR FIXE */
+.chat-header {
+  flex: 0 0 auto;
+  border-bottom: 1px solid #e9ecef;
+  background: white;
+  z-index: 100;
+}
+
+/* 2. MESSAGES - ZONE FLEXIBLE AVEC SCROLL */
+.chat-messages {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
+  position: relative;
+  scroll-behavior: smooth;
+}
+
+/* 3. INPUT - HAUTEUR FIXE EN BAS */
+.chat-input {
+  flex: 0 0 auto;
+  border-top: 1px solid #e9ecef;
+  background: white;
+  padding: 15px 20px;
+  z-index: 100;
+}
+
+/* WRAPPER DES MESSAGES */
+.messages-wrapper {
+  padding: 20px;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.messages-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 20px;
+}
+
+.message-wrapper {
+  display: flex;
+  width: 100%;
+}
+
+.message-wrapper.own {
+  justify-content: flex-end;
+}
+
+/* ÉTATS CENTRÉS */
+.state-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 40px;
+}
+
+.state-loading,
+.state-error,
+.state-empty {
+  text-align: center;
+  max-width: 400px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 20px;
+  border: 3px solid #e9ecef;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.state-empty .empty-icon {
+  font-size: 4rem;
+  display: block;
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
+
+.state-empty h3 {
+  color: #2d3436;
+  margin-bottom: 10px;
+  font-size: 1.5rem;
+}
+
+.state-empty p {
+  color: #6c757d;
+  font-size: 1rem;
+}
+
+.state-error .error-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 15px;
+}
+
+.state-error p {
+  color: #dc3545;
+  margin-bottom: 20px;
+  font-size: 1.1rem;
+}
+
+.btn-retry {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-retry:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+}
+
+/* BOUTON CHARGER PLUS */
+.btn-load-more {
+  align-self: center;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  padding: 10px 20px;
+  border-radius: 25px;
+  cursor: pointer;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-load-more:hover:not(:disabled) {
+  background: #e9ecef;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+.btn-load-more:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* SÉPARATEUR DE DATE */
+.date-separator {
+  text-align: center;
+  margin: 20px 0;
+  position: relative;
+}
+
+.date-separator span {
+  background: white;
+  padding: 5px 15px;
+  color: #6c757d;
+  font-size: 0.85rem;
+  border-radius: 15px;
+  display: inline-block;
+}
+
+/* INDICATEUR DE FRAPPE */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 0;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.typing-dots {
+  background: #e9ecef;
+  padding: 10px 15px;
+  border-radius: 20px;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.typing-dots span {
+  width: 8px;
+  height: 8px;
+  background: #6c757d;
+  border-radius: 50%;
+  animation: typing-bounce 1.4s infinite ease-in-out;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}
+
+/* BOUTON SCROLL TO BOTTOM */
+.scroll-to-bottom {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #667eea;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 25px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  z-index: 50;
+}
+
+.scroll-to-bottom:hover {
+  background: #5a6fd8;
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.scroll-to-bottom .icon {
+  font-size: 1.2rem;
+}
+
+/* INPUT DÉSACTIVÉ */
+.input-disabled {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  color: #6c757d;
+}
+
+.input-disabled .icon {
+  font-size: 1.5rem;
+}
+
+/* SCROLLBAR PERSONNALISÉE */
+.chat-messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: #f1f3f5;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+/* ANIMATION D'APPARITION DES MESSAGES */
+.message-wrapper {
+  animation: fadeInUp 0.3s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .chat-messages {
+    padding: 15px;
+  }
+  
+  .chat-input {
+    padding: 12px 15px;
+  }
+  
+  .messages-list {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-messages {
+    padding: 10px;
+  }
+  
+  .chat-input {
+    padding: 10px;
+  }
+  
+  .state-container {
+    padding: 20px;
+  }
+  
+  .scroll-to-bottom {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+  }
+}
+</style>

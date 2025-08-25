@@ -103,49 +103,75 @@ export class MessengerComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
   // ===== CHARGEMENT UTILISATEUR =====
- private async loadUserInfo() {
-    console.log('👤 Loading user info...');
+private async loadUserInfo() {
+  console.log('👤 Loading user info...');
+  
+  try {
+    // Attendre que le messaging service ait chargé l'ID
+    await this.messagingService.syncUserId();
     
-    try {
+    // Récupérer l'ID du messaging service
+    this.currentUserId = this.messagingService.getCurrentUserId();
+    
+    if (!this.currentUserId) {
+      // Essayer de charger directement
       const profile = await this.keycloakService.getUserProfile();
-      console.log('👤 Keycloak profile:', profile);
-      
       if (profile?.id) {
-        // ✅ NOUVEAU: Utiliser l'ID réel du service de messagerie
-        const realUserId = await this.messagingService.getCurrentUserIdAsync();
-        
-        if (realUserId) {
-          this.currentUserId = realUserId;
-          console.log('✅ Using real user ID from messaging service:', this.currentUserId);
-        } else {
-          // ✅ FALLBACK: Appeler directement le service utilisateur
-          const realUserIdFromAPI = await this.fetchRealUserIdFromAPI(profile.id);
-          
-          if (realUserIdFromAPI) {
-            this.currentUserId = realUserIdFromAPI;
-            console.log('✅ Using real user ID from API:', this.currentUserId);
-          } else {
-            // Dernier recours : générer un ID
-            this.currentUserId = this.generateNumericIdFromUUID(profile.id);
-            console.log('⚠️ Using generated ID as last resort:', this.currentUserId);
+        const token = await this.keycloakService.getToken();
+        if (token) {
+          const realUserId = await this.fetchRealUserIdDirectly(profile.id, token);
+          if (realUserId) {
+            this.currentUserId = realUserId;
           }
         }
-        
-        const roles = this.keycloakService.getRoles();
-        this.userRole = roles.includes('PRODUCER') ? 'PRODUCER' : 'RECEIVER';
-        
-        console.log('✅ User info loaded:', {
-          userId: this.currentUserId,
-          role: this.userRole,
-          keycloakId: profile.id
-        });
       }
-    } catch (error) {
-      console.error('❌ Error loading user info:', error);
-      this.hasError = true;
-      this.errorMessage = 'Impossible de charger les informations utilisateur';
     }
+    
+    if (!this.currentUserId) {
+      throw new Error('Cannot load user ID');
+    }
+    
+    const roles = this.keycloakService.getRoles();
+    this.userRole = roles.includes('PRODUCER') ? 'PRODUCER' : 'RECEIVER';
+    
+    console.log('✅ User info loaded:', {
+      userId: this.currentUserId,
+      role: this.userRole
+    });
+    
+  } catch (error) {
+    console.error('❌ Error loading user info:', error);
+    this.hasError = true;
+    this.errorMessage = 'Impossible de charger l\'identifiant utilisateur';
   }
+}
+
+// AJOUTER cette méthode:
+private async fetchRealUserIdDirectly(keycloakId: string, token: string): Promise<number | null> {
+  try {
+    const response = await fetch(
+      `http://localhost:8822/api/v1/users/by-keycloak-id?keycloakId=${keycloakId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.id || null;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('❌ Error fetching user ID:', error);
+    return null;
+  }
+}
+
+// SUPPRIMER generateNumericIdFromUUID() et fetchRealUserIdFromAPI()
 
   // ✅ NOUVEAU: Récupérer l'ID réel depuis l'API utilisateur
   private async fetchRealUserIdFromAPI(keycloakId: string): Promise<number | null> {

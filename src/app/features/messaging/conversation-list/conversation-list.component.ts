@@ -25,30 +25,68 @@ export class ConversationListComponent implements OnInit {
     this.conversationSelected.emit(conversation);
   }
 
-
-getConversationAvatar(conversation: Conversation): string {
-  // Pour les conversations de compétence avec image
-  if (conversation.type === 'SKILL_GROUP' && conversation.skillImageUrl) {
-    return conversation.skillImageUrl;
-  }
-  
-  // Pour les conversations directes, utiliser avatar du participant
-  if (conversation.type === 'DIRECT' && conversation.participants.length > 0) {
-    const otherParticipant = conversation.participants.find(p => p.userId !== this.currentUserId);
-    if (otherParticipant?.avatar) {
-      return otherParticipant.avatar;
+  getConversationAvatar(conversation: Conversation): string {
+    // Pour les conversations de compétence avec image
+    if (conversation.type === 'SKILL_GROUP') {
+      if (conversation.skillImageUrl) {
+        // Si URL relative, ajouter base URL
+        if (!conversation.skillImageUrl.startsWith('http')) {
+          return `http://localhost:8822${conversation.skillImageUrl}`;
+        }
+        return conversation.skillImageUrl;
+      }
     }
+    
+    // Pour les conversations directes
+    if (conversation.type === 'DIRECT' && conversation.participants.length > 0) {
+      const otherParticipant = conversation.participants.find(
+        p => p.userId !== this.currentUserId
+      );
+      if (otherParticipant) {
+        // Vérifier toutes les propriétés possibles pour l'avatar
+        const avatar = otherParticipant.avatar || 
+                      (otherParticipant as any).profileImageUrl || 
+                      (otherParticipant as any).pictureUrl;
+        
+        if (avatar) {
+          // Si URL relative, ajouter base URL
+          if (!avatar.startsWith('http')) {
+            return `http://localhost:8822${avatar}`;
+          }
+          return avatar;
+        }
+      }
+    }
+    
+    // Avatar par défaut généré
+    return this.generateAvatarUrl(this.getConversationName(conversation));
   }
-  
-  // Avatar par défaut basé sur le nom
-  return this.getDefaultAvatar(this.getConversationName(conversation));
-}
 
-// quick-chat.component.ts
+  private generateAvatarUrl(name: string): string {
+    if (!name || name.trim() === '') {
+      return 'assets/default-avatar.png';
+    }
+    
+    const colors = ['667eea', '764ba2', 'f093fb', 'f5576c', '4facfe', '00f2fe'];
+    const colorIndex = Math.abs(this.hashCode(name)) % colors.length;
+    const initial = name.charAt(0).toUpperCase();
+    
+    // Utiliser UI Avatars API ou générer SVG
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${colors[colorIndex]}&color=fff&size=100&bold=true`;
+  }
 
+  private hashCode(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return hash;
+  }
 
   getDefaultAvatar(name: string): string {
-    // ✅ Générer une couleur basée sur le nom
+    // Générer une couleur basée sur le nom
     const colors = ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe'];
     const index = name.charCodeAt(0) % colors.length;
     const initial = name.charAt(0).toUpperCase();
@@ -151,7 +189,7 @@ getConversationAvatar(conversation: Conversation): string {
     return classes.join(' ');
   }
 
-  // ✅ Méthodes pour le statut en ligne
+  // Méthodes pour le statut en ligne
   isParticipantOnline(conversation: Conversation): boolean {
     if (conversation.type !== 'DIRECT') {
       return false;
@@ -165,7 +203,7 @@ getConversationAvatar(conversation: Conversation): string {
     return conversation.participants.filter(p => p.isOnline).length;
   }
 
-  // ✅ Méthodes pour l'affichage du statut
+  // Méthodes pour l'affichage du statut
   getConversationSubtitle(conversation: Conversation): string {
     switch (conversation.type) {
       case 'DIRECT':
@@ -180,7 +218,7 @@ getConversationAvatar(conversation: Conversation): string {
     }
   }
 
-  // ✅ Gestion des clics et événements
+  // Gestion des clics et événements
   onConversationClick(conversation: Conversation, event: Event) {
     event.preventDefault();
     event.stopPropagation();
@@ -194,7 +232,7 @@ getConversationAvatar(conversation: Conversation): string {
     }
   }
 
-  // ✅ Méthodes utilitaires pour le template
+  // Méthodes utilitaires pour le template
   trackByConversationId(index: number, conversation: Conversation): number {
     return conversation.id;
   }

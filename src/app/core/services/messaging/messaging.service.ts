@@ -225,30 +225,73 @@ export class MessagingService {
     }
   }
 
-  private async loadUserInfo() {
-    try {
-      const profile = await this.keycloakService.getUserProfile();
-      if (profile?.id) {
-        console.log('🔍 Keycloak profile loaded:', profile);
-        
-        const realUserId = await this.getRealUserId(profile.id);
-        if (realUserId) {
-          this.currentUserId = realUserId;
-          console.log('✅ Real user ID loaded from backend:', this.currentUserId);
-        } else {
-          this.currentUserId = this.generateNumericIdFromUUID(profile.id);
-          console.log('⚠️ Using generated ID as fallback:', this.currentUserId);
-        }
-
-        // ✅ NOUVEAU: Déterminer le rôle de l'utilisateur
-        const roles = this.keycloakService.getRoles();
-        this.currentUserRole = roles.includes('PRODUCER') ? 'PRODUCER' : 'RECEIVER';
-        console.log('👤 User role determined:', this.currentUserRole);
+ // REMPLACER loadUserInfo() et les méthodes associées par:
+private async loadUserInfo() {
+  try {
+    const profile = await this.keycloakService.getUserProfile();
+    if (profile?.id) {
+      console.log('🔍 Keycloak profile loaded:', profile);
+      
+      // Toujours essayer de récupérer l'ID réel depuis le backend
+      const token = await this.keycloakService.getToken();
+      const realUserId = await this.fetchRealUserIdFromBackend(profile.id, token);
+      
+      if (realUserId) {
+        this.currentUserId = realUserId;
+        console.log('✅ Real user ID from backend:', this.currentUserId);
+      } else {
+        console.error('❌ Could not fetch real user ID, cannot continue');
+        return; // Ne pas continuer sans ID valide
       }
-    } catch (error) {
-      console.error('❌ Failed to load user info:', error);
+
+      const roles = this.keycloakService.getRoles();
+      this.currentUserRole = roles.includes('PRODUCER') ? 'PRODUCER' : 'RECEIVER';
+      console.log('👤 User loaded:', { id: this.currentUserId, role: this.currentUserRole });
     }
+  } catch (error) {
+    console.error('❌ Failed to load user info:', error);
   }
+}
+
+// AJOUTER cette nouvelle méthode:
+private async fetchRealUserIdFromBackend(keycloakId: string, token: string): Promise<number | null> {
+  try {
+    const token = await this.keycloakService.getToken();
+    if (!token) return null;
+
+    const headers = new HttpHeaders({
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    });
+
+    // Essayer l'endpoint direct
+    const response = await this.http.get<any>(
+      `http://localhost:8822/api/v1/users/by-keycloak-id`,
+      { 
+        headers,
+        params: { keycloakId }
+      }
+    ).toPromise();
+
+    if (response?.id) {
+      return response.id;
+    }
+
+    // Essayer endpoint /me comme fallback
+    const meResponse = await this.http.get<any>(
+      `http://localhost:8822/api/v1/users/me`,
+      { headers }
+    ).toPromise();
+
+    return meResponse?.id || null;
+
+  } catch (error) {
+    console.error('❌ Backend fetch error:', error);
+    return null;
+  }
+}
+
+// SUPPRIMER generateNumericIdFromUUID() - ne plus l'utiliser
 
   private async getRealUserId(keycloakId: string): Promise<number | null> {
     try {
@@ -288,65 +331,80 @@ export class MessagingService {
   }
 
   // ===== WEBSOCKET CONNECTION =====
-  private async initializeStompConnection() {
-    try {
-      const token = await this.keycloakService.getToken();
-      if (!token) {
-        console.error('❌ No token available for WebSocket connection');
+private async initializeStompConnection() {
+  try {
+    const token = await this.keycloakService.getToken();
+    if (!token) {
+      console.error('❌ No token available for WebSocket connection');
+      this.scheduleReconnect();
+      return;
+    }
+
+    // S'assurer que l'ID utilisateur est chargé
+    if (!this.currentUserId) {
+      await this.loadUserInfo();
+      if (!this.currentUserId) {
+        console.error('❌ Cannot connect WebSocket without user ID');
         this.scheduleReconnect();
         return;
       }
-
-      console.log('🔌 Initializing STOMP connection with token');
-
-      this.stompClient = new Client({
-        brokerURL: this.wsUrl,
-        connectHeaders: {
-          Authorization: `Bearer ${token}`,
-          'X-Authorization': `Bearer ${token}`
-        },
-        debug: (str) => {
-          console.log('🐞 STOMP Debug:', str);
-        },
-        reconnectDelay: 5000,
-        heartbeatIncoming: 4000,
-        heartbeatOutgoing: 4000,
-        
-        onConnect: (frame) => {
-          console.log('✅ STOMP Connected successfully:', frame);
-          this.connectionStatusSubject.next('CONNECTED');
-          this.reconnectAttempts = 0;
-          this.subscribeToTopics();
-        },
-        
-        onStompError: (frame) => {
-          console.error('❌ STOMP Error:', frame);
-          this.connectionStatusSubject.next('ERROR');
-          this.scheduleReconnect();
-        },
-        
-        onWebSocketError: (event) => {
-          console.error('❌ WebSocket Error:', event);
-          this.connectionStatusSubject.next('ERROR');
-          this.scheduleReconnect();
-        },
-        
-        onWebSocketClose: (event) => {
-          console.warn('⚠️ WebSocket Closed:', event);
-          this.connectionStatusSubject.next('DISCONNECTED');
-          this.scheduleReconnect();
-        }
-      });
-
-      this.connectionStatusSubject.next('CONNECTING');
-      this.stompClient.activate();
-      
-    } catch (error) {
-      console.error('❌ Failed to initialize STOMP connection:', error);
-      this.connectionStatusSubject.next('ERROR');
-      this.scheduleReconnect();
     }
+
+    console.log('🔌 Initializing STOMP connection for user:', this.currentUserId);
+
+    this.stompClient = new Client({
+      brokerURL: this.wsUrl,
+      connectHeaders: {
+        Authorization: `Bearer ${token}`,
+        'X-Authorization': `Bearer ${token}`,
+        'X-User-Id': this.currentUserId.toString() // AJOUTER l'ID utilisateur
+      },
+      debug: (str) => {
+        if (!str.includes('PING') && !str.includes('PONG')) {
+          console.log('🐞 STOMP:', str);
+        }
+      },
+      reconnectDelay: 5000,
+      heartbeatIncoming: 25000,
+      heartbeatOutgoing: 25000,
+      
+      onConnect: (frame) => {
+        console.log('✅ STOMP Connected:', frame);
+        this.connectionStatusSubject.next('CONNECTED');
+        this.reconnectAttempts = 0;
+        this.subscribeToTopics();
+        
+        // Charger les conversations après connexion
+        this.getUserConversations().subscribe();
+      },
+      
+      onStompError: (frame) => {
+        console.error('❌ STOMP Error:', frame);
+        this.connectionStatusSubject.next('ERROR');
+        this.scheduleReconnect();
+      },
+      
+      onWebSocketError: (event) => {
+        console.error('❌ WebSocket Error:', event);
+        this.connectionStatusSubject.next('ERROR');
+      },
+      
+      onWebSocketClose: (event) => {
+        console.warn('⚠️ WebSocket Closed');
+        this.connectionStatusSubject.next('DISCONNECTED');
+        this.scheduleReconnect();
+      }
+    });
+
+    this.connectionStatusSubject.next('CONNECTING');
+    this.stompClient.activate();
+    
+  } catch (error) {
+    console.error('❌ Failed to initialize STOMP:', error);
+    this.connectionStatusSubject.next('ERROR');
+    this.scheduleReconnect();
   }
+}
 
   private subscribeToTopics() {
     if (!this.stompClient || !this.stompClient.connected) {
@@ -748,53 +806,50 @@ private getAvailableUsersForDirectOrGroupFallback(): Observable<UserResponse[]> 
   /**
    * ✅ MISE À JOUR: Crée ou récupère une conversation directe avec validation des utilisateurs connectés
    */
-  createDirectConversation(otherUserId: number): Observable<Conversation> {
-    return from(this.keycloakService.getToken()).pipe(
-      switchMap(token => {
-        if (!token) {
-          throw new Error('No token available');
-        }
-        
-        const headers = new HttpHeaders({ 
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        });
-        
-        if (!this.currentUserId) {
-          throw new Error('Current user ID not available');
-        }
-        
-        const request: CreateDirectConversationRequest = {
-          otherUserId: otherUserId
-        };
-        
-        console.log('📤 Creating direct conversation:', request);
-        
-        return this.http.post<Conversation>(`${this.apiUrl}/conversations/direct`, request, { headers });
-      }),
-      tap(conversation => {
-        console.log('✅ Direct conversation created:', conversation);
-        
-        const conversations = this.conversationsSubject.value;
-        const exists = conversations.find(c => c.id === conversation.id);
-        if (!exists) {
-          this.conversationsSubject.next([conversation, ...conversations]);
-        }
-      }),
-      catchError(error => {
-        console.error('❌ Error creating direct conversation:', error);
-        throw this.handleConversationError(error);
-      }),
-      retry(1)
-    );
-  }
+ // MODIFIER createDirectConversation():
+createDirectConversation(otherUserId: number): Observable<Conversation> {
+  return from(this.keycloakService.getToken()).pipe(
+    switchMap(token => {
+      if (!token) {
+        throw new Error('No token available');
+      }
+      
+      const headers = new HttpHeaders({ 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      });
+      
+      const request: CreateDirectConversationRequest = {
+        otherUserId: otherUserId
+      };
+      
+      console.log('📤 Creating direct conversation:', request);
+      
+      return this.http.post<Conversation>(`${this.apiUrl}/conversations/direct`, request, { headers });
+    }),
+    tap(conversation => {
+      console.log('✅ Direct conversation created:', conversation);
+      
+      // AJOUTER: Mise à jour immédiate de la liste
+      const current = this.conversationsSubject.value;
+      const exists = current.find(c => c.id === conversation.id);
+      
+      if (!exists) {
+        // Ajouter en début de liste
+        const updated = [conversation, ...current];
+        this.conversationsSubject.next(updated);
+        console.log('📋 Conversation list updated');
+      }
+    }),
+    catchError(error => {
+      console.error('❌ Error creating direct conversation:', error);
+      throw this.handleConversationError(error);
+    })
+  );
+}
 
-  /**
-   * ✅ MISE À JOUR: Crée ou récupère une conversation de compétence avec validation des utilisateurs autorisés
-   */
-  createSkillConversation(skillId: number): Observable<Conversation> {
-  console.log('📤 Creating skill conversation for skill:', skillId);
-  
+// MODIFIER createSkillConversation() de la même manière:
+createSkillConversation(skillId: number): Observable<Conversation> {
   return from(this.keycloakService.getToken()).pipe(
     switchMap(token => {
       if (!token) {
@@ -815,63 +870,61 @@ private getAvailableUsersForDirectOrGroupFallback(): Observable<UserResponse[]> 
     tap(conversation => {
       console.log('✅ Skill conversation created:', conversation);
       
-      // Ajouter à la liste des conversations si pas déjà présente
-      const conversations = this.conversationsSubject.value;
-      const exists = conversations.find(c => c.id === conversation.id);
+      // AJOUTER: Mise à jour immédiate
+      const current = this.conversationsSubject.value;
+      const exists = current.find(c => c.id === conversation.id);
+      
       if (!exists) {
-        this.conversationsSubject.next([conversation, ...conversations]);
+        const updated = [conversation, ...current];
+        this.conversationsSubject.next(updated);
       }
     }),
     catchError(error => {
       console.error('❌ Error creating skill conversation:', error);
       throw this.handleConversationError(error);
-    }),
-    retry(1)
+    })
   );
 }
 
-
-  /**
-   * ✅ MISE À JOUR: Crée une conversation de groupe avec validation des participants autorisés
-   */
-  createGroupConversation(name: string, participantIds: number[], description?: string): Observable<Conversation> {
-    return from(this.keycloakService.getToken()).pipe(
-      switchMap(token => {
-        if (!token) {
-          throw new Error('No token available');
-        }
-        
-        const headers = new HttpHeaders({ 
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        });
-        
-        const request: CreateGroupConversationRequest = {
-          name: name,
-          participantIds: participantIds,
-          description: description
-        };
-        
-        console.log('📤 Creating group conversation:', request);
-        
-        return this.http.post<Conversation>(`${this.apiUrl}/conversations/group`, request, { headers });
-      }),
-      tap(conversation => {
-        console.log('✅ Group conversation created:', conversation);
-        
-        const conversations = this.conversationsSubject.value;
-        const exists = conversations.find(c => c.id === conversation.id);
-        if (!exists) {
-          this.conversationsSubject.next([conversation, ...conversations]);
-        }
-      }),
-      catchError(error => {
-        console.error('❌ Error creating group conversation:', error);
-        throw this.handleConversationError(error);
-      }),
-      retry(1)
-    );
-  }
+// MODIFIER createGroupConversation() de la même manière:
+createGroupConversation(name: string, participantIds: number[], description?: string): Observable<Conversation> {
+  return from(this.keycloakService.getToken()).pipe(
+    switchMap(token => {
+      if (!token) {
+        throw new Error('No token available');
+      }
+      
+      const headers = new HttpHeaders({ 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      });
+      
+      const request: CreateGroupConversationRequest = {
+        name: name,
+        participantIds: participantIds,
+        description: description
+      };
+      
+      return this.http.post<Conversation>(`${this.apiUrl}/conversations/group`, request, { headers });
+    }),
+    tap(conversation => {
+      console.log('✅ Group conversation created:', conversation);
+      
+      // AJOUTER: Mise à jour immédiate
+      const current = this.conversationsSubject.value;
+      const exists = current.find(c => c.id === conversation.id);
+      
+      if (!exists) {
+        const updated = [conversation, ...current];
+        this.conversationsSubject.next(updated);
+      }
+    }),
+    catchError(error => {
+      console.error('❌ Error creating group conversation:', error);
+      throw this.handleConversationError(error);
+    })
+  );
+}
 
   /**
    * ✅ NOUVEAU: Gestionnaire d'erreur unifié pour les conversations
@@ -990,31 +1043,7 @@ getUserConversations(page = 0, size = 20): Observable<Conversation[]> {
     }
   }
 
-  private async fetchRealUserIdFromBackend(keycloakId: string, token: string): Promise<number | null> {
-    try {
-      const headers = new HttpHeaders({
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      });
-      
-      const response = await this.http.get<any>(
-        `${this.apiUrl.replace('/messages', '/users')}/by-keycloak-id`,
-        { 
-          headers,
-          params: { keycloakId }
-        }
-      ).toPromise();
-      
-      if (response?.id) {
-        return response.id;
-      }
-      
-      return null;
-    } catch (error) {
-      console.warn('⚠️ Could not fetch real user ID from backend:', error);
-      return null;
-    }
-  }
+  
 
   private fetchConversationsFromAPI(token: string, userId: number, page: number, size: number): Observable<any> {
     const headers = new HttpHeaders({ 

@@ -1,12 +1,31 @@
-// chat-window.component.ts - VERSION COMPLÈTEMENT CORRIGÉE
-import { Component, Input, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked, OnChanges, SimpleChanges } from '@angular/core';
+// chat-window.component.ts - VERSION DÉFINITIVE AVEC SCROLL INTELLIGENT
+import { 
+  Component, 
+  Input, 
+  OnInit, 
+  OnDestroy, 
+  ViewChild, 
+  ElementRef, 
+  AfterViewInit,
+  AfterViewChecked,
+  OnChanges, 
+  SimpleChanges,
+  ChangeDetectorRef,
+  NgZone
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, takeUntil, debounceTime, distinctUntilChanged, retry } from 'rxjs';
+import { Subject, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
 import { ConversationHeaderComponent } from '../conversation-header/conversation-header.component';
 import { MessageBubbleComponent } from '../message-bubble/message-bubble.component';
 import { MessageInputComponent } from '../message-input/message-input.component';
-import { MessagingService, Conversation, Message, MessageRequest, TypingIndicator } from '../../../core/services/messaging/messaging.service';
+import { 
+  MessagingService, 
+  Conversation, 
+  Message, 
+  MessageRequest, 
+  TypingIndicator 
+} from '../../../core/services/messaging/messaging.service';
 
 @Component({
   selector: 'app-chat-window',
@@ -21,35 +40,68 @@ import { MessagingService, Conversation, Message, MessageRequest, TypingIndicato
   templateUrl: './chat-window.component.html',
   styleUrls: ['./chat-window.component.css']
 })
-export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewChecked, OnChanges {
+export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, AfterViewChecked, OnChanges {
   @Input() conversation!: Conversation;
   @Input() currentUserId!: number;
-  @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
+  @ViewChild('scrollContainer', { static: false }) private scrollContainer!: ElementRef<HTMLDivElement>;
 
+  // État des messages
   messages: Message[] = [];
   typingUsers: TypingIndicator[] = [];
+  
+  // États de chargement
   isLoading = true;
   isLoadingMore = false;
-  isTyping = false;
   hasError = false;
   errorMessage = '';
   
-  // ✅ Pagination
+  // Pagination
   currentPage = 0;
   pageSize = 50;
   hasMoreMessages = true;
   
+  // Contrôle du scroll
+  showScrollToBottomButton = false;
+  private shouldAutoScroll = true;
+  private isUserScrolling = false;
+  private lastScrollHeight = 0;
+  private lastMessageCount = 0;
+  private scrollThreshold = 150; // Distance du bas pour auto-scroll
+  
+  // Observables
   private destroy$ = new Subject<void>();
   private typingSubject = new Subject<void>();
-  private shouldScrollToBottom = true;
-  private lastMessageCount = 0;
-  private joinAttempted = false; // ✅ Nouveau: Pour éviter les boucles de join
+  
+  // Flags
+  private isInitialized = false;
+  private pendingScrollToBottom = false;
 
-  constructor(private messagingService: MessagingService) {}
+  constructor(
+    private messagingService: MessagingService,
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone
+  ) {}
 
   ngOnInit() {
+    console.log('🚀 ChatWindow initialized for conversation:', this.conversation?.id);
     this.setupTypingIndicator();
     this.subscribeToUpdates();
+  }
+
+  ngAfterViewInit() {
+    this.isInitialized = true;
+    this.initializeScrollListener();
+    
+    // Scroll initial après le rendu
+    setTimeout(() => this.scrollToBottom(), 100);
+  }
+
+  ngAfterViewChecked() {
+    // Auto-scroll si nécessaire après mise à jour du DOM
+    if (this.pendingScrollToBottom) {
+      this.pendingScrollToBottom = false;
+      this.performScrollToBottom();
+    }
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -59,105 +111,180 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewChecked,
     }
   }
 
-  ngAfterViewChecked() {
-    if (this.shouldScrollToBottom) {
-      this.scrollToBottom();
-      this.shouldScrollToBottom = false;
-    }
-  }
-
   ngOnDestroy() {
-    this.stopTyping();
     this.destroy$.next();
     this.destroy$.complete();
   }
 
-  // ===== INITIALISATION ET CHARGEMENT =====
+  // ========== GESTION DU SCROLL ==========
 
-  // ✅ Réinitialiser et charger les messages
+  private initializeScrollListener() {
+    if (!this.scrollContainer) return;
+
+    const container = this.scrollContainer.nativeElement;
+    
+    // Écouter les événements de scroll
+    container.addEventListener('scroll', () => {
+      this.ngZone.runOutsideAngular(() => {
+        this.handleScroll();
+      });
+    });
+  }
+
+  private handleScroll() {
+    if (!this.scrollContainer) return;
+
+    const container = this.scrollContainer.nativeElement;
+    const scrollTop = container.scrollTop;
+    const scrollHeight = container.scrollHeight;
+    const clientHeight = container.clientHeight;
+    
+    // Distance du bas
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    const isNearBottom = distanceFromBottom <= this.scrollThreshold;
+    
+    // Détection du scroll utilisateur
+    this.isUserScrolling = true;
+    clearTimeout((this as any).scrollTimeout);
+    (this as any).scrollTimeout = setTimeout(() => {
+      this.isUserScrolling = false;
+    }, 200);
+
+    // Mise à jour du bouton "scroll to bottom"
+    this.ngZone.run(() => {
+      this.showScrollToBottomButton = !isNearBottom && this.messages.length > 5;
+      
+      // Auto-scroll si près du bas
+      this.shouldAutoScroll = isNearBottom;
+    });
+
+    // Charger plus si en haut
+    if (scrollTop < 100 && this.hasMoreMessages && !this.isLoadingMore) {
+      this.loadMoreMessages();
+    }
+  }
+
+  scrollToBottom(): void {
+    if (!this.scrollContainer) {
+      this.pendingScrollToBottom = true;
+      return;
+    }
+
+    this.ngZone.runOutsideAngular(() => {
+      requestAnimationFrame(() => {
+        this.performScrollToBottom();
+      });
+    });
+  }
+
+  private performScrollToBottom(): void {
+    if (!this.scrollContainer) return;
+    
+    const container = this.scrollContainer.nativeElement;
+    container.scrollTop = container.scrollHeight;
+    
+    this.showScrollToBottomButton = false;
+    this.shouldAutoScroll = true;
+  }
+
+  private maintainScrollPosition(): void {
+    if (!this.scrollContainer) return;
+
+    const container = this.scrollContainer.nativeElement;
+    const newScrollHeight = container.scrollHeight;
+    const heightDifference = newScrollHeight - this.lastScrollHeight;
+    
+    if (heightDifference > 0) {
+      container.scrollTop += heightDifference;
+    }
+    
+    this.lastScrollHeight = newScrollHeight;
+  }
+
+  // ========== CHARGEMENT DES MESSAGES ==========
+
   private resetAndLoadMessages() {
     this.messages = [];
     this.currentPage = 0;
     this.hasMoreMessages = true;
     this.isLoading = true;
     this.hasError = false;
-    this.shouldScrollToBottom = true;
-    this.joinAttempted = false; // ✅ Reset du flag de join
+    this.lastMessageCount = 0;
+    this.shouldAutoScroll = true;
+    
     this.loadMessages();
   }
 
-  // ✅ CORRECTION: Charger les messages avec gestion d'erreur améliorée
   private loadMessages() {
     if (!this.conversation) {
-      console.error('❌ Cannot load messages: no conversation');
+      console.error('❌ No conversation to load messages for');
       return;
+    }
+
+    // Sauvegarder la hauteur avant chargement (pour "load more")
+    if (this.currentPage > 0 && this.scrollContainer) {
+      this.lastScrollHeight = this.scrollContainer.nativeElement.scrollHeight;
     }
 
     this.isLoading = this.currentPage === 0;
     this.isLoadingMore = this.currentPage > 0;
-    this.hasError = false;
 
-    console.log(`📥 Loading messages for conversation ${this.conversation.id}, page ${this.currentPage}`);
+    console.log(`📥 Loading messages - Page ${this.currentPage}`);
 
-    this.messagingService.getConversationMessages(this.conversation.id, this.currentPage, this.pageSize)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (newMessages) => {
-          console.log(`✅ Messages loaded for conversation ${this.conversation.id}:`, newMessages.length);
-          
-          if (this.currentPage === 0) {
-            // ✅ Première page : remplacer tous les messages
-            this.messages = newMessages || [];
-            this.shouldScrollToBottom = true;
-          } else {
-            // ✅ Pages suivantes : ajouter au début (messages plus anciens)
-            this.messages = [...(newMessages || []), ...this.messages];
-          }
-          
+    this.messagingService.getConversationMessages(
+      this.conversation.id, 
+      this.currentPage, 
+      this.pageSize
+    )
+    .pipe(takeUntil(this.destroy$))
+    .subscribe({
+      next: (newMessages) => {
+        console.log(`✅ Loaded ${newMessages.length} messages`);
+        
+        if (this.currentPage === 0) {
+          // Première page : remplacer les messages
+          this.messages = newMessages || [];
           this.lastMessageCount = this.messages.length;
-          this.hasMoreMessages = (newMessages?.length || 0) === this.pageSize;
-          this.isLoading = false;
-          this.isLoadingMore = false;
-        },
-        error: (error) => {
-          console.error('❌ Error loading messages:', error);
-          this.isLoading = false;
-          this.isLoadingMore = false;
-          this.hasError = true;
           
-          this.errorMessage = this.getErrorMessage(error);
+          // Scroll au bas après le rendu
+          this.pendingScrollToBottom = true;
+        } else {
+          // Pages suivantes : ajouter au début
+          this.messages = [...(newMessages || []), ...this.messages];
+          
+          // Maintenir la position de scroll
+          this.cdr.detectChanges();
+          this.maintainScrollPosition();
         }
-      });
+        
+        this.hasMoreMessages = newMessages.length === this.pageSize;
+        this.isLoading = false;
+        this.isLoadingMore = false;
+        
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('❌ Error loading messages:', error);
+        this.isLoading = false;
+        this.isLoadingMore = false;
+        this.hasError = true;
+        this.errorMessage = this.getErrorMessage(error);
+      }
+    });
   }
 
-  // ✅ Obtenir un message d'erreur approprié
-  private getErrorMessage(error: any): string {
-    if (error.status === 403) {
-      return 'Accès refusé à cette conversation';
-    } else if (error.status === 404) {
-      return 'Conversation introuvable';
-    } else if (error.status === 503) {
-      return 'Service temporairement indisponible';
-    } else {
-      return 'Erreur lors du chargement des messages';
-    }
-  }
-
-  // ✅ Charger plus de messages (pagination)
   loadMoreMessages() {
-    if (this.isLoadingMore || !this.hasMoreMessages) {
-      return;
-    }
+    if (this.isLoadingMore || !this.hasMoreMessages) return;
     
+    console.log('📄 Loading more messages...');
     this.currentPage++;
     this.loadMessages();
   }
 
-  // ===== SOUSCRIPTIONS =====
+  // ========== SOUSCRIPTIONS AUX MISES À JOUR ==========
 
-  // ✅ Souscrire aux mises à jour en temps réel
   private subscribeToUpdates() {
-    // ✅ Nouveaux messages
+    // Nouveaux messages en temps réel
     this.messagingService.messages$
       .pipe(
         takeUntil(this.destroy$),
@@ -166,27 +293,33 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewChecked,
       .subscribe(allMessages => {
         if (!this.conversation) return;
         
-        // ✅ Filtrer les messages de cette conversation
-        const conversationMessages = allMessages.filter(m => m.conversationId === this.conversation.id);
+        const conversationMessages = allMessages.filter(
+          m => m.conversationId === this.conversation.id
+        );
         
-        // ✅ Vérifier s'il y a de nouveaux messages
-        const newMessageCount = conversationMessages.length;
-        if (newMessageCount > this.lastMessageCount) {
+        const newCount = conversationMessages.length;
+        if (newCount > this.lastMessageCount) {
           const newMessages = conversationMessages.slice(this.lastMessageCount);
           
-          // ✅ Ajouter les nouveaux messages à la fin
+          // Ajouter les nouveaux messages
           this.messages = [...this.messages, ...newMessages];
-          this.lastMessageCount = newMessageCount;
+          this.lastMessageCount = newCount;
           
-          // ✅ Scroller vers le bas si c'est un message de l'utilisateur actuel ou si on est près du bas
+          // Décider si on doit auto-scroll
           const lastMessage = newMessages[newMessages.length - 1];
-          if (lastMessage.senderId === this.currentUserId || this.isNearBottom()) {
-            this.shouldScrollToBottom = true;
+          const isOwnMessage = lastMessage.senderId === this.currentUserId;
+          
+          if (isOwnMessage || this.shouldAutoScroll) {
+            this.pendingScrollToBottom = true;
+          } else {
+            this.showScrollToBottomButton = true;
           }
+          
+          this.cdr.detectChanges();
         }
       });
 
-    // ✅ Indicateurs de frappe
+    // Indicateurs de frappe
     this.messagingService.typingIndicators$
       .pipe(takeUntil(this.destroy$))
       .subscribe(indicators => {
@@ -196,192 +329,82 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewChecked,
           i.conversationId === this.conversation.id && 
           i.userId !== this.currentUserId
         );
+        
+        // Auto-scroll si quelqu'un tape et on est près du bas
+        if (this.typingUsers.length > 0 && this.shouldAutoScroll) {
+          this.pendingScrollToBottom = true;
+        }
+        
+        this.cdr.detectChanges();
       });
   }
 
-  // ===== CONFIGURATION FRAPPE =====
+  // ========== GESTION DE LA FRAPPE ==========
 
-  // ✅ Configuration de l'indicateur de frappe
   private setupTypingIndicator() {
-    // ✅ Démarrer la frappe
     this.typingSubject
       .pipe(
         takeUntil(this.destroy$),
         debounceTime(300)
       )
       .subscribe(() => {
-        if (!this.isTyping && this.conversation) {
-          this.isTyping = true;
+        if (this.conversation) {
           this.messagingService.sendTypingIndicator(this.conversation.id, true);
         }
       });
 
-    // ✅ Arrêter la frappe après 2 secondes d'inactivité
+    // Arrêter après 2 secondes d'inactivité
     this.typingSubject
       .pipe(
         takeUntil(this.destroy$),
         debounceTime(2000)
       )
       .subscribe(() => {
-        this.stopTyping();
+        if (this.conversation) {
+          this.messagingService.sendTypingIndicator(this.conversation.id, false);
+        }
       });
   }
 
-  // ✅ Arrêter l'indicateur de frappe
-  private stopTyping() {
-    if (this.isTyping && this.conversation) {
-      this.isTyping = false;
-      this.messagingService.sendTypingIndicator(this.conversation.id, false);
-    }
+  onTyping() {
+    this.typingSubject.next();
   }
 
-  // ===== HANDLERS D'ÉVÉNEMENTS =====
+  // ========== ENVOI DE MESSAGES ==========
 
-  // ✅ CORRECTION MAJEURE: Envoyer un message avec auto-join
   onSendMessage(content: string) {
-    if (!content.trim() || !this.conversation) {
-      return;
-    }
+    if (!content.trim() || !this.conversation) return;
 
-    // ✅ CORRECTION: Si pas le droit d'envoyer, essayer de rejoindre automatiquement
-    if (!this.canSendMessages() && this.conversation.type === 'SKILL_GROUP' && !this.joinAttempted) {
-      console.log('🔄 Attempting to join skill conversation before sending message');
-      this.joinAttempted = true; // ✅ Éviter les boucles
-      
-      this.joinSkillConversation().then(() => {
-        this.sendMessageInternal(content);
-      }).catch(error => {
-        console.error('❌ Failed to join conversation:', error);
-        this.joinAttempted = false; // ✅ Reset en cas d'échec
-        this.showErrorMessage('Impossible de rejoindre cette conversation');
-      });
-      
-      return;
-    }
+    const request: MessageRequest = {
+      conversationId: this.conversation.id,
+      content: content.trim(),
+      type: 'TEXT'
+    };
 
-    this.sendMessageInternal(content);
-  }
+    // Force scroll au bas quand on envoie
+    this.shouldAutoScroll = true;
+    this.pendingScrollToBottom = true;
+    this.showScrollToBottomButton = false;
 
-  // ✅ NOUVEAU: Méthode pour rejoindre une conversation de compétence
-  private joinSkillConversation(): Promise<void> {
-    if (!this.conversation?.skillId) {
-      return Promise.reject('No skill ID available');
-    }
-    
-    return this.messagingService.createSkillConversation(this.conversation.skillId)
+    this.messagingService.sendMessage(request)
       .pipe(takeUntil(this.destroy$))
-      .toPromise()
-      .then((updatedConversation) => {
-        if (updatedConversation) {
-          this.conversation = updatedConversation;
-          console.log('✅ Successfully joined skill conversation');
+      .subscribe({
+        next: (message) => {
+          console.log('✅ Message sent:', message.id);
+        },
+        error: (error) => {
+          console.error('❌ Error sending message:', error);
+          this.showErrorNotification('Erreur lors de l\'envoi du message');
         }
       });
   }
 
-  // ✅ NOUVEAU: Méthode interne pour envoyer le message
- // REMPLACER sendMessageInternal par :
-private sendMessageInternal(content: string) {
-  const request: MessageRequest = {
-    conversationId: this.conversation.id,
-    content: content.trim(),
-    type: 'TEXT'
-  };
-
-  this.messagingService.sendMessage(request)
-    .pipe(takeUntil(this.destroy$))
-    .subscribe({
-      next: (message) => {
-        console.log('✅ Message sent:', message);
-        this.shouldScrollToBottom = true;
-        this.stopTyping();
-        
-        // Recharger les participants si c'est une skill conversation
-        if (this.conversation.type === 'SKILL_GROUP') {
-          this.refreshConversation();
-        }
-      },
-      error: (error) => {
-        console.error('❌ Error sending message:', error);
-        
-        let errorMessage = 'Erreur lors de l\'envoi du message';
-        
-        if (error.status === 500) {
-          errorMessage = 'Erreur serveur. Veuillez réessayer dans quelques instants.';
-        } else if (error.status === 403) {
-          errorMessage = 'Vous n\'avez pas la permission d\'envoyer des messages.';
-        } else if (error.status === 404) {
-          errorMessage = 'Conversation introuvable.';
-        }
-        
-        this.showErrorMessage(errorMessage);
-      }
-    });
-}
-
-// AJOUTER cette méthode :
-private refreshConversation() {
-  if (!this.conversation) return;
-  
-  this.messagingService.getConversation(this.conversation.id)
-    .pipe(takeUntil(this.destroy$))
-    .subscribe(updatedConversation => {
-      this.conversation = updatedConversation;
-    });
-}
-
-  // ✅ Afficher un message d'erreur
-  private showErrorMessage(message: string) {
-    // Créer une notification d'erreur temporaire
-    const notification = document.createElement('div');
-    notification.textContent = message;
-    notification.style.cssText = `
-      position: fixed;
-      top: 80px;
-      right: 20px;
-      background: #dc3545;
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      z-index: 10000;
-      font-size: 14px;
-      max-width: 300px;
-      animation: slideInRight 0.3s ease;
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.style.animation = 'slideOutRight 0.3s ease';
-        setTimeout(() => notification.remove(), 300);
-      }
-    }, 5000);
-  }
-
-  // ✅ Sélection de fichier
   onFileSelect(file: File) {
-    if (!this.conversation) {
-      return;
-    }
+    if (!this.conversation) return;
 
-    // ✅ Vérifier la taille du fichier (10MB max)
+    // Validation du fichier
     if (file.size > 10 * 1024 * 1024) {
-      this.showErrorMessage('Le fichier est trop volumineux (max 10MB)');
-      return;
-    }
-
-    // ✅ Types de fichiers autorisés
-    const allowedTypes = [
-      'image/', 'video/', 'audio/', 
-      'application/pdf', 'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-    
-    const isAllowed = allowedTypes.some(type => file.type.startsWith(type));
-    if (!isAllowed) {
-      this.showErrorMessage('Type de fichier non autorisé');
+      this.showErrorNotification('Fichier trop volumineux (max 10MB)');
       return;
     }
 
@@ -396,181 +419,64 @@ private refreshConversation() {
             attachmentUrl: url
           };
           
+          this.shouldAutoScroll = true;
+          this.pendingScrollToBottom = true;
+          
           this.messagingService.sendMessage(request)
             .pipe(takeUntil(this.destroy$))
             .subscribe({
-              next: () => {
-                console.log('✅ File message sent');
-              },
-              error: (error) => {
-                console.error('❌ Error sending file message:', error);
-                this.showErrorMessage('Erreur lors de l\'envoi du fichier');
-              }
+              next: () => console.log('✅ File sent'),
+              error: () => this.showErrorNotification('Erreur envoi fichier')
             });
         },
-        error: (error) => {
-          console.error('❌ Error uploading file:', error);
-          this.showErrorMessage('Erreur lors du téléchargement du fichier');
-        }
+        error: () => this.showErrorNotification('Erreur upload fichier')
       });
   }
 
-  // ✅ Indicateur de frappe
-  onTyping() {
-    this.typingSubject.next();
+  // ========== MÉTHODES UTILITAIRES ==========
+
+  trackByMessageId(index: number, message: Message): number {
+    return message.id || index;
   }
 
-  // ✅ Éditer un message
-  onEditMessage(message: Message) {
-    if (message.senderId !== this.currentUserId) {
-      return;
+  canSendMessages(): boolean {
+    return this.conversation?.status === 'ACTIVE' && 
+           this.conversation?.canSendMessage !== false;
+  }
+
+  getDisabledInputText(): string {
+    if (this.conversation?.status !== 'ACTIVE') {
+      return `Conversation ${this.conversation?.status === 'ARCHIVED' ? 'archivée' : 'terminée'}`;
     }
-
-    const newContent = prompt('Modifier le message:', message.content);
-    if (newContent && newContent !== message.content && message.id) {
-      // TODO: Implémenter l'édition de message dans le service
-      console.log('✏️ Edit message:', message.id, newContent);
-    }
+    return 'Permission refusée';
   }
 
-  // ✅ Supprimer un message
-  onDeleteMessage(message: Message) {
-    if (message.senderId !== this.currentUserId) {
-      return;
-    }
-
-    if (confirm('Supprimer ce message ?') && message.id) {
-      // TODO: Implémenter la suppression de message dans le service
-      console.log('🗑️ Delete message:', message.id);
-    }
-  }
-
-  // ✅ Scroll handler pour charger plus de messages
-  onScroll() {
-    const container = this.messagesContainer?.nativeElement;
-    if (!container) return;
-
-    // ✅ Détecter si on est près du bas
-    this.shouldScrollToBottom = this.isNearBottom();
-
-    // ✅ Détecter si on est près du haut pour charger plus de messages
-    if (container.scrollTop < 100 && this.hasMoreMessages && !this.isLoadingMore) {
-      this.loadMoreMessages();
-    }
-  }
-
-  // ✅ Retry en cas d'erreur
-  onRetry() {
-    this.resetAndLoadMessages();
-  }
-
-  // ===== MÉTHODES UTILITAIRES =====
-
-  // ✅ Déterminer le type de fichier
-  private getFileType(file: File): 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' {
-    if (file.type.startsWith('image/')) return 'IMAGE';
-    if (file.type.startsWith('video/')) return 'VIDEO';
-    if (file.type.startsWith('audio/')) return 'AUDIO';
-    return 'FILE';
-  }
-
-  // ✅ Scroller vers le bas
-  private scrollToBottom(): void {
-    try {
-      if (this.messagesContainer?.nativeElement) {
-        const container = this.messagesContainer.nativeElement;
-        container.scrollTop = container.scrollHeight;
-      }
-    } catch (err) {
-      console.warn('⚠️ Failed to scroll to bottom:', err);
-    }
-  }
-
-  // ✅ Vérifier si on est près du bas
-  private isNearBottom(): boolean {
-    if (!this.messagesContainer?.nativeElement) return false;
-    
-    const container = this.messagesContainer.nativeElement;
-    const threshold = 150;
-    const position = container.scrollTop + container.offsetHeight;
-    const height = container.scrollHeight;
-    return position > height - threshold;
-  }
-
-  // ===== MÉTHODES PUBLIQUES POUR LE TEMPLATE =====
-
-  // ✅ Texte de l'indicateur de frappe
-  getTypingText(): string {
-    if (this.typingUsers.length === 0) return '';
-    
-    if (this.typingUsers.length === 1) {
-      return `${this.typingUsers[0].userName} est en train d'écrire...`;
-    }
-    
-    if (this.typingUsers.length === 2) {
-      return `${this.typingUsers[0].userName} et ${this.typingUsers[1].userName} sont en train d'écrire...`;
-    }
-    
-    return `${this.typingUsers.length} personnes sont en train d'écrire...`;
-  }
-
-  // ✅ CORRECTION: Vérifier si on peut envoyer des messages
- // REMPLACER canSendMessages par :
-canSendMessages(): boolean {
-  if (!this.conversation) return false;
-  
-  const isActive = this.conversation.status === 'ACTIVE';
-  
-  // Pour les conversations de compétence, toujours permettre (auto-join backend)
-  if (this.conversation.type === 'SKILL_GROUP') {
-    return isActive;
-  }
-  
-  // Pour les autres, vérifier la participation
-  const isParticipant = this.conversation.participants && 
-                       this.conversation.participants.length > 0 &&
-                       this.conversation.participants.some(p => p.userId === this.currentUserId);
-  
-  return isActive && isParticipant;
-}
-
-  // ✅ Obtenir le texte d'état vide
   getEmptyStateText(): string {
-    if (this.isLoading) {
-      return 'Chargement des messages...';
+    if (!this.canSendMessages()) {
+      return this.getDisabledInputText();
     }
-    
-    if (this.hasError) {
-      return this.errorMessage;
-    }
-    
-    if (this.messages.length === 0) {
-      if (!this.canSendMessages()) {
-        if (this.conversation.status !== 'ACTIVE') {
-          return `Cette conversation est ${this.conversation.status === 'ARCHIVED' ? 'archivée' : 'terminée'}`;
-        } else if (this.conversation.type === 'SKILL_GROUP') {
-          return 'Cliquez sur "Envoyer" pour rejoindre cette discussion de compétence';
-        } else {
-          return 'Vous devez rejoindre cette conversation pour envoyer des messages';
-        }
-      }
-      return 'Aucun message pour le moment. Envoyez le premier message !';
-    }
-    
-    return '';
+    return 'Envoyez le premier message !';
   }
 
-  // ✅ Formater la date pour les séparateurs
-  shouldShowDateSeparator(currentMessage: Message, previousMessage?: Message): boolean {
-    if (!previousMessage) return true;
+  getTypingText(): string {
+    const count = this.typingUsers.length;
+    if (count === 0) return '';
+    if (count === 1) return `${this.typingUsers[0].userName} écrit...`;
+    if (count === 2) {
+      return `${this.typingUsers[0].userName} et ${this.typingUsers[1].userName} écrivent...`;
+    }
+    return `${count} personnes écrivent...`;
+  }
+
+  shouldShowDateSeparator(current: Message, previous?: Message): boolean {
+    if (!previous) return true;
     
-    const currentDate = new Date(currentMessage.sentAt).toDateString();
-    const previousDate = new Date(previousMessage.sentAt).toDateString();
+    const currentDate = new Date(current.sentAt).toDateString();
+    const previousDate = new Date(previous.sentAt).toDateString();
     
     return currentDate !== previousDate;
   }
 
-  // ✅ Formater la date pour l'affichage
   formatDateSeparator(date: Date): string {
     const messageDate = new Date(date);
     const today = new Date();
@@ -580,7 +486,6 @@ canSendMessages(): boolean {
     if (messageDate.toDateString() === today.toDateString()) {
       return 'Aujourd\'hui';
     }
-    
     if (messageDate.toDateString() === yesterday.toDateString()) {
       return 'Hier';
     }
@@ -591,5 +496,70 @@ canSendMessages(): boolean {
       month: 'long',
       year: messageDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
     });
+  }
+
+  private getFileType(file: File): 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' {
+    if (file.type.startsWith('image/')) return 'IMAGE';
+    if (file.type.startsWith('video/')) return 'VIDEO';
+    if (file.type.startsWith('audio/')) return 'AUDIO';
+    return 'FILE';
+  }
+
+  private getErrorMessage(error: any): string {
+    if (error.status === 403) return 'Accès refusé';
+    if (error.status === 404) return 'Conversation introuvable';
+    if (error.status === 503) return 'Service indisponible';
+    return 'Erreur de chargement';
+  }
+
+  private showErrorNotification(message: string) {
+    // Utiliser un service de notification ou créer un toast
+    console.error('🔴 Error:', message);
+    
+    // Notification temporaire DOM
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.style.cssText = `
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      background: #dc3545;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000;
+      font-size: 14px;
+      animation: slideInRight 0.3s ease;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      notification.style.animation = 'slideOutRight 0.3s ease';
+      setTimeout(() => notification.remove(), 300);
+    }, 4000);
+  }
+
+  // ========== ACTIONS SUR LES MESSAGES ==========
+
+  onEditMessage(message: Message) {
+    if (message.senderId !== this.currentUserId) return;
+    
+    // TODO: Implémenter édition via dialog modal
+    console.log('Edit message:', message.id);
+  }
+
+  onDeleteMessage(message: Message) {
+    if (message.senderId !== this.currentUserId) return;
+    
+    if (confirm('Supprimer ce message ?') && message.id) {
+      // TODO: Implémenter suppression
+      console.log('Delete message:', message.id);
+    }
+  }
+
+  onRetry() {
+    this.resetAndLoadMessages();
   }
 }

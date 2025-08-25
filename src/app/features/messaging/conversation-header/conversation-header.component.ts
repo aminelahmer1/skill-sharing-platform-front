@@ -42,33 +42,71 @@ export class ConversationHeaderComponent {
     return this.conversation.name;
   }
 
-  getConversationAvatar(): string {
-    // ✅ CORRECTION: Utiliser conversationAvatar du backend ou générer un avatar
-    if (this.conversation.conversationAvatar) {
-      return this.conversation.conversationAvatar;
+getConversationAvatar(): string {
+  // Utiliser l'avatar de la conversation si disponible
+  if (this.conversation.conversationAvatar) {
+    if (!this.conversation.conversationAvatar.startsWith('http')) {
+      return `http://localhost:8822${this.conversation.conversationAvatar}`;
     }
-    
-    // ✅ Pour les conversations directes, essayer l'avatar du participant
-    if (this.conversation.type === 'DIRECT') {
-      const otherParticipant = this.conversation.participants.find(
-        p => p.userId !== this.currentUserId
-      );
-      if (otherParticipant?.avatar) {
-        return otherParticipant.avatar;
+    return this.conversation.conversationAvatar;
+  }
+  
+  // Pour les conversations de compétence
+  if (this.conversation.type === 'SKILL_GROUP' && this.conversation.skillImageUrl) {
+    if (!this.conversation.skillImageUrl.startsWith('http')) {
+      return `http://localhost:8822${this.conversation.skillImageUrl}`;
+    }
+    return this.conversation.skillImageUrl;
+  }
+  
+  // Pour les conversations directes
+  if (this.conversation.type === 'DIRECT') {
+    const otherParticipant = this.conversation.participants.find(
+      p => p.userId !== this.currentUserId
+    );
+    if (otherParticipant) {
+      const avatar = otherParticipant.avatar || 
+                    (otherParticipant as any).profileImageUrl || 
+                    (otherParticipant as any).pictureUrl;
+      
+      if (avatar) {
+        if (!avatar.startsWith('http')) {
+          return `http://localhost:8822${avatar}`;
+        }
+        return avatar;
       }
     }
-    
-    // ✅ Générer un avatar par défaut
-    return this.generateDefaultAvatar(this.getConversationName());
   }
+  
+  // Générer avatar par défaut
+  return this.generateDefaultAvatar(this.getConversationName());
+}
 
-  private generateDefaultAvatar(name: string): string {
-    const colors = ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe', '#00f2fe'];
-    const index = name.charCodeAt(0) % colors.length;
-    const initial = name.charAt(0).toUpperCase();
-    
-    return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${colors[index]}"/><text x="50" y="50" font-size="40" text-anchor="middle" dy=".35em" fill="white">${initial}</text></svg>`;
+// REMPLACER generateDefaultAvatar() par:
+private generateDefaultAvatar(name: string): string {
+  if (!name || name.trim() === '') {
+    return 'assets/default-avatar.png';
   }
+  
+  const colors = ['667eea', '764ba2', 'f093fb', 'f5576c', '4facfe', '00f2fe'];
+  const colorIndex = Math.abs(this.hashCode(name)) % colors.length;
+  
+  // Utiliser UI Avatars API
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${colors[colorIndex]}&color=fff&size=100&bold=true`;
+}
+
+// AJOUTER:
+private hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash;
+}
+
+ 
 
   getSubtitle(): string {
     if (this.conversation.type === 'DIRECT') {

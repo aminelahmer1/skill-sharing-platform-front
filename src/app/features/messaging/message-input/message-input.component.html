@@ -1,26 +1,43 @@
+<!-- message-input.component.html - VERSION SANS ANIMATION -->
 <div class="message-input-container">
-  <!-- Emoji Picker -->
-  <div class="emoji-picker" *ngIf="showEmojiPicker" [@slideUp]>
+  
+  <!-- Emoji Picker (sans animation @slideUp) -->
+  <div class="emoji-picker" *ngIf="showEmojiPicker">
+    <div class="emoji-header">
+      <span class="emoji-title">Emojis</span>
+      <button class="emoji-close" (click)="closeEmojiPicker()" title="Fermer">
+        ✕
+      </button>
+    </div>
     <div class="emoji-grid">
-      <span *ngFor="let emoji of emojis" 
-            class="emoji-item" 
-            (click)="insertEmoji(emoji)">
+      <span 
+        *ngFor="let emoji of emojis" 
+        class="emoji-item" 
+        (click)="insertEmoji(emoji)"
+        [title]="emoji">
         {{ emoji }}
       </span>
     </div>
   </div>
 
+  <!-- Input Wrapper -->
   <div class="input-wrapper">
-    <!-- Actions gauche -->
+    
+    <!-- Actions à gauche -->
     <div class="input-actions-left">
-      <button class="action-btn" (click)="triggerFileInput()" title="Joindre un fichier">
+      <button 
+        class="action-btn" 
+        (click)="triggerFileInput()" 
+        title="Joindre un fichier"
+        type="button">
         📎
       </button>
-      <input type="file" 
-             #fileInput 
-             (change)="onFileSelect($event)"
-             accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
-             style="display: none">
+      <input 
+        type="file" 
+        #fileInput 
+        (change)="onFileSelect($event)"
+        accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
+        style="display: none">
     </div>
 
     <!-- Zone de texte -->
@@ -33,28 +50,51 @@
         placeholder="Écrivez un message..."
         rows="1"
         class="message-textarea"
-      ></textarea>
+        [attr.aria-label]="'Zone de message'"
+        [attr.aria-invalid]="false"
+        autocomplete="off"
+        spellcheck="true">
+      </textarea>
     </div>
 
-    <!-- Actions droite -->
+    <!-- Actions à droite -->
     <div class="input-actions-right">
-      <button class="action-btn" (click)="toggleEmojiPicker()" title="Emojis">
+      <button 
+        class="action-btn emoji-button" 
+        (click)="toggleEmojiPicker()" 
+        [title]="getEmojiButtonTooltip()"
+        [class.active]="showEmojiPicker"
+        type="button">
         😊
       </button>
       
-      <button class="action-btn" 
-              (click)="toggleRecording()" 
-              [class.recording]="isRecording"
-              title="Message vocal">
-        🎤
+      <button 
+        class="action-btn mic-button" 
+        (click)="toggleRecording()" 
+        [class.recording]="isRecording"
+        [title]="getRecordingTooltip()"
+        type="button">
+        <span *ngIf="!isRecording">🎤</span>
+        <span *ngIf="isRecording" class="recording-indicator">⏺️</span>
       </button>
 
-      <button class="send-btn" 
-              (click)="onSend()"
-              [disabled]="!messageContent.trim()"
-              title="Envoyer">
+      <button 
+        class="send-btn" 
+        (click)="onSend()"
+        [disabled]="!canSend()"
+        title="Envoyer le message"
+        type="button">
         <span class="send-icon">➤</span>
       </button>
     </div>
+    
   </div>
+
+  <!-- Indicateur d'enregistrement -->
+  <div class="recording-status" *ngIf="isRecording">
+    <span class="recording-dot"></span>
+    <span class="recording-text">Enregistrement en cours...</span>
+    <button class="recording-cancel" (click)="stopRecording()">Annuler</button>
+  </div>
+  
 </div>
