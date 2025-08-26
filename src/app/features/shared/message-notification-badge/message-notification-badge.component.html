@@ -19,29 +19,44 @@
       </div>
     </div>
 
-    <div class="notifications-list" *ngIf="notifications.length > 0">
-      <div *ngFor="let notification of notifications" 
-           class="notification-item"
-           [class.unread]="!notification.read"
-           (click)="openConversation(notification)">
-        
-        <div class="notification-avatar">
-          <img [src]="notification.avatarUrl || 'assets/default-avatar.png'" 
-               [alt]="notification.senderName">
-        </div>
-        
-        <div class="notification-content">
-          <div class="notification-header">
-            <span class="sender-name">{{ notification.senderName }}</span>
-            <span class="notification-time">{{ formatTime(notification.timestamp) }}</span>
-          </div>
-          <p class="notification-message">{{ notification.message }}</p>
-          <span class="conversation-name">dans {{ notification.conversationName }}</span>
-        </div>
-        
-        <span class="unread-indicator" *ngIf="!notification.read"></span>
-      </div>
+<div class="notifications-list" *ngIf="notifications.length > 0">
+  <div *ngFor="let notification of notifications" 
+       class="notification-item"
+       [class.unread]="!notification.read"
+       [class.direct-message]="notification.conversationType === 'DIRECT'"
+       [class.skill-message]="notification.conversationType === 'SKILL_GROUP'"
+       (click)="openConversation(notification)">
+    
+    <div class="notification-avatar">
+      <img [src]="notification.avatarUrl" 
+           [alt]="notification.senderName"
+           (error)="onAvatarError($event, notification.senderName)">
+      <!-- Badge pour les conversations de compétences -->
+      <span class="conversation-type-badge" *ngIf="notification.conversationType === 'SKILL_GROUP'">
+        🎓
+      </span>
     </div>
+    
+    <div class="notification-content">
+      <div class="notification-header">
+        <span class="sender-name">{{ notification.senderName }}</span>
+        <span class="notification-time">{{ formatTime(notification.timestamp) }}</span>
+      </div>
+      <p class="notification-message">{{ notification.message }}</p>
+      <span class="conversation-name">
+        <span class="conversation-icon" [ngSwitch]="notification.conversationType">
+          <span *ngSwitchCase="'DIRECT'">💬</span>
+          <span *ngSwitchCase="'GROUP'">👥</span>
+          <span *ngSwitchCase="'SKILL_GROUP'">🎓</span>
+          <span *ngSwitchDefault>📨</span>
+        </span>
+        {{ notification.conversationName }}
+      </span>
+    </div>
+    
+    <span class="unread-indicator" *ngIf="!notification.read"></span>
+  </div>
+</div>
 
     <div class="empty-notifications" *ngIf="notifications.length === 0">
       <span class="empty-icon">📭</span>

@@ -109,4 +109,22 @@ export class MessageNotificationBadgeComponent implements OnInit, OnDestroy {
     
     return new Date(date).toLocaleDateString('fr-FR');
   }
+  
+onAvatarError(event: any, senderName: string) {
+  // Si l'image ne charge pas, utiliser un avatar par défaut
+  const colors = ['667eea', '764ba2', 'f093fb', 'f5576c', '4facfe', '00f2fe'];
+  const colorIndex = Math.abs(this.hashCode(senderName)) % colors.length;
+  
+  event.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(senderName)}&background=${colors[colorIndex]}&color=fff&size=100&bold=true`;
+}
+
+private hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash;
+}
 }

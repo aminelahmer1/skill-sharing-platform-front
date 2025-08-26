@@ -1,4 +1,4 @@
-// conversation-header.component.ts - VERSION COMPLÈTE AVEC TOUTES LES MÉTHODES
+// conversation-header.component.ts - VERSION CORRIGÉE AVEC VRAIES PHOTOS
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { trigger, state, style, transition, animate } from '@angular/animations';
@@ -42,71 +42,81 @@ export class ConversationHeaderComponent {
     return this.conversation.name;
   }
 
-getConversationAvatar(): string {
-  // Utiliser l'avatar de la conversation si disponible
-  if (this.conversation.conversationAvatar) {
-    if (!this.conversation.conversationAvatar.startsWith('http')) {
-      return `http://localhost:8822${this.conversation.conversationAvatar}`;
-    }
-    return this.conversation.conversationAvatar;
-  }
-  
-  // Pour les conversations de compétence
-  if (this.conversation.type === 'SKILL_GROUP' && this.conversation.skillImageUrl) {
-    if (!this.conversation.skillImageUrl.startsWith('http')) {
-      return `http://localhost:8822${this.conversation.skillImageUrl}`;
-    }
-    return this.conversation.skillImageUrl;
-  }
-  
-  // Pour les conversations directes
-  if (this.conversation.type === 'DIRECT') {
-    const otherParticipant = this.conversation.participants.find(
-      p => p.userId !== this.currentUserId
-    );
-    if (otherParticipant) {
-      const avatar = otherParticipant.avatar || 
-                    (otherParticipant as any).profileImageUrl || 
-                    (otherParticipant as any).pictureUrl;
-      
-      if (avatar) {
-        if (!avatar.startsWith('http')) {
-          return `http://localhost:8822${avatar}`;
-        }
-        return avatar;
+  // ✅ MÉTHODE CORRIGÉE POUR VRAIES PHOTOS
+  getConversationAvatar(): string {
+    // Pour les conversations directes - utiliser la vraie photo du participant
+    if (this.conversation.type === 'DIRECT') {
+      const otherParticipant = this.conversation.participants.find(
+        p => p.userId !== this.currentUserId
+      );
+      if (otherParticipant) {
+        return this.getUserAvatar(otherParticipant);
       }
     }
+    
+    // Pour les conversations de compétence
+    if (this.conversation.type === 'SKILL_GROUP' && this.conversation.skillImageUrl) {
+      if (!this.conversation.skillImageUrl.startsWith('http')) {
+        return `http://localhost:8822${this.conversation.skillImageUrl}`;
+      }
+      return this.conversation.skillImageUrl;
+    }
+    
+    // Avatar de conversation personnalisé
+    if (this.conversation.conversationAvatar) {
+      if (!this.conversation.conversationAvatar.startsWith('http')) {
+        return `http://localhost:8822${this.conversation.conversationAvatar}`;
+      }
+      return this.conversation.conversationAvatar;
+    }
+    
+    // Générer avatar par défaut basé sur le nom
+    return this.generateDefaultAvatar(this.getConversationName());
   }
-  
-  // Générer avatar par défaut
-  return this.generateDefaultAvatar(this.getConversationName());
-}
 
-// REMPLACER generateDefaultAvatar() par:
-private generateDefaultAvatar(name: string): string {
-  if (!name || name.trim() === '') {
-    return 'assets/default-avatar.png';
+  // ✅ MÉTHODE AJOUTÉE POUR GÉRER LES AVATARS UTILISATEURS (comme dans NewConversationDialogComponent)
+  getUserAvatar(participant: any): string {
+    // Essayer différentes propriétés pour l'avatar
+    const avatarUrl = participant.avatar || 
+                     participant.profileImageUrl || 
+                     participant.pictureUrl ||
+                     (participant as any).avatarUrl;
+    
+    if (avatarUrl) {
+      // Si c'est déjà une URL complète
+      if (avatarUrl.startsWith('http')) {
+        return avatarUrl;
+      }
+      // Sinon, construire l'URL complète
+      return `http://localhost:8822${avatarUrl}`;
+    }
+    
+    // Générer avatar par défaut
+    return this.generateDefaultAvatar(participant.userName || participant.name || '');
   }
-  
-  const colors = ['667eea', '764ba2', 'f093fb', 'f5576c', '4facfe', '00f2fe'];
-  const colorIndex = Math.abs(this.hashCode(name)) % colors.length;
-  
-  // Utiliser UI Avatars API
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${colors[colorIndex]}&color=fff&size=100&bold=true`;
-}
 
-// AJOUTER:
-private hashCode(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+  // ✅ MÉTHODE CORRIGÉE POUR GÉNÉRER AVATAR PAR DÉFAUT
+  private generateDefaultAvatar(name: string): string {
+    if (!name || name.trim() === '') {
+      return 'assets/default-avatar.png';
+    }
+    
+    const colors = ['667eea', '764ba2', 'f093fb', 'f5576c', '4facfe', '00f2fe'];
+    const colorIndex = Math.abs(this.hashCode(name)) % colors.length;
+    const initial = name.charAt(0).toUpperCase();
+    
+    return `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23${colors[colorIndex]}"/><text x="50" y="50" font-size="35" text-anchor="middle" dy=".35em" fill="white" font-family="Arial">${initial}</text></svg>`;
   }
-  return hash;
-}
 
- 
+  private hashCode(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return hash;
+  }
 
   getSubtitle(): string {
     if (this.conversation.type === 'DIRECT') {
@@ -140,20 +150,16 @@ private hashCode(str: string): number {
     }
   }
 
+  // ✅ MÉTHODE CORRIGÉE POUR UTILISER getUserAvatar()
   getParticipantAvatar(participant: any): string {
-    // ✅ CORRECTION: Utiliser avatar au lieu de avatarUrl
-    if (participant.avatar) {
-      return participant.avatar;
-    }
-    
-    return this.generateDefaultAvatar(participant.userName);
+    return this.getUserAvatar(participant);
   }
 
   toggleInfo() {
     this.showInfo = !this.showInfo;
   }
 
-  // ✅ Nouvelles méthodes utilitaires
+  // Nouvelles méthodes utilitaires
   isDirectConversation(): boolean {
     return this.conversation.type === 'DIRECT';
   }
@@ -189,7 +195,7 @@ private hashCode(str: string): number {
     }
   }
 
-  // ✅ === MÉTHODES PUBLIQUES POUR LE TEMPLATE ===
+  // === MÉTHODES PUBLIQUES POUR LE TEMPLATE ===
 
   onVoiceCall() {
     console.log('🎤 Voice call initiated for conversation:', this.conversation.id);
@@ -218,7 +224,6 @@ private hashCode(str: string): number {
     }
   }
 
-  // ✅ MÉTHODES MANQUANTES AJOUTÉES
   onMuteConversation() {
     console.log('🔇 Toggling mute for conversation:', this.conversation.id);
     this.toggleMuteConversation();
@@ -231,7 +236,7 @@ private hashCode(str: string): number {
     }
   }
 
-  // ✅ === MÉTHODES PRIVÉES D'IMPLÉMENTATION ===
+  // === MÉTHODES PRIVÉES D'IMPLÉMENTATION ===
 
   private initiateVoiceCall() {
     if (this.conversation.type === 'DIRECT') {
@@ -270,12 +275,10 @@ private hashCode(str: string): number {
     
     console.log(`📞 Starting ${type} call:`, callData);
     
-    // ✅ Émettre l'événement global pour le système d'appels
     window.dispatchEvent(new CustomEvent('startCall', {
       detail: callData
     }));
     
-    // ✅ Notification utilisateur
     this.showNotification(`Appel ${type === 'audio' ? 'vocal' : 'vidéo'} en cours...`);
   }
 
@@ -452,7 +455,6 @@ private hashCode(str: string): number {
   }
 
   private showNotification(message: string) {
-    // ✅ Créer une notification temporaire
     const notification = document.createElement('div');
     notification.className = 'header-notification';
     notification.textContent = message;
@@ -482,7 +484,7 @@ private hashCode(str: string): number {
     }, 3000);
   }
 
-  // ✅ === MÉTHODES UTILITAIRES ===
+  // === MÉTHODES UTILITAIRES ===
 
   getOtherParticipant() {
     if (this.conversation.type === 'DIRECT') {
@@ -501,7 +503,6 @@ private hashCode(str: string): number {
     });
   }
 
-  // ✅ États des fonctionnalités
   isCallAvailable(): boolean {
     return this.conversation.status === 'ACTIVE';
   }

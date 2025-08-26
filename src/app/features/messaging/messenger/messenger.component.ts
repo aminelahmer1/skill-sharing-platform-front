@@ -1,9 +1,7 @@
 // messenger.component.ts - VERSION AVEC DEBUG ET S
-import { Component, OnInit, OnDestroy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, takeUntil, debounceTime, tap } from 'rxjs';
-import { ConversationListComponent } from '../conversation-list/conversation-list.component';
+import { Subject, takeUntil, debounceTime, tap, distinctUntilChanged } from 'rxjs';import { ConversationListComponent } from '../conversation-list/conversation-list.component';
 import { ChatWindowComponent } from '../chat-window/chat-window.component';
 import { NewConversationDialogComponent } from '../new-conversation-dialog/new-conversation-dialog.component';
 import { MessagingService, Conversation } from '../../../core/services/messaging/messaging.service';
@@ -60,14 +58,16 @@ export class MessengerComponent implements OnInit, OnDestroy {
 };
 
 
-  constructor(
-    private messagingService: MessagingService,
-    private keycloakService: KeycloakService
-  ) {
-    console.log('🚀 MessengerComponent initializing...');
-  }
+ // AJOUTER dans le constructor:
+constructor(
+  private messagingService: MessagingService,
+  private keycloakService: KeycloakService,
+  private cdr: ChangeDetectorRef // ✅ Ajouter ChangeDetectorRef
+) {
+  console.log('🚀 MessengerComponent initializing...');
+}
 
- async ngOnInit() {
+async ngOnInit() {
     console.log('🚀 MessengerComponent ngOnInit started');
     
     try {
@@ -89,6 +89,8 @@ export class MessengerComponent implements OnInit, OnDestroy {
         this.loadConversations();
         this.subscribeToUpdates();
         this.subscribeToConnectionStatus();
+
+        
         
         console.log('✅ MessengerComponent initialized successfully');
     } catch (error) {
@@ -96,12 +98,92 @@ export class MessengerComponent implements OnInit, OnDestroy {
         this.hasError = true;
         this.errorMessage = 'Erreur lors de l\'initialisation';
     }
+
+    // ✅ FIXED: Properly typed event listener
+    const handleNewConversation = (event: Event) => {
+        const customEvent = event as CustomEvent<Conversation>;
+        console.log('🆕 New conversation event received:', customEvent.detail);
+        this.onNewConversationReceived(customEvent.detail);
+    };
+
+    window.addEventListener('newConversationAdded', (event: any) => {
+    console.log('📬 New conversation added event:', event.detail);
+    
+    // Forcer la mise à jour de la vue
+    this.cdr.detectChanges();
+    
+    // Optionnel: Sélectionner automatiquement la nouvelle conversation
+    if (this.conversations.length === 1) {
+      this.selectedConversation = event.detail;
+    }
+  });
+
+}
+private newConversationHandler?: (event: Event) => void;
+
+private onNewConversationReceived(conversation: Conversation) {
+  console.log('🆕 Processing new conversation in messenger:', conversation);
+  
+  // Vérifier si elle n'existe pas déjà localement
+  const exists = this.conversations.find(c => c.id === conversation.id);
+  
+  if (!exists) {
+    // Ajouter en début de liste
+    this.conversations = [conversation, ...this.conversations];
+    
+    // Appliquer le filtre
+    this.applyCurrentFilter();
+    
+    // Forcer la détection de changements
+    this.cdr.detectChanges();
+    
+    // Notification visuelle
+    this.showNotification(`Nouvelle conversation: ${conversation.name}`, 'info');
+  }
+}
+
+// ✅ NOUVEAU: Méthode de notification améliorée
+private showNotification(message: string, type: 'success' | 'info' | 'error' = 'info') {
+  const notification = document.createElement('div');
+  notification.textContent = message;
+  
+  const bgColor = type === 'success' ? '#28a745' : 
+                  type === 'error' ? '#dc3545' : '#17a2b8';
+  
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${bgColor};
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    z-index: 10001;
+    font-weight: 500;
+    animation: slideInRight 0.3s ease;
+    max-width: 350px;
+  `;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.style.animation = 'slideOutRight 0.3s ease';
+      setTimeout(() => notification.remove(), 300);
+    }
+  }, 4000);
 }
 
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
-  }
+    
+    // ✅ FIXED: Proper event listener cleanup
+    if (this.newConversationHandler) {
+        window.removeEventListener('newConversationReceived', this.newConversationHandler);
+    }
+}
   // ===== CHARGEMENT UTILISATEUR =====
 private async loadUserInfo() {
   console.log('👤 Loading user info...');
@@ -341,15 +423,30 @@ private loadConversations() {
       });
   }
 
-  private subscribeToUpdates() {
-    this.messagingService.conversations$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(conversations => {
-        console.log('🔄 Conversations updated via subscription:', conversations.length);
-        this.conversations = conversations;
-        this.applyCurrentFilter();
-      });
-  }
+  // REMPLACER subscribeToUpdates():
+private subscribeToUpdates() {
+  this.messagingService.conversations$
+    .pipe(
+      takeUntil(this.destroy$),
+      distinctUntilChanged((prev, curr) => {
+        // Comparer par longueur ET contenu
+        if (prev.length !== curr.length) return false;
+        
+        const prevIds = prev.map(c => c.id).sort().join(',');
+        const currIds = curr.map(c => c.id).sort().join(',');
+        return prevIds === currIds;
+      })
+    )
+    .subscribe(conversations => {
+      console.log('🔄 Conversations updated:', conversations.length);
+      
+      this.conversations = conversations;
+      this.applyCurrentFilter();
+      
+      // ✅ IMPORTANT: Forcer Angular à détecter les changements
+      this.cdr.detectChanges();
+    });
+}
 
   // ===== HANDLERS D'ÉVÉNEMENTS =====
   onConversationSelect(conversation: Conversation) {
@@ -378,21 +475,39 @@ private loadConversations() {
     }
   }
 
-  onConversationCreated(conversation: Conversation) {
-    console.log('✅ New conversation created:', conversation);
-    this.showNewConversationDialog = false;
-    
-    const existingIndex = this.conversations.findIndex(c => c.id === conversation.id);
-    if (existingIndex === -1) {
-      this.conversations.unshift(conversation);
-      this.applyCurrentFilter();
-    }
-    
-    this.selectedConversation = conversation;
-    this.messagingService.setCurrentConversation(conversation);
-    
-    this.showSuccessNotification('Conversation créée avec succès !');
+  // REMPLACER onConversationCreated():
+onConversationCreated(conversation: Conversation) {
+  console.log('✅ New conversation created:', conversation);
+  this.showNewConversationDialog = false;
+  
+  // ✅ S'assurer que la conversation est ajoutée localement immédiatement
+  const existingIndex = this.conversations.findIndex(c => c.id === conversation.id);
+  
+  if (existingIndex === -1) {
+    // Ajouter en début de liste
+    this.conversations = [conversation, ...this.conversations];
+    console.log('📋 Added new conversation to local list');
+  } else {
+    // Si elle existe déjà, la mettre à jour
+    this.conversations[existingIndex] = conversation;
+    console.log('📋 Updated existing conversation in local list');
   }
+  
+  // ✅ Appliquer le filtre pour mettre à jour la vue
+  this.applyCurrentFilter();
+  
+  // ✅ Sélectionner automatiquement la nouvelle conversation
+  this.selectedConversation = conversation;
+  this.messagingService.setCurrentConversation(conversation);
+  
+  // ✅ Forcer la détection de changements
+  this.cdr.detectChanges();
+  
+  // Notification de succès
+  this.showSuccessNotification('Conversation créée avec succès !');
+}
+
+
 
   onNewConversationCancelled() {
     console.log('❌ New conversation dialog cancelled');

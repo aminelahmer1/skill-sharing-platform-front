@@ -2,10 +2,19 @@ import { Component, EventEmitter, Input, Output, OnInit, OnDestroy } from '@angu
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil, debounceTime, switchMap, of, map, forkJoin } from 'rxjs';
-import { MessagingService, Conversation, UserResponse, SkillResponse } from '../../../core/services/messaging/messaging.service';
+import { MessagingService, Conversation, UserResponse, Participant  } from '../../../core/services/messaging/messaging.service';
 import { KeycloakService } from '../../../core/services/keycloak.service';
 import { trigger, transition, style, animate } from '@angular/animations';
 
+interface ExtendedConversation extends Conversation {
+  skillName?: string;
+  skillDescription?: string;
+}
+
+
+interface ExtendedUserResponse extends UserResponse {
+  pictureUrl?: string;
+}
 
 interface User {
   id: number;
@@ -523,35 +532,35 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
     return this.messagingService.createGroupConversation(this.groupName.trim(), participantIds).toPromise();
   }
 
-  private async createSkillConversation(): Promise<Conversation | undefined> {
-    if (!this.selectedSkillId) {
-      throw new Error('Aucune compétence sélectionnée');
-    }
-    
-    console.log('🚀 Creating skill conversation:', {
-      skillId: this.selectedSkillId,
-      skillData: this.selectedSkillData,
-      participants: this.skillParticipants.length
-    });
-    
-    // Créer la conversation de compétence
-    const conversation = await this.messagingService.createSkillConversation(this.selectedSkillId).toPromise();
-    
-    if (conversation && this.selectedSkillData) {
-      // Enrichir la conversation avec les données locales pour un affichage immédiat
-      conversation.participants = this.skillParticipants.map(p => ({
-        userId: p.id,
-        userName: p.name,
-        role: p.role === 'PRODUCER' ? 'ADMIN' : 'MEMBER',
-        isOnline: false,
-        avatar: p.avatar
-      }));
-      
-      console.log('✅ Skill conversation created with participants:', conversation);
-    }
-    
-    return conversation;
+private async createSkillConversation(): Promise<Conversation | undefined> {
+  if (!this.selectedSkillId) {
+    throw new Error('Aucune compétence sélectionnée');
   }
+  
+  console.log('🚀 Creating skill conversation:', {
+    skillId: this.selectedSkillId,
+    currentUserId: this.currentUserId
+  });
+  
+  try {
+    const conversation = await this.messagingService
+      .createSkillConversation(this.selectedSkillId)
+      .toPromise();
+    
+    if (conversation) {
+      console.log('✅ Skill conversation created successfully:', conversation);
+      
+      // ✅ S'assurer que l'événement est bien émis
+      return conversation;
+    }
+    
+    return undefined;
+    
+  } catch (error) {
+    console.error('❌ Error creating skill conversation:', error);
+    throw error;
+  }
+}
 
   private handleCreationError(error: any) {
     if (error.status === 400) {

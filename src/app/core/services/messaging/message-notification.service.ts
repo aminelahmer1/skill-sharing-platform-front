@@ -9,6 +9,7 @@ export interface MessageNotification {
   id: string;
   conversationId: number;
   conversationName: string;
+  conversationType?: string; 
   senderName: string;
   message: string;
   timestamp: Date;
@@ -233,67 +234,92 @@ private processNewMessages(
   currentConversation: Conversation | null
 ) {
   const recentThreshold = new Date(Date.now() - 30000);
-  const newMessages = messages.filter(m => 
-    new Date(m.sentAt) > recentThreshold &&
-    // CORRIGER: Utiliser la bonne casse pour le status
-    (m.status !== 'READ' && m.status !== 'DELIVERED') && // Vérifier les deux casses
-    !m.isDeleted &&
-    m.senderId !== this.currentUserId
-  );
+  const newMessages = messages.filter(m => {
+    // Vérifier que le message est récent
+    const isRecent = new Date(m.sentAt) > recentThreshold;
+    
+    // Vérifier que ce n'est pas notre propre message
+    const isFromOther = m.senderId !== this.currentUserId;
+    
+    // Vérifier que le message n'est pas supprimé
+    const notDeleted = !m.isDeleted;
+    
+    // Pour les notifications, on veut les messages non lus seulement
+    const isUnread = m.status === 'SENT' || !m.status;
+    
+    return isRecent && isFromOther && notDeleted && isUnread;
+  });
 
   newMessages.forEach(message => {
+    // Ne pas notifier si on est dans la conversation active
     if (currentConversation && 
         message.conversationId === currentConversation.id && 
         this.isPageVisible) {
       return;
     }
 
+    // Vérifier si la notification existe déjà
     if (this.isNotificationExists(message.id!)) {
       return;
     }
 
     const conversation = conversations.find(c => c.id === message.conversationId);
     if (conversation) {
+      // Créer la notification avec priorité haute pour les compétences
       this.createNotification(message, conversation);
     }
   });
 }
 
-  private createNotification(message: Message, conversation: Conversation) {
-    const preferences = this.getNotificationPreferences();
-    
-    // ✅ Vérifier si les notifications sont activées
-    if (!preferences.enabled) {
-      return;
-    }
-
-    // ✅ Vérifier le type de conversation
-    if (!this.shouldNotifyForConversationType(conversation.type, preferences)) {
-      return;
-    }
-
-    // ✅ Vérifier les heures silencieuses
-    if (this.isInQuietHours(preferences)) {
-      return;
-    }
-
-    const notification: MessageNotification = {
-      id: `msg-${message.id}-${Date.now()}`,
-      conversationId: message.conversationId,
-      conversationName: this.getConversationDisplayName(conversation),
-      senderName: message.senderName,
-      message: this.formatMessageContent(message),
-      timestamp: new Date(message.sentAt),
-      read: false,
-      avatarUrl: message.senderAvatar,
-      messageId: message.id,
-      messageType: message.type,
-      priority: this.getMessagePriority(message, conversation)
-    };
-
-    this.addNotification(notification);
-    this.processNotificationDisplay(notification, preferences);
+private async createNotification(message: Message, conversation: Conversation) {
+  const preferences = this.getNotificationPreferences();
+  
+  if (!preferences.enabled) {
+    console.log('⚠️ Notifications disabled by user preferences');
+    return;
   }
+
+  if (!this.shouldNotifyForConversationType(conversation.type, preferences)) {
+    console.log('⚠️ Notifications disabled for conversation type:', conversation.type);
+    return;
+  }
+
+  if (this.isInQuietHours(preferences)) {
+    console.log('⚠️ In quiet hours, skipping notification');
+    return;
+  }
+
+  const priority = await this.getMessagePriority(message, conversation);
+
+  // IMPORTANT: Formater l'URL de l'avatar
+  const formattedAvatarUrl = this.formatAvatarUrl(message.senderAvatar, message.senderName);
+
+  const notification: MessageNotification = {
+    id: `msg-${message.id}-${Date.now()}`,
+    conversationId: message.conversationId,
+    conversationName: this.getConversationDisplayName(conversation),
+    conversationType: conversation.type,
+    senderName: message.senderName,
+    message: this.formatMessageContent(message),
+    timestamp: new Date(message.sentAt),
+    read: false,
+    avatarUrl: formattedAvatarUrl, // Utiliser l'URL formatée
+    messageId: message.id,
+    messageType: message.type,
+    priority: priority
+  };
+
+  console.log('📱 Creating notification with avatar:', {
+    conversationType: conversation.type,
+    conversationName: notification.conversationName,
+    priority: notification.priority,
+    message: notification.message,
+    avatarUrl: notification.avatarUrl
+  });
+
+  this.addNotification(notification);
+  this.processNotificationDisplay(notification, preferences);
+}
 
   private processNotificationDisplay(notification: MessageNotification, preferences: NotificationPreferences) {
     // ✅ Son de notification
@@ -328,7 +354,19 @@ private processNewMessages(
         return true;
     }
   }
-
+private async getCurrentUserName(): Promise<string | null> {
+  try {
+    // Récupérer le profil de manière asynchrone
+    const profile = await this.keycloakService.getUserProfile();
+    if (profile && profile.firstName && profile.lastName) {
+      return `${profile.firstName} ${profile.lastName}`.trim();
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting user name:', error);
+    return null;
+  }
+}
   private isInQuietHours(preferences: NotificationPreferences): boolean {
     if (!preferences.quietHours.enabled) {
       return false;
@@ -351,24 +389,33 @@ private processNewMessages(
     }
   }
 
-  private getMessagePriority(message: Message, conversation: Conversation): 'LOW' | 'NORMAL' | 'HIGH' {
-    // ✅ Messages directs = priorité haute
-    if (conversation.type === 'DIRECT') {
-      return 'HIGH';
-    }
-
-    // ✅ Messages système = priorité basse
-    if (message.type === 'SYSTEM') {
-      return 'LOW';
-    }
-
-    // ✅ Messages avec mentions (si implémenté) = priorité haute
-    if (message.content.includes('@') && this.currentUserId) {
-      return 'HIGH';
-    }
-
-    return 'NORMAL';
+private async getMessagePriority(message: Message, conversation: Conversation): Promise<'LOW' | 'NORMAL' | 'HIGH'> {
+  // Messages de compétences = priorité haute
+  if (conversation.type === 'SKILL_GROUP') {
+    return 'HIGH';
   }
+  
+  // Messages directs = priorité haute
+  if (conversation.type === 'DIRECT') {
+    return 'HIGH';
+  }
+
+  // Messages système = priorité basse
+  if (message.type === 'SYSTEM') {
+    return 'LOW';
+  }
+
+  // Messages avec mentions = priorité haute
+  if (message.content.includes('@') && this.currentUserId) {
+    const userName = await this.getCurrentUserName();
+    if (userName && message.content.toLowerCase().includes(userName.toLowerCase())) {
+      return 'HIGH';
+    }
+  }
+
+  return 'NORMAL';
+}
+
 
   private formatMessageContent(message: Message): string {
     const maxLength = 120;
@@ -438,50 +485,46 @@ private processNewMessages(
     return false;
   }
 
-  private showBrowserNotification(notification: MessageNotification) {
-    if (!('Notification' in window) || Notification.permission !== 'granted') {
-      return;
-    }
-
-    try {
-      // ✅ CORRECTION: Options de notification compatibles
-      const browserNotification = new Notification(
-        `💬 ${notification.senderName}`,
-        {
-          body: `${notification.conversationName}\n${notification.message}`,
-          icon: notification.avatarUrl || '/assets/icons/message-icon.png',
-          badge: '/assets/icons/app-badge.png',
-          tag: `conversation-${notification.conversationId}`,
-          requireInteraction: notification.priority === 'HIGH',
-          silent: false,
-          data: {
-            conversationId: notification.conversationId,
-            messageId: notification.messageId
-          }
-        }
-      );
-
-      // ✅ Vibration séparée pour éviter les conflits
-      if ('vibrate' in navigator && !this.isPageVisible) {
-        navigator.vibrate([200, 100, 200]);
-      }
-
-      // ✅ Auto-fermer après un délai
-      setTimeout(() => {
-        browserNotification.close();
-      }, this.notificationDuration);
-
-      // ✅ Gérer le clic
-      browserNotification.onclick = () => {
-        window.focus();
-        this.handleNotificationClick(notification);
-        browserNotification.close();
-      };
-
-    } catch (error) {
-      console.warn('⚠️ Failed to show browser notification:', error);
-    }
+ private showBrowserNotification(notification: MessageNotification) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    return;
   }
+
+  try {
+    const browserNotification = new Notification(
+      `💬 ${notification.senderName}`,
+      {
+        body: `${notification.conversationName}\n${notification.message}`,
+        icon: notification.avatarUrl || this.generateDefaultAvatar(notification.senderName),
+        badge: '/assets/icons/app-badge.png',
+        tag: `conversation-${notification.conversationId}`,
+        requireInteraction: notification.priority === 'HIGH',
+        silent: false,
+        data: {
+          conversationId: notification.conversationId,
+          messageId: notification.messageId
+        }
+      }
+    );
+
+    if ('vibrate' in navigator && !this.isPageVisible) {
+      navigator.vibrate([200, 100, 200]);
+    }
+
+    setTimeout(() => {
+      browserNotification.close();
+    }, this.notificationDuration);
+
+    browserNotification.onclick = () => {
+      window.focus();
+      this.handleNotificationClick(notification);
+      browserNotification.close();
+    };
+
+  } catch (error) {
+    console.warn('⚠️ Failed to show browser notification:', error);
+  }
+}
 
   private handleNotificationClick(notification: MessageNotification) {
     // ✅ Marquer comme lue
@@ -714,4 +757,41 @@ private processNewMessages(
     this.destroy$.complete();
     console.log('🔄 MessageNotificationService destroyed');
   }
+  // Dans message-notification.service.ts, ajouter ces méthodes utilitaires :
+
+private generateDefaultAvatar(name: string): string {
+  if (!name || name.trim() === '') {
+    return 'assets/default-avatar.png';
+  }
+  
+  const colors = ['667eea', '764ba2', 'f093fb', 'f5576c', '4facfe', '00f2fe'];
+  const colorIndex = Math.abs(this.hashCode(name)) % colors.length;
+  
+  // Utiliser UI Avatars API pour générer un avatar
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${colors[colorIndex]}&color=fff&size=100&bold=true`;
+}
+
+private hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash;
+}
+
+private formatAvatarUrl(avatarUrl?: string, senderName?: string): string {
+  // Si on a une URL d'avatar
+  if (avatarUrl) {
+    // Si c'est une URL relative, ajouter le base URL
+    if (!avatarUrl.startsWith('http')) {
+      return `http://localhost:8822${avatarUrl}`;
+    }
+    return avatarUrl;
+  }
+  
+  // Sinon, générer un avatar par défaut
+  return this.generateDefaultAvatar(senderName || 'User');
+}
 }

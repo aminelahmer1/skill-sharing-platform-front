@@ -231,4 +231,86 @@
     width: 320px;
     right: -10px;
   }
+}/* Améliorer le style des avatars dans les notifications */
+.notification-avatar {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.notification-avatar img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #f0f2f5;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Animation de chargement pour les avatars */
+.notification-avatar img:not([src]),
+.notification-avatar img[src=""] {
+  background: linear-gradient(90deg, #f0f2f5 25%, #e0e3e7 50%, #f0f2f5 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Indicateur en ligne pour les messages directs */
+.notification-avatar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 12px;
+  height: 12px;
+  background: #00b894;
+  border: 2px solid white;
+  border-radius: 50%;
+  display: none;
+}
+
+.notification-item.direct-message .notification-avatar::after {
+  display: block;
+}/* Dans message-notification-badge.component.css */
+.conversation-type-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.conversation-icon {
+  font-size: 0.9rem;
+  margin-right: 4px;
+}
+
+/* Styles différents selon le type de conversation */
+.notification-item.skill-message {
+  background: linear-gradient(to right, rgba(102, 126, 234, 0.03), transparent);
+}
+
+.notification-item.direct-message .sender-name {
+  color: #667eea;
+}
+
+.notification-item.skill-message .conversation-name {
+  font-weight: 600;
+  color: #764ba2;
 }

@@ -369,15 +369,16 @@ private async initializeStompConnection() {
       heartbeatOutgoing: 25000,
       
       onConnect: (frame) => {
-        console.log('✅ STOMP Connected:', frame);
-        this.connectionStatusSubject.next('CONNECTED');
-        this.reconnectAttempts = 0;
-        this.subscribeToTopics();
-        
-        // Charger les conversations après connexion
-        this.getUserConversations().subscribe();
-      },
-      
+  console.log('✅ STOMP Connected:', frame);
+  this.connectionStatusSubject.next('CONNECTED');
+  this.reconnectAttempts = 0;
+
+  // ✅ Ajoute cet appel
+  this.subscribeToWebSocket();
+
+  this.subscribeToTopics();
+  this.getUserConversations().subscribe();
+},
       onStompError: (frame) => {
         console.error('❌ STOMP Error:', frame);
         this.connectionStatusSubject.next('ERROR');
@@ -404,6 +405,176 @@ private async initializeStompConnection() {
     this.connectionStatusSubject.next('ERROR');
     this.scheduleReconnect();
   }
+}// Dans messaging.service.ts, après la méthode subscribeToWebSocket(), ajouter :
+
+private handleIncomingMessage(message: Message) {
+  console.log('📬 Handling incoming message:', message);
+  
+  // Ajouter le message à la liste s'il n'existe pas déjà
+  const currentMessages = this.messagesSubject.value;
+  const exists = currentMessages.find(m => m.id === message.id);
+  
+  if (!exists) {
+    this.messagesSubject.next([...currentMessages, message]);
+    
+    // Mettre à jour le dernier message de la conversation
+    this.updateConversationLastMessage(message.conversationId, message);
+    
+    // Incrémenter le compteur de non-lus si ce n'est pas la conversation active
+    const currentConversation = this.currentConversationSubject.value;
+    if (!currentConversation || currentConversation.id !== message.conversationId) {
+      this.incrementUnreadCount();
+    }
+  }
+}
+
+private handleNewConversation(conversation: Conversation) {
+  console.log('📬 Handling new conversation:', conversation);
+  
+  // Ajouter la conversation à la liste si elle n'existe pas
+  const currentConversations = this.conversationsSubject.value;
+  const exists = currentConversations.find(c => c.id === conversation.id);
+  
+  if (!exists) {
+    // Ajouter en début de liste
+    this.conversationsSubject.next([conversation, ...currentConversations]);
+    
+    // Si c'est une conversation de compétence, s'abonner au topic
+    if (conversation.type === 'SKILL_GROUP' && conversation.skillId && this.stompClient) {
+      this.stompClient.subscribe(`/topic/skill/${conversation.skillId}`, (message: any) => {
+        console.log('📬 Skill message received from new conversation:', message.body);
+        this.handleIncomingMessage(JSON.parse(message.body));
+      });
+    }
+  }
+}
+private subscribeToWebSocket(): void {
+  if (!this.stompClient || !this.currentUserId) return;
+
+  // ✅ Abonnement pour nouvelles conversations
+  this.stompClient.subscribe(`/user/${this.currentUserId}/queue/new-conversation`, (message: any) => {
+    try {
+      const newConversation = JSON.parse(message.body) as Conversation;
+      console.log('📬 New conversation received:', newConversation);
+
+      // ✅ Ajouter à la liste locale
+      const current = this.conversationsSubject.value;
+      if (!current.find(c => c.id === newConversation.id)) {
+        this.conversationsSubject.next([newConversation, ...current]);
+      }
+    } catch (error) {
+      console.error('❌ Error parsing new conversation:', error);
+    }
+  });
+
+  // ✅ Abonnement global pour skill conversations
+  this.getUserSkillsWithUsers().subscribe(response => {
+    response.skills.forEach(skill => {
+      const skillTopic = `/topic/skill/${skill.skillId}/new-conversation`;
+      this.stompClient!.subscribe(skillTopic, (message: any) => {
+        try {
+          const newConversation = JSON.parse(message.body) as Conversation;
+          console.log(`📬 New skill conversation for skill ${skill.skillId}:`, newConversation);
+
+          const current = this.conversationsSubject.value;
+          if (!current.find(c => c.id === newConversation.id)) {
+            this.conversationsSubject.next([newConversation, ...current]);
+          }
+        } catch (error) {
+          console.error('❌ Error parsing skill conversation:', error);
+        }
+      });
+    });
+  });
+}
+// ✅ AMÉLIORER la méthode de gestion des nouvelles conversations
+private handleNewConversationReceived(conversation: Conversation) {
+  console.log('🆕 Handling new conversation:', conversation);
+  
+  const currentConversations = this.conversationsSubject.value;
+  const exists = currentConversations.find(c => c.id === conversation.id);
+  
+  if (!exists) {
+    // Ajouter en début de liste
+    const updated = [conversation, ...currentConversations];
+    this.conversationsSubject.next(updated);
+    
+    console.log('✅ New conversation added to list:', conversation.id);
+    
+    // Émettre un événement global
+    window.dispatchEvent(new CustomEvent('newConversationAdded', {
+      detail: conversation
+    }));
+    
+    // Notification toast
+    this.showNotification(`Nouvelle conversation: ${conversation.name}`);
+  } else {
+    // Mettre à jour si elle existe déjà
+    const updatedList = currentConversations.map(c => 
+      c.id === conversation.id ? conversation : c
+    );
+    this.conversationsSubject.next(updatedList);
+    console.log('✅ Conversation updated:', conversation.id);
+  }
+}
+
+private showNotification(message: string) {
+  // Créer une notification visuelle
+  const notification = document.createElement('div');
+  notification.textContent = message;
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #28a745;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    z-index: 10000;
+    animation: slideInRight 0.3s ease;
+  `;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.animation = 'slideOutRight 0.3s ease';
+    setTimeout(() => notification.remove(), 300);
+  }, 4000);
+}
+
+refreshConversations(): void {
+  console.log('🔄 Refreshing conversations list...');
+  
+  // Forcer le rechargement des conversations
+  this.getUserConversations(0, 50).subscribe({
+    next: (conversations) => {
+      this.conversationsSubject.next(conversations);
+      console.log('✅ Conversations refreshed:', conversations.length);
+    },
+    error: (error) => {
+      console.error('❌ Error refreshing conversations:', error);
+    }
+  });
+}
+
+// Ajouter aussi une méthode pour écouter les nouvelles conversations via WebSocket
+private subscribeToNewConversations(): void {
+  if (!this.stompClient) return;
+  
+  // S'abonner aux nouvelles conversations
+  this.stompClient.subscribe('/user/queue/new-conversation', (message: any) => {
+    const newConversation = JSON.parse(message.body) as Conversation;
+    console.log('📬 New conversation received:', newConversation);
+    
+    // Ajouter la nouvelle conversation à la liste
+    const currentConversations = this.conversationsSubject.value;
+    const exists = currentConversations.find(c => c.id === newConversation.id);
+    
+    if (!exists) {
+      this.conversationsSubject.next([newConversation, ...currentConversations]);
+    }
+  });
 }
 
   private subscribeToTopics() {
@@ -806,7 +977,7 @@ private getAvailableUsersForDirectOrGroupFallback(): Observable<UserResponse[]> 
   /**
    * ✅ MISE À JOUR: Crée ou récupère une conversation directe avec validation des utilisateurs connectés
    */
- // MODIFIER createDirectConversation():
+// REMPLACER createDirectConversation():
 createDirectConversation(otherUserId: number): Observable<Conversation> {
   return from(this.keycloakService.getToken()).pipe(
     switchMap(token => {
@@ -830,15 +1001,15 @@ createDirectConversation(otherUserId: number): Observable<Conversation> {
     tap(conversation => {
       console.log('✅ Direct conversation created:', conversation);
       
-      // AJOUTER: Mise à jour immédiate de la liste
+      // ✅ IMPORTANT: Mettre à jour immédiatement le BehaviorSubject
       const current = this.conversationsSubject.value;
       const exists = current.find(c => c.id === conversation.id);
       
       if (!exists) {
-        // Ajouter en début de liste
+        // Ajouter en début de liste et émettre la nouvelle liste
         const updated = [conversation, ...current];
         this.conversationsSubject.next(updated);
-        console.log('📋 Conversation list updated');
+        console.log('📋 Conversations list updated with new conversation');
       }
     }),
     catchError(error => {
@@ -848,7 +1019,7 @@ createDirectConversation(otherUserId: number): Observable<Conversation> {
   );
 }
 
-// MODIFIER createSkillConversation() de la même manière:
+// REMPLACER createSkillConversation():
 createSkillConversation(skillId: number): Observable<Conversation> {
   return from(this.keycloakService.getToken()).pipe(
     switchMap(token => {
@@ -870,13 +1041,14 @@ createSkillConversation(skillId: number): Observable<Conversation> {
     tap(conversation => {
       console.log('✅ Skill conversation created:', conversation);
       
-      // AJOUTER: Mise à jour immédiate
+      // ✅ IMPORTANT: Mettre à jour immédiatement le BehaviorSubject
       const current = this.conversationsSubject.value;
       const exists = current.find(c => c.id === conversation.id);
       
       if (!exists) {
         const updated = [conversation, ...current];
         this.conversationsSubject.next(updated);
+        console.log('📋 Conversations list updated with new skill conversation');
       }
     }),
     catchError(error => {
@@ -886,7 +1058,7 @@ createSkillConversation(skillId: number): Observable<Conversation> {
   );
 }
 
-// MODIFIER createGroupConversation() de la même manière:
+// REMPLACER createGroupConversation():
 createGroupConversation(name: string, participantIds: number[], description?: string): Observable<Conversation> {
   return from(this.keycloakService.getToken()).pipe(
     switchMap(token => {
@@ -910,13 +1082,14 @@ createGroupConversation(name: string, participantIds: number[], description?: st
     tap(conversation => {
       console.log('✅ Group conversation created:', conversation);
       
-      // AJOUTER: Mise à jour immédiate
+      // ✅ IMPORTANT: Mettre à jour immédiatement le BehaviorSubject
       const current = this.conversationsSubject.value;
       const exists = current.find(c => c.id === conversation.id);
       
       if (!exists) {
         const updated = [conversation, ...current];
         this.conversationsSubject.next(updated);
+        console.log('📋 Conversations list updated with new group');
       }
     }),
     catchError(error => {
@@ -1728,6 +1901,19 @@ debugSkillsData(): void {
     });
   });
 }
-
+// Méthode publique pour forcer le rafraîchissement de la liste
+public forceRefreshConversations(): void {
+  console.log('🔄 Force refreshing conversations list...');
+  
+  this.getUserConversations(0, 50).subscribe({
+    next: (conversations) => {
+      this.conversationsSubject.next(conversations);
+      console.log('✅ Conversations list force refreshed:', conversations.length);
+    },
+    error: (error) => {
+      console.error('❌ Error force refreshing:', error);
+    }
+  });
+}
 
 }
