@@ -92,4 +92,6 @@ export class MessageBubbleComponent {
   isFileMessage(): boolean {
     return this.message.type === 'FILE' && !!this.message.attachmentUrl;
   }
+
+  
 }

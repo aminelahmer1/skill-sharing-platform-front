@@ -425,28 +425,102 @@ private loadConversations() {
 
   // REMPLACER subscribeToUpdates():
 private subscribeToUpdates() {
+  this.subscribeToConversationsUpdates();
+  this.subscribeToMessagesUpdates();
+}
+private subscribeToConversationsUpdates() {
   this.messagingService.conversations$
-    .pipe(
-      takeUntil(this.destroy$),
-      distinctUntilChanged((prev, curr) => {
-        // Comparer par longueur ET contenu
-        if (prev.length !== curr.length) return false;
-        
-        const prevIds = prev.map(c => c.id).sort().join(',');
-        const currIds = curr.map(c => c.id).sort().join(',');
-        return prevIds === currIds;
-      })
-    )
+    .pipe(takeUntil(this.destroy$))
     .subscribe(conversations => {
-      console.log('🔄 Conversations updated:', conversations.length);
-      
-      this.conversations = conversations;
+      // ✅ Fusionner sans doublon
+      const unique = new Map<number, Conversation>();
+      for (const c of conversations) {
+        unique.set(c.id, c);
+      }
+      this.conversations = Array.from(unique.values());
       this.applyCurrentFilter();
-      
-      // ✅ IMPORTANT: Forcer Angular à détecter les changements
       this.cdr.detectChanges();
     });
 }
+private subscribeToMessagesUpdates() {
+  this.messagingService.messages$
+    .pipe(takeUntil(this.destroy$))
+    .subscribe(allMessages => {
+      this.updateConversationsWithLatestMessages(allMessages);
+    });
+}
+
+private updateConversationsWithLatestMessages(allMessages: any[]) {
+  const messageMap = new Map<number, any>();
+
+  for (const msg of allMessages) {
+    const existing = messageMap.get(msg.conversationId);
+    if (!existing || new Date(msg.timestamp) > new Date(existing.timestamp)) {
+      messageMap.set(msg.conversationId, msg);
+    }
+  }
+
+  this.conversations = this.conversations.map(conv => {
+    const latest = messageMap.get(conv.id);
+    if (!latest) return conv;
+
+    return {
+      ...conv,
+      lastMessage: latest.content || '',
+      lastMessageTime: this.parseDateSafely(latest.timestamp),
+      unreadCount: conv.unreadCount ?? 0
+    };
+  });
+
+  this.applyCurrentFilter();
+  this.cdr.detectChanges();
+}
+
+private parseDateSafely(dateInput: string | Date): Date {
+  if (!dateInput) return new Date();
+  const date = new Date(dateInput);
+  return isNaN(date.getTime()) ? new Date() : date;
+}
+onConversationCreated(conversation: Conversation) {
+  console.log('✅ New conversation created:', conversation);
+
+  this.showNewConversationDialog = false;
+
+  // ✅ Vérifier si elle existe déjà
+  const existing = this.findExistingConversation(
+    conversation.participants.find(p => p.userId !== this.currentUserId)?.userId,
+    conversation.skillId
+  );
+
+  if (existing) {
+    console.log('📌 Conversation already exists, selecting it:', existing.id);
+    this.selectedConversation = existing;
+    this.messagingService.setCurrentConversation(existing);
+  } else {
+    // ✅ Ajouter seulement si nouvelle
+    this.conversations = [conversation, ...this.conversations];
+    this.applyCurrentFilter();
+    this.selectedConversation = conversation;
+    this.messagingService.setCurrentConversation(conversation);
+  }
+
+  this.cdr.detectChanges();
+}
+private findExistingConversation(participantId?: number, skillId?: number): Conversation | undefined {
+  return this.conversations.find(c => {
+    if (skillId && c.skillId === skillId) return true;
+    if (participantId && c.type === 'DIRECT' && c.participants.length === 2) {
+      return c.participants.some(p => p.userId === participantId);
+    }
+    return false;
+  });
+}
+
+
+
+
+
+
 
   // ===== HANDLERS D'ÉVÉNEMENTS =====
   onConversationSelect(conversation: Conversation) {
@@ -476,36 +550,7 @@ private subscribeToUpdates() {
   }
 
   // REMPLACER onConversationCreated():
-onConversationCreated(conversation: Conversation) {
-  console.log('✅ New conversation created:', conversation);
-  this.showNewConversationDialog = false;
-  
-  // ✅ S'assurer que la conversation est ajoutée localement immédiatement
-  const existingIndex = this.conversations.findIndex(c => c.id === conversation.id);
-  
-  if (existingIndex === -1) {
-    // Ajouter en début de liste
-    this.conversations = [conversation, ...this.conversations];
-    console.log('📋 Added new conversation to local list');
-  } else {
-    // Si elle existe déjà, la mettre à jour
-    this.conversations[existingIndex] = conversation;
-    console.log('📋 Updated existing conversation in local list');
-  }
-  
-  // ✅ Appliquer le filtre pour mettre à jour la vue
-  this.applyCurrentFilter();
-  
-  // ✅ Sélectionner automatiquement la nouvelle conversation
-  this.selectedConversation = conversation;
-  this.messagingService.setCurrentConversation(conversation);
-  
-  // ✅ Forcer la détection de changements
-  this.cdr.detectChanges();
-  
-  // Notification de succès
-  this.showSuccessNotification('Conversation créée avec succès !');
-}
+
 
 
 
