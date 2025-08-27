@@ -118,6 +118,19 @@ async ngOnInit() {
     }
   });
 
+   this.messagingService.enableRealTimeUpdates();
+  
+  // Écouter les changements de conversations avec détection automatique
+  this.messagingService.conversations$.pipe(
+    takeUntil(this.destroy$),
+    distinctUntilChanged((prev, curr) => JSON.stringify(prev) === JSON.stringify(curr)),
+    tap(() => console.log('🔄 Conversations list updated'))
+  ).subscribe(conversations => {
+    this.conversations = conversations;
+    this.applyCurrentFilter();
+    this.cdr.detectChanges(); // Forcer la mise à jour de l'affichage
+  });
+
 }
 private newConversationHandler?: (event: Event) => void;
 

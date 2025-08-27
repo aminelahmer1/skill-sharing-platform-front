@@ -411,61 +411,46 @@ private async initializeStompConnection() {
   }
 }// Dans messaging.service.ts, après la méthode subscribeToWebSocket(), ajouter :
 
-private handleIncomingMessage(message: Message) {
-  console.log('📬 Handling incoming message:', message);
+private handleIncomingMessage(message: Message): void {
+  console.log('📬 Traitement message entrant:', message);
   
   const currentMessages = this.messagesSubject.value;
-  
-  // Créer une clé unique pour ce message
   const messageKey = `${message.conversationId}_${message.senderId}_${message.content}_${Math.floor(new Date(message.sentAt).getTime() / 1000)}`;
   
-  // Vérifier si ce message a déjà été traité récemment
   if (this.recentlyProcessedMessages.has(messageKey)) {
-    console.log('Message already processed, skipping:', messageKey);
     return;
   }
   
-  // Vérification plus stricte des doublons
   const isDuplicate = currentMessages.some(m => {
-    // Vérification par ID
     if (m.id && message.id && m.id === message.id) return true;
     
-    // Vérification par contenu pour les messages sans ID ou avec ID temporaire
     if (m.conversationId === message.conversationId && 
         m.senderId === message.senderId &&
         m.content.trim() === message.content.trim()) {
-      
-      // Tolérance de 5 secondes pour les timestamps
-      const timeDiff = Math.abs(
-        new Date(m.sentAt).getTime() - new Date(message.sentAt).getTime()
-      );
+      const timeDiff = Math.abs(new Date(m.sentAt).getTime() - new Date(message.sentAt).getTime());
       return timeDiff < 5000;
     }
-    
     return false;
   });
   
   if (!isDuplicate) {
-    // Marquer ce message comme traité
     this.recentlyProcessedMessages.add(messageKey);
-    
-    // Nettoyer après 10 secondes
-    setTimeout(() => {
-      this.recentlyProcessedMessages.delete(messageKey);
-    }, 10000);
+    setTimeout(() => this.recentlyProcessedMessages.delete(messageKey), 10000);
     
     // Ajouter le message
     this.messagesSubject.next([...currentMessages, message]);
-    this.updateConversationLastMessage(message.conversationId, message);
     
+    // IMPORTANT: Mettre à jour l'ordre de la liste des conversations
+    this.updateConversationListOrder(message.conversationId, message);
+    
+    // Incrémenter compteur non lus si pas conversation active
     const currentConv = this.currentConversationSubject.value;
     if (!currentConv || currentConv.id !== message.conversationId) {
       this.incrementUnreadCount();
     }
-  } else {
-    console.log('Duplicate message ignored');
   }
 }
+
 
 private handleNewConversation(conversation: Conversation) {
   console.log('📬 Handling new conversation:', conversation);
@@ -490,42 +475,123 @@ private handleNewConversation(conversation: Conversation) {
 private subscribeToWebSocket(): void {
   if (!this.stompClient || !this.currentUserId) return;
 
-  // ✅ Abonnement pour nouvelles conversations
-  this.stompClient.subscribe(`/user/${this.currentUserId}/queue/new-conversation`, (message: any) => {
+  // Messages entrants - mettre à jour lastMessage et tri
+  this.stompClient.subscribe(`/user/${this.currentUserId}/queue/conversation`, (message) => {
     try {
-      const newConversation = JSON.parse(message.body) as Conversation;
-      console.log('📬 New conversation received:', newConversation);
-
-      // ✅ Ajouter à la liste locale
-      const current = this.conversationsSubject.value;
-      if (!current.find(c => c.id === newConversation.id)) {
-        this.conversationsSubject.next([newConversation, ...current]);
-      }
+      const data = JSON.parse(message.body);
+      console.log('📬 Message reçu:', data);
+      
+      if (data.senderId === this.currentUserId) return; // Ignorer nos propres messages
+      
+      this.handleIncomingMessage(data);
+      this.updateConversationListOrder(data.conversationId, data); // NOUVEAU
     } catch (error) {
-      console.error('❌ Error parsing new conversation:', error);
+      console.error('❌ Erreur parsing message:', error);
     }
   });
 
-  // ✅ Abonnement global pour skill conversations
+  // Nouvelles conversations
+  this.stompClient.subscribe(`/user/${this.currentUserId}/queue/new-conversation`, (message) => {
+    try {
+      const newConversation = JSON.parse(message.body) as Conversation;
+      console.log('🆕 Nouvelle conversation reçue:', newConversation);
+      
+      this.addNewConversationToList(newConversation); // NOUVEAU
+    } catch (error) {
+      console.error('❌ Erreur parsing nouvelle conversation:', error);
+    }
+  });
+
+  // Abonnement skill conversations
   this.getUserSkillsWithUsers().subscribe(response => {
     response.skills.forEach(skill => {
-      const skillTopic = `/topic/skill/${skill.skillId}/new-conversation`;
-      this.stompClient!.subscribe(skillTopic, (message: any) => {
+      // Messages de compétence
+      this.stompClient!.subscribe(`/topic/skill/${skill.skillId}/messages`, (message) => {
+        try {
+          const data = JSON.parse(message.body);
+          if (data.senderId === this.currentUserId) return;
+          
+          this.handleIncomingMessage(data);
+          this.updateConversationListOrder(data.conversationId, data);
+        } catch (error) {
+          console.error('❌ Erreur skill message:', error);
+        }
+      });
+
+      // Nouvelles conversations skill
+      this.stompClient!.subscribe(`/topic/skill/${skill.skillId}/new-conversation`, (message) => {
         try {
           const newConversation = JSON.parse(message.body) as Conversation;
-          console.log(`📬 New skill conversation for skill ${skill.skillId}:`, newConversation);
-
-          const current = this.conversationsSubject.value;
-          if (!current.find(c => c.id === newConversation.id)) {
-            this.conversationsSubject.next([newConversation, ...current]);
-          }
+          this.addNewConversationToList(newConversation);
         } catch (error) {
-          console.error('❌ Error parsing skill conversation:', error);
+          console.error('❌ Erreur skill conversation:', error);
         }
       });
     });
   });
 }
+
+private addNewConversationToList(conversation: Conversation): void {
+  const currentConversations = this.conversationsSubject.value;
+  
+  // Vérifier si elle existe déjà
+  const exists = currentConversations.find(c => c.id === conversation.id);
+  if (exists) {
+    console.log('Conversation déjà existante:', conversation.id);
+    return;
+  }
+
+  // Ajouter en tête de liste (plus récente)
+  const updatedList = [conversation, ...currentConversations];
+  
+  // Émettre la nouvelle liste
+  this.conversationsSubject.next(updatedList);
+  
+  console.log('✅ Nouvelle conversation ajoutée en tête de liste:', conversation.name);
+}
+
+// 3. NOUVELLE MÉTHODE - Réorganiser la liste selon le dernier message
+private updateConversationListOrder(conversationId: number, latestMessage: any): void {
+  const conversations = this.conversationsSubject.value;
+  const conversationIndex = conversations.findIndex(c => c.id === conversationId);
+  
+  if (conversationIndex === -1) return;
+  
+  // Mettre à jour les détails de la conversation
+  const updatedConversation = {
+    ...conversations[conversationIndex],
+    lastMessage: latestMessage.content,
+    lastMessageTime: new Date(latestMessage.sentAt),
+    // Seulement incrémenter unreadCount si ce N'EST PAS notre propre message
+    unreadCount: latestMessage.senderId === this.currentUserId 
+      ? conversations[conversationIndex].unreadCount 
+      : conversations[conversationIndex].unreadCount + 1
+  };
+  
+  // Si la conversation est déjà en première position, pas besoin de réorganiser
+  if (conversationIndex === 0) {
+    const newConversations = [...conversations];
+    newConversations[0] = updatedConversation;
+    this.conversationsSubject.next(newConversations);
+    console.log('📋 Conversation mise à jour (déjà en tête):', conversationId);
+    return;
+  }
+  
+  // Retirer la conversation de sa position actuelle
+  const newConversations = [...conversations];
+  newConversations.splice(conversationIndex, 1);
+  
+  // Ajouter en tête de liste (plus récente)
+  newConversations.unshift(updatedConversation);
+  
+  // Émettre la liste réorganisée
+  this.conversationsSubject.next(newConversations);
+  
+  const messageType = latestMessage.senderId === this.currentUserId ? 'envoyé' : 'reçu';
+  console.log(`📋 Liste réorganisée - conversation ${conversationId} remontée en tête (message ${messageType})`);
+}
+
+
 // ✅ AMÉLIORER la méthode de gestion des nouvelles conversations
 private handleNewConversationReceived(conversation: Conversation) {
   console.log('🆕 Handling new conversation:', conversation);
@@ -1415,14 +1481,22 @@ getUserConversations(page = 0, size = 20): Observable<Conversation[]> {
           }).pipe(
             map(response => {
               const conversations = response.content || response || [];
-              console.log('✅ Conversations loaded:', conversations.length);
-              return conversations;
+              
+              // TRIER par dernier message (plus récent en premier)
+              const sortedConversations = conversations.sort((a: Conversation, b: Conversation) => {
+                const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+                const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+                return timeB - timeA; // Ordre décroissant
+              });
+              
+              console.log('✅ Conversations chargées et triées:', sortedConversations.length);
+              return sortedConversations;
             }),
             tap(conversations => {
               this.conversationsSubject.next(conversations);
             }),
             catchError(error => {
-              console.error('❌ Error loading conversations:', error);
+              console.error('❌ Erreur chargement conversations:', error);
               return of([]);
             })
           );
@@ -1432,6 +1506,76 @@ getUserConversations(page = 0, size = 20): Observable<Conversation[]> {
     retry(1)
   );
 }
+
+// 6. NOUVELLE MÉTHODE - Forcer le tri manuel
+public sortConversationsByLastMessage(): void {
+  const conversations = this.conversationsSubject.value;
+  
+  const sorted = [...conversations].sort((a, b) => {
+    const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+    const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+    return timeB - timeA;
+  });
+  
+  this.conversationsSubject.next(sorted);
+  console.log('🔄 Conversations retriées manuellement');
+}
+
+// 7. MÉTHODE publique pour rafraîchir en temps réel
+public enableRealTimeUpdates(): void {
+  // S'assurer que les WebSocket sont connectés
+  if (!this.isConnected()) {
+    this.reconnect();
+    return;
+  }
+  
+  // Rafraîchir la liste toutes les 30 secondes comme backup
+  interval(30000).pipe(
+    takeUntil(this.destroy$),
+    switchMap(() => this.getUserConversations(0, 50))
+  ).subscribe({
+    next: (conversations) => {
+      // Fusionner avec les données locales pour garder les mises à jour temps réel
+      this.mergeConversationsData(conversations);
+    },
+    error: (error) => {
+      console.warn('⚠️ Erreur rafraîchissement périodique:', error);
+    }
+  });
+}
+private mergeConversationsData(serverConversations: Conversation[]): void {
+  const localConversations = this.conversationsSubject.value;
+  const merged = new Map<number, Conversation>();
+  
+  // Ajouter conversations serveur
+  serverConversations.forEach(conv => merged.set(conv.id, conv));
+  
+  // Fusionner avec données locales (priorité aux plus récentes)
+  localConversations.forEach(localConv => {
+    const serverConv = merged.get(localConv.id);
+    
+    if (serverConv) {
+      // Garder le plus récent lastMessageTime
+      const localTime = localConv.lastMessageTime ? new Date(localConv.lastMessageTime).getTime() : 0;
+      const serverTime = serverConv.lastMessageTime ? new Date(serverConv.lastMessageTime).getTime() : 0;
+      
+      merged.set(localConv.id, localTime > serverTime ? localConv : serverConv);
+    } else {
+      // Conversation locale uniquement
+      merged.set(localConv.id, localConv);
+    }
+  });
+  
+  // Trier et émettre
+  const sortedConversations = Array.from(merged.values()).sort((a, b) => {
+    const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+    const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+    return timeB - timeA;
+  });
+  
+  this.conversationsSubject.next(sortedConversations);
+}
+
 
   private async ensureUserIdSynchronized(): Promise<number | undefined> {
     if (this.currentUserId && this.currentUserId > 0) {
@@ -1633,8 +1777,7 @@ getUserConversations(page = 0, size = 20): Observable<Conversation[]> {
       
       if (!exists) {
         this.messagesSubject.next([...messages, message]);
-        this.updateConversationLastMessage(message.conversationId, message);
-      }
+this.updateConversationListOrder(message.conversationId, message)      }
     }),
     catchError(error => {
       console.error('❌ Error sending message:', error);
