@@ -1,4 +1,5 @@
-// chat-window.component.ts - VERSION DÉFINITIVE AVEC SCROLL INTELLIGENT
+// chat-window.component.ts - CORRECTION DU PROBLÈME DE PREMIER MESSAGE DOUBLE
+
 import { 
   Component, 
   Input, 
@@ -27,6 +28,10 @@ import {
   TypingIndicator 
 } from '../../../core/services/messaging/messaging.service';
 
+interface ExtendedMessage extends Message {
+  isOptimistic?: boolean;
+}
+
 @Component({
   selector: 'app-chat-window',
   standalone: true,
@@ -40,10 +45,22 @@ import {
   templateUrl: './chat-window.component.html',
   styleUrls: ['./chat-window.component.css']
 })
+
 export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, AfterViewChecked, OnChanges {
   @Input() conversation!: Conversation;
   @Input() currentUserId!: number;
   @ViewChild('scrollContainer', { static: false }) private scrollContainer!: ElementRef<HTMLDivElement>;
+
+  // ===== CORRECTION: Amélioration de la déduplication =====
+  private isProcessingOwnMessage = false;
+  private lastProcessedMessageId: number | null = null;
+  private processedMessageIds = new Set<number>();
+  
+  // NOUVEAU: Système de hachage pour détecter les doublons par contenu
+  private messageContentHashes = new Set<string>();
+  
+  // NOUVEAU: Timer pour nettoyer les anciens hachages
+  private cleanupTimer?: any;
 
   // État des messages
   messages: Message[] = [];
@@ -66,7 +83,7 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
   private isUserScrolling = false;
   private lastScrollHeight = 0;
   private lastMessageCount = 0;
-  private scrollThreshold = 150; // Distance du bas pour auto-scroll
+  private scrollThreshold = 150;
   
   // Observables
   private destroy$ = new Subject<void>();
@@ -86,18 +103,16 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
     console.log('🚀 ChatWindow initialized for conversation:', this.conversation?.id);
     this.setupTypingIndicator();
     this.subscribeToUpdates();
+    this.startCleanupTimer();
   }
 
   ngAfterViewInit() {
     this.isInitialized = true;
     this.initializeScrollListener();
-    
-    // Scroll initial après le rendu
     setTimeout(() => this.scrollToBottom(), 100);
   }
 
   ngAfterViewChecked() {
-    // Auto-scroll si nécessaire après mise à jour du DOM
     if (this.pendingScrollToBottom) {
       this.pendingScrollToBottom = false;
       this.performScrollToBottom();
@@ -106,24 +121,146 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['conversation'] && this.conversation) {
-      console.log('📋 Conversation changed:', this.conversation.id);
+      console.log('Conversation changed:', this.conversation.id);
+      this.resetForNewConversation();
       this.resetAndLoadMessages();
     }
+  }
+
+  private resetForNewConversation() {
+    // CORRECTION: Reset complet de tous les systèmes de déduplication
+    this.isProcessingOwnMessage = false;
+    this.lastProcessedMessageId = null;
+    this.processedMessageIds.clear();
+    this.messageContentHashes.clear(); // NOUVEAU
+    this.messages = [];
+    this.lastMessageCount = 0;
+    console.log('🔄 Chat window reset for new conversation');
   }
 
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
+    
+    // NOUVEAU: Nettoyer le timer
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+    }
   }
 
-  // ========== GESTION DU SCROLL ==========
+  // ===== NOUVEAU: Système de nettoyage automatique =====
+  private startCleanupTimer() {
+    // Nettoyer les hachages anciens toutes les 5 minutes
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupOldHashes();
+    }, 5 * 60 * 1000);
+  }
 
+  private cleanupOldHashes() {
+    // Conserver uniquement les hachages des 100 derniers messages
+    if (this.messages.length > 100) {
+      this.messageContentHashes.clear();
+      
+      // Reconstruire avec les messages actuels
+      this.messages.slice(-100).forEach(msg => {
+        const hash = this.createMessageHash(msg);
+        this.messageContentHashes.add(hash);
+      });
+    }
+  }
+
+  // ===== CORRECTION: Fonction de hachage améliorée =====
+  private createMessageHash(message: Message): string {
+    // Créer un hash unique basé sur le contenu, l'expéditeur, et le timestamp arrondi
+    const roundedTimestamp = Math.floor(new Date(message.sentAt).getTime() / 1000) * 1000;
+    const contentKey = `${message.conversationId}_${message.senderId}_${message.content.trim()}_${roundedTimestamp}`;
+    
+    // Simple hash function
+    let hash = 0;
+    for (let i = 0; i < contentKey.length; i++) {
+      const char = contentKey.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    return hash.toString();
+  }
+
+  // ===== CORRECTION: Fonction de déduplication robuste =====
+  private isDuplicateMessage(newMessage: Message): boolean {
+    // 1. Vérifier par ID exact
+    if (newMessage.id && this.processedMessageIds.has(newMessage.id)) {
+      console.log('🔍 Message déjà traité (ID):', newMessage.id);
+      return true;
+    }
+
+    // 2. Vérifier par ID dans les messages existants
+    const existsById = this.messages.find(msg => msg.id === newMessage.id);
+    if (existsById) {
+      console.log('🔍 Message existe déjà (ID):', newMessage.id);
+      return true;
+    }
+
+    // 3. CORRECTION: Vérification par contenu avec hash
+    const messageHash = this.createMessageHash(newMessage);
+    if (this.messageContentHashes.has(messageHash)) {
+      console.log('🔍 Message duplicat détecté (hash):', messageHash);
+      return true;
+    }
+
+    // 4. Vérification de sécurité par contenu exact
+    const duplicateByContent = this.messages.find(existing => {
+      if (existing.conversationId === newMessage.conversationId &&
+          existing.senderId === newMessage.senderId &&
+          existing.content.trim() === newMessage.content.trim()) {
+        
+        const timeDiff = Math.abs(
+          new Date(existing.sentAt).getTime() - new Date(newMessage.sentAt).getTime()
+        );
+        
+        // CORRECTION: Réduire la fenêtre de temps pour être plus strict
+        return timeDiff < 2000; // 2 secondes au lieu de 5
+      }
+      return false;
+    });
+
+    if (duplicateByContent) {
+      console.log('🔍 Message duplicat par contenu:', newMessage.content.substring(0, 50));
+      return true;
+    }
+
+    return false;
+  }
+
+  // ===== CORRECTION: Ajout de message sécurisé =====
+  private addMessageSecurely(message: Message): boolean {
+    if (this.isDuplicateMessage(message)) {
+      return false;
+    }
+
+    // Ajouter le message
+    this.messages.push(message);
+    
+    // Marquer comme traité
+    if (message.id) {
+      this.processedMessageIds.add(message.id);
+    }
+    
+    // Ajouter le hash
+    const messageHash = this.createMessageHash(message);
+    this.messageContentHashes.add(messageHash);
+    
+    console.log('✅ Message ajouté:', message.id, message.content.substring(0, 50));
+    return true;
+  }
+
+  // ========== GESTION DU SCROLL (inchangé) ==========
+  
   private initializeScrollListener() {
     if (!this.scrollContainer) return;
 
     const container = this.scrollContainer.nativeElement;
     
-    // Écouter les événements de scroll
     container.addEventListener('scroll', () => {
       this.ngZone.runOutsideAngular(() => {
         this.handleScroll();
@@ -139,26 +276,20 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
     const scrollHeight = container.scrollHeight;
     const clientHeight = container.clientHeight;
     
-    // Distance du bas
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
     const isNearBottom = distanceFromBottom <= this.scrollThreshold;
     
-    // Détection du scroll utilisateur
     this.isUserScrolling = true;
     clearTimeout((this as any).scrollTimeout);
     (this as any).scrollTimeout = setTimeout(() => {
       this.isUserScrolling = false;
     }, 200);
 
-    // Mise à jour du bouton "scroll to bottom"
     this.ngZone.run(() => {
       this.showScrollToBottomButton = !isNearBottom && this.messages.length > 5;
-      
-      // Auto-scroll si près du bas
       this.shouldAutoScroll = isNearBottom;
     });
 
-    // Charger plus si en haut
     if (scrollTop < 100 && this.hasMoreMessages && !this.isLoadingMore) {
       this.loadMoreMessages();
     }
@@ -221,7 +352,6 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
       return;
     }
 
-    // Sauvegarder la hauteur avant chargement (pour "load more")
     if (this.currentPage > 0 && this.scrollContainer) {
       this.lastScrollHeight = this.scrollContainer.nativeElement.scrollHeight;
     }
@@ -242,17 +372,30 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
         console.log(`✅ Loaded ${newMessages.length} messages`);
         
         if (this.currentPage === 0) {
-          // Première page : remplacer les messages
-          this.messages = newMessages || [];
-          this.lastMessageCount = this.messages.length;
+          // CORRECTION: Reconstruction complète avec déduplication
+          this.messages = [];
+          this.messageContentHashes.clear();
+          this.processedMessageIds.clear();
           
-          // Scroll au bas après le rendu
+          newMessages.forEach(msg => this.addMessageSecurely(msg));
+          this.lastMessageCount = this.messages.length;
           this.pendingScrollToBottom = true;
         } else {
           // Pages suivantes : ajouter au début
-          this.messages = [...(newMessages || []), ...this.messages];
+          const oldLength = this.messages.length;
+          newMessages.forEach(msg => {
+            if (!this.isDuplicateMessage(msg)) {
+              this.messages.unshift(msg);
+              if (msg.id) this.processedMessageIds.add(msg.id);
+              this.messageContentHashes.add(this.createMessageHash(msg));
+            }
+          });
           
-          // Maintenir la position de scroll
+          // Trier si nécessaire
+          this.messages.sort((a, b) => 
+            new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+          );
+          
           this.cdr.detectChanges();
           this.maintainScrollPosition();
         }
@@ -281,10 +424,9 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
     this.loadMessages();
   }
 
-  // ========== SOUSCRIPTIONS AUX MISES À JOUR ==========
+  // ===== CORRECTION: Souscription aux mises à jour =====
 
   private subscribeToUpdates() {
-    // Nouveaux messages en temps réel
     this.messagingService.messages$
       .pipe(
         takeUntil(this.destroy$),
@@ -293,33 +435,53 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
       .subscribe(allMessages => {
         if (!this.conversation) return;
         
+        console.log('🔄 Messages update received:', allMessages.length);
+        
         const conversationMessages = allMessages.filter(
           m => m.conversationId === this.conversation.id
         );
         
-        const newCount = conversationMessages.length;
-        if (newCount > this.lastMessageCount) {
-          const newMessages = conversationMessages.slice(this.lastMessageCount);
-          
-          // Ajouter les nouveaux messages
-          this.messages = [...this.messages, ...newMessages];
-          this.lastMessageCount = newCount;
-          
-          // Décider si on doit auto-scroll
-          const lastMessage = newMessages[newMessages.length - 1];
-          const isOwnMessage = lastMessage.senderId === this.currentUserId;
-          
-          if (isOwnMessage || this.shouldAutoScroll) {
-            this.pendingScrollToBottom = true;
-          } else {
-            this.showScrollToBottomButton = true;
+        // CORRECTION: Traitement intelligent des nouveaux messages
+        let hasNewMessages = false;
+        let shouldAutoScroll = false;
+        
+        conversationMessages.forEach(msg => {
+          // Ignorer nos propres messages en cours de traitement
+          if (this.isProcessingOwnMessage && msg.senderId === this.currentUserId) {
+            console.log('⏸️ Ignoring own message being processed');
+            return;
           }
           
+          // Tenter d'ajouter le message
+          const wasAdded = this.addMessageSecurely(msg);
+          if (wasAdded) {
+            hasNewMessages = true;
+            
+            // Auto-scroll uniquement pour les messages d'autrui
+            if (msg.senderId !== this.currentUserId && this.shouldAutoScroll) {
+              shouldAutoScroll = true;
+            }
+          }
+        });
+        
+        if (hasNewMessages) {
+          // Trier les messages par date
+          this.messages.sort((a, b) => 
+            new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
+          );
+          
+          this.lastMessageCount = this.messages.length;
+          
+          if (shouldAutoScroll) {
+            this.pendingScrollToBottom = true;
+          }
+          
+          console.log('✅ Messages updated:', this.messages.length);
           this.cdr.detectChanges();
         }
       });
 
-    // Indicateurs de frappe
+    // Indicateurs de frappe (inchangé)
     this.messagingService.typingIndicators$
       .pipe(takeUntil(this.destroy$))
       .subscribe(indicators => {
@@ -330,7 +492,6 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
           i.userId !== this.currentUserId
         );
         
-        // Auto-scroll si quelqu'un tape et on est près du bas
         if (this.typingUsers.length > 0 && this.shouldAutoScroll) {
           this.pendingScrollToBottom = true;
         }
@@ -339,7 +500,7 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
       });
   }
 
-  // ========== GESTION DE LA FRAPPE ==========
+  // ========== GESTION DE LA FRAPPE (inchangé) ==========
 
   private setupTypingIndicator() {
     this.typingSubject
@@ -353,7 +514,6 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
         }
       });
 
-    // Arrêter après 2 secondes d'inactivité
     this.typingSubject
       .pipe(
         takeUntil(this.destroy$),
@@ -370,7 +530,7 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
     this.typingSubject.next();
   }
 
-  // ========== ENVOI DE MESSAGES ==========
+  // ===== CORRECTION: Envoi de messages =====
 
   onSendMessage(content: string) {
     if (!content.trim() || !this.conversation) return;
@@ -381,28 +541,46 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
       type: 'TEXT'
     };
 
-    // Force scroll au bas quand on envoie
-    this.shouldAutoScroll = true;
-    this.pendingScrollToBottom = true;
-    this.showScrollToBottomButton = false;
+    console.log('📤 Sending message:', content.substring(0, 50));
+
+    // CORRECTION: Système simplifié de protection contre les doublons
+    this.isProcessingOwnMessage = true;
 
     this.messagingService.sendMessage(request)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (message) => {
-          console.log('✅ Message sent:', message.id);
+          console.log('✅ Message sent successfully:', message.id);
+          
+          // CORRECTION: Utiliser le système de déduplication unifié
+          const wasAdded = this.addMessageSecurely(message);
+          if (wasAdded) {
+            this.lastMessageCount = this.messages.length;
+            this.shouldAutoScroll = true;
+            this.pendingScrollToBottom = true;
+            this.cdr.detectChanges();
+          }
+          
+          // Marquer comme traité et débloquer après délai plus court
+          this.lastProcessedMessageId = message.id || null;
+          
+          setTimeout(() => {
+            this.isProcessingOwnMessage = false;
+          }, 1000); // Réduit à 1 seconde
         },
         error: (error) => {
           console.error('❌ Error sending message:', error);
+          this.isProcessingOwnMessage = false;
           this.showErrorNotification('Erreur lors de l\'envoi du message');
         }
       });
   }
 
+  // ========== RESTE DES MÉTHODES (inchangé) ==========
+
   onFileSelect(file: File) {
     if (!this.conversation) return;
 
-    // Validation du fichier
     if (file.size > 10 * 1024 * 1024) {
       this.showErrorNotification('Fichier trop volumineux (max 10MB)');
       return;
@@ -432,8 +610,6 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
         error: () => this.showErrorNotification('Erreur upload fichier')
       });
   }
-
-  // ========== MÉTHODES UTILITAIRES ==========
 
   trackByMessageId(index: number, message: Message): number {
     return message.id || index;
@@ -513,10 +689,8 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
   }
 
   private showErrorNotification(message: string) {
-    // Utiliser un service de notification ou créer un toast
     console.error('🔴 Error:', message);
     
-    // Notification temporaire DOM
     const notification = document.createElement('div');
     notification.textContent = message;
     notification.style.cssText = `
@@ -541,12 +715,8 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
     }, 4000);
   }
 
-  // ========== ACTIONS SUR LES MESSAGES ==========
-
   onEditMessage(message: Message) {
     if (message.senderId !== this.currentUserId) return;
-    
-    // TODO: Implémenter édition via dialog modal
     console.log('Edit message:', message.id);
   }
 
@@ -554,7 +724,6 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
     if (message.senderId !== this.currentUserId) return;
     
     if (confirm('Supprimer ce message ?') && message.id) {
-      // TODO: Implémenter suppression
       console.log('Delete message:', message.id);
     }
   }

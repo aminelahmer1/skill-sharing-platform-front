@@ -195,6 +195,9 @@ export class MessagingService {
   private isInitialized = false;
   private pollingInterval?: any;
 
+
+    private processingConversationIds = new Set<number>();
+private recentlyProcessedMessages = new Set<string>();
   constructor(
     private http: HttpClient,
     private keycloakService: KeycloakService
@@ -225,6 +228,7 @@ export class MessagingService {
     }
   }
 
+  
  // REMPLACER loadUserInfo() et les méthodes associées par:
 private async loadUserInfo() {
   try {
@@ -410,21 +414,56 @@ private async initializeStompConnection() {
 private handleIncomingMessage(message: Message) {
   console.log('📬 Handling incoming message:', message);
   
-  // Ajouter le message à la liste s'il n'existe pas déjà
   const currentMessages = this.messagesSubject.value;
-  const exists = currentMessages.find(m => m.id === message.id);
   
-  if (!exists) {
-    this.messagesSubject.next([...currentMessages, message]);
+  // Créer une clé unique pour ce message
+  const messageKey = `${message.conversationId}_${message.senderId}_${message.content}_${Math.floor(new Date(message.sentAt).getTime() / 1000)}`;
+  
+  // Vérifier si ce message a déjà été traité récemment
+  if (this.recentlyProcessedMessages.has(messageKey)) {
+    console.log('Message already processed, skipping:', messageKey);
+    return;
+  }
+  
+  // Vérification plus stricte des doublons
+  const isDuplicate = currentMessages.some(m => {
+    // Vérification par ID
+    if (m.id && message.id && m.id === message.id) return true;
     
-    // Mettre à jour le dernier message de la conversation
+    // Vérification par contenu pour les messages sans ID ou avec ID temporaire
+    if (m.conversationId === message.conversationId && 
+        m.senderId === message.senderId &&
+        m.content.trim() === message.content.trim()) {
+      
+      // Tolérance de 5 secondes pour les timestamps
+      const timeDiff = Math.abs(
+        new Date(m.sentAt).getTime() - new Date(message.sentAt).getTime()
+      );
+      return timeDiff < 5000;
+    }
+    
+    return false;
+  });
+  
+  if (!isDuplicate) {
+    // Marquer ce message comme traité
+    this.recentlyProcessedMessages.add(messageKey);
+    
+    // Nettoyer après 10 secondes
+    setTimeout(() => {
+      this.recentlyProcessedMessages.delete(messageKey);
+    }, 10000);
+    
+    // Ajouter le message
+    this.messagesSubject.next([...currentMessages, message]);
     this.updateConversationLastMessage(message.conversationId, message);
     
-    // Incrémenter le compteur de non-lus si ce n'est pas la conversation active
-    const currentConversation = this.currentConversationSubject.value;
-    if (!currentConversation || currentConversation.id !== message.conversationId) {
+    const currentConv = this.currentConversationSubject.value;
+    if (!currentConv || currentConv.id !== message.conversationId) {
       this.incrementUnreadCount();
     }
+  } else {
+    console.log('Duplicate message ignored');
   }
 }
 
@@ -577,54 +616,268 @@ private subscribeToNewConversations(): void {
   });
 }
 
-  private subscribeToTopics() {
-    if (!this.stompClient || !this.stompClient.connected) {
-      console.warn('⚠️ STOMP client not connected for subscriptions');
-      return;
-    }
+ private subscribeToTopics() {
+  if (!this.stompClient || !this.stompClient.connected) {
+    console.warn('⚠️ STOMP client not connected for subscriptions');
+    return;
+  }
 
-    if (!this.currentUserId) {
-      console.error('❌ No user ID available for subscriptions');
-      return;
-    }
+  if (!this.currentUserId) {
+    console.error('❌ No user ID available for subscriptions');
+    return;
+  }
 
-    try {
-      this.stompClient.subscribe(`/user/${this.currentUserId}/queue/conversation`, (message) => {
-        try {
-          const data = JSON.parse(message.body);
-          console.log('📨 Received user message:', data);
-          this.handleNewMessage(data);
-        } catch (error) {
-          console.error('❌ Error parsing user message:', error);
+  try {
+    // 1. Subscription aux messages personnels
+    this.stompClient.subscribe(`/user/${this.currentUserId}/queue/conversation`, (message) => {
+      try {
+        const data = JSON.parse(message.body);
+        console.log('📨 Received user message via WebSocket:', data);
+        
+        // Ignorer nos propres messages pour éviter les doublons
+        if (data.senderId === this.currentUserId) {
+          console.log('Skipping own message from WebSocket queue');
+          return;
         }
-      });
+        
+        this.handleIncomingMessage(data);
+      } catch (error) {
+        console.error('❌ Error parsing user message:', error);
+      }
+    });
 
-      this.stompClient.subscribe('/topic/conversation/*', (message) => {
-        try {
-          const data = JSON.parse(message.body);
-          console.log('📨 Received conversation message:', data);
-          this.handleNewMessage(data);
-        } catch (error) {
-          console.error('❌ Error parsing conversation message:', error);
+    // 2. Subscription aux conversations générales
+    this.stompClient.subscribe('/topic/conversation/*', (message) => {
+      try {
+        const data = JSON.parse(message.body);
+        console.log('📨 Received conversation message from topic:', data);
+        
+        // Ignorer nos propres messages
+        if (data.senderId === this.currentUserId) {
+          console.log('Skipping own message from conversation topic');
+          return;
         }
-      });
+        
+        this.handleIncomingMessage(data);
+      } catch (error) {
+        console.error('❌ Error parsing conversation message:', error);
+      }
+    });
 
-      this.stompClient.subscribe('/topic/typing', (message) => {
-        try {
-          const data = JSON.parse(message.body);
-          console.log('⌨️ Received typing indicator:', data);
+    // 3. Subscription aux indicateurs de frappe
+    this.stompClient.subscribe('/topic/typing', (message) => {
+      try {
+        const data = JSON.parse(message.body);
+        console.log('⌨️ Received typing indicator:', data);
+        
+        // Ne pas afficher notre propre indicateur de frappe
+        if (data.userId !== this.currentUserId) {
           this.handleTypingIndicator(data);
-        } catch (error) {
-          console.error('❌ Error parsing typing indicator:', error);
         }
-      });
+      } catch (error) {
+        console.error('❌ Error parsing typing indicator:', error);
+      }
+    });
 
-      console.log('✅ Subscribed to all STOMP topics');
+    // 4. Subscription aux nouvelles conversations
+    this.stompClient.subscribe(`/user/${this.currentUserId}/queue/new-conversation`, (message) => {
+      try {
+        const newConversation = JSON.parse(message.body) as Conversation;
+        console.log('🆕 New conversation notification received:', newConversation);
+        
+        this.handleNewConversation(newConversation);
+      } catch (error) {
+        console.error('❌ Error parsing new conversation:', error);
+      }
+    });
+
+    // 5. Subscription aux mises à jour de conversations (status, participants, etc.)
+    this.stompClient.subscribe(`/user/${this.currentUserId}/queue/conversation-update`, (message) => {
+      try {
+        const updatedConversation = JSON.parse(message.body) as Conversation;
+        console.log('🔄 Conversation update received:', updatedConversation);
+        
+        this.updateConversation(updatedConversation);
+      } catch (error) {
+        console.error('❌ Error parsing conversation update:', error);
+      }
+    });
+
+    // 6. Subscription aux notifications de lecture
+    this.stompClient.subscribe(`/user/${this.currentUserId}/queue/read-receipt`, (message) => {
+      try {
+        const receipt = JSON.parse(message.body);
+        console.log('✓ Read receipt received:', receipt);
+        
+        this.handleReadReceipt(receipt);
+      } catch (error) {
+        console.error('❌ Error parsing read receipt:', error);
+      }
+    });
+
+    // 7. Subscription aux conversations de compétences (skill groups)
+    this.getUserSkillsWithUsers().subscribe(response => {
+      if (!this.stompClient || !this.stompClient.connected) return;
       
-    } catch (error) {
-      console.error('❌ Failed to subscribe to topics:', error);
+      response.skills.forEach(skill => {
+        // Topic pour les messages de la compétence
+        const skillMessageTopic = `/topic/skill/${skill.skillId}/messages`;
+        this.stompClient!.subscribe(skillMessageTopic, (message) => {
+          try {
+            const data = JSON.parse(message.body);
+            console.log(`📬 Skill ${skill.skillId} message:`, data);
+            
+            // Ignorer nos propres messages
+            if (data.senderId === this.currentUserId) {
+              console.log('Skipping own skill message');
+              return;
+            }
+            
+            this.handleIncomingMessage(data);
+          } catch (error) {
+            console.error('❌ Error parsing skill message:', error);
+          }
+        });
+
+        // Topic pour les nouvelles conversations de compétence
+        const skillConversationTopic = `/topic/skill/${skill.skillId}/new-conversation`;
+        this.stompClient!.subscribe(skillConversationTopic, (message) => {
+          try {
+            const newConversation = JSON.parse(message.body) as Conversation;
+            console.log(`🆕 New skill conversation for skill ${skill.skillId}:`, newConversation);
+            
+            this.handleNewConversation(newConversation);
+          } catch (error) {
+            console.error('❌ Error parsing skill conversation:', error);
+          }
+        });
+      });
+    });
+
+    // 8. Subscription aux erreurs système
+    this.stompClient.subscribe(`/user/${this.currentUserId}/queue/errors`, (message) => {
+      try {
+        const error = JSON.parse(message.body);
+        console.error('❌ System error received:', error);
+        
+        this.handleSystemError(error);
+      } catch (error) {
+        console.error('❌ Error parsing system error:', error);
+      }
+    });
+
+    // 9. Subscription au statut de présence des utilisateurs
+    this.stompClient.subscribe('/topic/presence', (message) => {
+      try {
+        const presence = JSON.parse(message.body);
+        console.log('👤 Presence update:', presence);
+        
+        this.handlePresenceUpdate(presence);
+      } catch (error) {
+        console.error('❌ Error parsing presence update:', error);
+      }
+    });
+
+    console.log('✅ Successfully subscribed to all STOMP topics');
+    
+  } catch (error) {
+    console.error('❌ Failed to subscribe to topics:', error);
+    // Tenter de se reconnecter après une erreur
+    this.scheduleReconnect();
+  }
+}
+
+// Méthodes auxiliaires pour gérer les différents types de messages
+
+private updateConversation(updatedConversation: Conversation): void {
+  const conversations = this.conversationsSubject.value;
+  const index = conversations.findIndex(c => c.id === updatedConversation.id);
+  
+  if (index !== -1) {
+    conversations[index] = updatedConversation;
+    this.conversationsSubject.next([...conversations]);
+    
+    // Si c'est la conversation courante, mettre à jour aussi
+    const currentConv = this.currentConversationSubject.value;
+    if (currentConv?.id === updatedConversation.id) {
+      this.currentConversationSubject.next(updatedConversation);
     }
   }
+}
+
+private handleReadReceipt(receipt: any): void {
+  const messages = this.messagesSubject.value;
+  const updatedMessages = messages.map(msg => {
+    if (msg.conversationId === receipt.conversationId && 
+        msg.senderId === this.currentUserId &&
+        new Date(msg.sentAt) <= new Date(receipt.readAt)) {
+      return { ...msg, status: 'READ' as const, readAt: receipt.readAt };
+    }
+    return msg;
+  });
+  
+  this.messagesSubject.next(updatedMessages);
+}
+
+private handleSystemError(error: any): void {
+  console.error('System error:', error);
+  
+  // Afficher une notification à l'utilisateur
+  if (error.message) {
+    this.showErrorNotification(error.message);
+  }
+  
+  // Si c'est une erreur de connexion, tenter de se reconnecter
+  if (error.type === 'CONNECTION_ERROR') {
+    this.scheduleReconnect();
+  }
+}
+
+private handlePresenceUpdate(presence: any): void {
+  const conversations = this.conversationsSubject.value;
+  const updatedConversations = conversations.map(conv => {
+    const updatedParticipants = conv.participants.map(participant => {
+      if (participant.userId === presence.userId) {
+        return {
+          ...participant,
+          isOnline: presence.isOnline,
+          lastSeen: presence.lastSeen
+        };
+      }
+      return participant;
+    });
+    
+    return { ...conv, participants: updatedParticipants };
+  });
+  
+  this.conversationsSubject.next(updatedConversations);
+}
+
+private showErrorNotification(message: string): void {
+  // Créer une notification visuelle pour l'utilisateur
+  const notification = document.createElement('div');
+  notification.textContent = message;
+  notification.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #dc3545;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    z-index: 10000;
+    animation: slideInUp 0.3s ease;
+    max-width: 350px;
+  `;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.animation = 'slideOutDown 0.3s ease';
+    setTimeout(() => notification.remove(), 300);
+  }, 5000);
+}
 
   private scheduleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
@@ -1334,57 +1587,69 @@ getUserConversations(page = 0, size = 20): Observable<Conversation[]> {
   }
 
   sendMessage(request: MessageRequest): Observable<Message> {
-    return from(this.keycloakService.getToken()).pipe(
-      switchMap(token => {
-        if (!token) {
-          throw new Error('No token available');
-        }
-        
-        const headers = new HttpHeaders({ 
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        });
-        
-        if (!request.senderId && this.currentUserId) {
-          request.senderId = this.currentUserId;
-        }
-        
-        const payload = {
-          conversationId: request.conversationId,
-          content: request.content,
-          type: request.type || 'TEXT',
-          attachmentUrl: request.attachmentUrl,
-          replyToMessageId: request.replyToMessageId
-        };
-        
-        console.log('📤 Sending message:', payload);
-        
-        return this.http.post<Message>(`${this.apiUrl}/send`, payload, { headers });
-      }),
-      tap(message => {
-        console.log('✅ Message sent:', message);
-        
-        const messages = this.messagesSubject.value;
-        if (!messages.find(m => m.id === message.id)) {
-          this.messagesSubject.next([...messages, message]);
-        }
-        
+  return from(this.keycloakService.getToken()).pipe(
+    switchMap(token => {
+      if (!token) {
+        throw new Error('No token available');
+      }
+      
+      const headers = new HttpHeaders({ 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      });
+      
+      if (!request.senderId && this.currentUserId) {
+        request.senderId = this.currentUserId;
+      }
+      
+      const payload = {
+        conversationId: request.conversationId,
+        content: request.content,
+        type: request.type || 'TEXT',
+        attachmentUrl: request.attachmentUrl,
+        replyToMessageId: request.replyToMessageId
+      };
+      
+      console.log('📤 Sending message:', payload);
+      
+      // Créer une clé pour ce message qu'on envoie
+      const messageKey = `${payload.conversationId}_${request.senderId}_${payload.content}_${Math.floor(Date.now() / 1000)}`;
+      this.recentlyProcessedMessages.add(messageKey);
+      
+      return this.http.post<Message>(`${this.apiUrl}/send`, payload, { headers });
+    }),
+    tap(message => {
+      console.log('✅ Message sent:', message);
+      
+      const messages = this.messagesSubject.value;
+      
+      // Vérifier que le message n'existe pas déjà
+      const exists = messages.some(m => 
+        m.id === message.id || 
+        (m.content === message.content && 
+         m.senderId === message.senderId && 
+         m.conversationId === message.conversationId)
+      );
+      
+      if (!exists) {
+        this.messagesSubject.next([...messages, message]);
         this.updateConversationLastMessage(message.conversationId, message);
-      }),
-      catchError(error => {
-        console.error('❌ Error sending message:', error);
-        
-        if (error.status === 403) {
-          throw new Error('Vous n\'êtes pas autorisé à envoyer des messages dans cette conversation');
-        } else if (error.status === 404) {
-          throw new Error('Conversation non trouvée');
-        }
-        
-        throw new Error('Erreur lors de l\'envoi du message');
-      }),
-      retry(1)
-    );
-  }
+      }
+    }),
+    catchError(error => {
+      console.error('❌ Error sending message:', error);
+      
+      if (error.status === 403) {
+        throw new Error('Vous n\'êtes pas autorisé à envoyer des messages dans cette conversation');
+      } else if (error.status === 404) {
+        throw new Error('Conversation non trouvée');
+      }
+      
+      throw new Error('Erreur lors de l\'envoi du message');
+    }),
+    retry(1)
+  );
+}
 
   markAsRead(conversationId: number): Observable<void> {
     return from(this.keycloakService.getToken()).pipe(
@@ -1630,22 +1895,25 @@ getUserConversations(page = 0, size = 20): Observable<Conversation[]> {
   }
 
   // ===== CLEANUP =====
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-    
-    if (this.stompClient) {
-      this.stompClient.deactivate();
-    }
-    
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-    }
-    
-    if (this.pollingInterval) {
-      this.pollingInterval.unsubscribe();
-    }
+ ngOnDestroy(): void {
+  // Nettoyer le Set des messages traités
+  this.recentlyProcessedMessages.clear();
+  
+  this.destroy$.next();
+  this.destroy$.complete();
+  
+  if (this.stompClient) {
+    this.stompClient.deactivate();
   }
+  
+  if (this.reconnectTimer) {
+    clearTimeout(this.reconnectTimer);
+  }
+  
+  if (this.pollingInterval) {
+    this.pollingInterval.unsubscribe();
+  }
+}
   /**
  * ✅ NOUVEAU: Récupère toutes les compétences de l'utilisateur avec leurs utilisateurs
  */
