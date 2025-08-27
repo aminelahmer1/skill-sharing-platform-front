@@ -436,7 +436,7 @@ private loadConversations() {
       });
   }
 
-  // REMPLACER subscribeToUpdates():
+  
 private subscribeToUpdates() {
   this.subscribeToConversationsUpdates();
   this.subscribeToMessagesUpdates();
@@ -499,35 +499,44 @@ onConversationCreated(conversation: Conversation) {
 
   this.showNewConversationDialog = false;
 
-  // ✅ Vérifier si elle existe déjà
-  const existing = this.findExistingConversation(
-    conversation.participants.find(p => p.userId !== this.currentUserId)?.userId,
-    conversation.skillId
-  );
-
-  if (existing) {
-    console.log('📌 Conversation already exists, selecting it:', existing.id);
-    this.selectedConversation = existing;
-    this.messagingService.setCurrentConversation(existing);
-  } else {
-    // ✅ Ajouter seulement si nouvelle
+  //  Toujours sélectionner la nouvelle conversation créée
+  // Ne pas chercher de conversation existante car on vient de la créer
+  
+  // Vérifier si elle existe déjà dans la liste
+  const existsInList = this.conversations.find(c => c.id === conversation.id);
+  
+  if (!existsInList) {
+    // Ajouter la nouvelle conversation en tête de liste
     this.conversations = [conversation, ...this.conversations];
     this.applyCurrentFilter();
-    this.selectedConversation = conversation;
-    this.messagingService.setCurrentConversation(conversation);
+    console.log('📋 Nouvelle conversation ajoutée à la liste:', conversation.name);
+  }
+
+  // ✅ IMPORTANT: Toujours sélectionner la conversation qui vient d'être créée/retournée
+  console.log('📌 Sélection de la conversation créée:', {
+    id: conversation.id,
+    name: conversation.name,
+    type: conversation.type,
+    skillId: conversation.skillId
+  });
+  
+  this.selectedConversation = conversation;
+  this.messagingService.setCurrentConversation(conversation);
+  
+  // Marquer comme lu immédiatement
+  if (conversation.id) {
+    this.messagingService.markAsRead(conversation.id).pipe(
+      takeUntil(this.destroy$)
+    ).subscribe({
+      next: () => console.log('✅ Nouvelle conversation marquée comme lue'),
+      error: (error) => console.warn('⚠️ Erreur marquage lecture:', error)
+    });
   }
 
   this.cdr.detectChanges();
 }
-private findExistingConversation(participantId?: number, skillId?: number): Conversation | undefined {
-  return this.conversations.find(c => {
-    if (skillId && c.skillId === skillId) return true;
-    if (participantId && c.type === 'DIRECT' && c.participants.length === 2) {
-      return c.participants.some(p => p.userId === participantId);
-    }
-    return false;
-  });
-}
+
+
 
 
 
@@ -562,7 +571,6 @@ private findExistingConversation(participantId?: number, skillId?: number): Conv
     }
   }
 
-  // REMPLACER onConversationCreated():
 
 
 
@@ -737,4 +745,6 @@ private findExistingConversation(participantId?: number, skillId?: number): Conv
     this.selectedConversation = null;
     this.loadConversations();
   }
+
+  
 }

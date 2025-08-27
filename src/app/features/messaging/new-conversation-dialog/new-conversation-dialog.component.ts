@@ -309,47 +309,7 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
 
   // ===== HANDLERS DE SÉLECTION DE COMPÉTENCE =====
 
-  //  Handler amélioré pour la sélection de compétence
-  onSkillSelected() {
-    if (!this.selectedSkillId || !this.mySkillsData) {
-      this.skillParticipants = [];
-      this.selectedSkillData = undefined;
-      return;
-    }
-
-    // Trouver les données de la compétence sélectionnée
-    const skillData = this.mySkillsData.skills.find(s => s.skillId === this.selectedSkillId);
-    
-    if (skillData) {
-      this.selectedSkillData = skillData;
-      
-      // Préparer la liste des participants (producteur + receivers) en excluant l'utilisateur actuel
-      const participants: User[] = [];
-      
-      // Ajouter le producteur si ce n'est pas l'utilisateur actuel
-      if (skillData.skillProducer.id !== this.currentUserId) {
-        participants.push(this.mapUserResponseToUser(skillData.skillProducer));
-      }
-      
-      // Ajouter les receivers (exclure self)
-      skillData.receivers
-        .filter(receiver => receiver.id !== this.currentUserId)
-        .forEach(receiver => {
-          participants.push(this.mapUserResponseToUser(receiver));
-        });
-      
-      this.skillParticipants = participants;
-      
-      console.log('📋 Skill selected:', {
-        skillId: this.selectedSkillId,
-        skillName: skillData.skillName,
-        participantsCount: participants.length,
-        userRole: skillData.userRole
-      });
-    }
-    
-    this.error = '';
-  }
+ 
 
   // ===== RECHERCHE D'UTILISATEURS =====
 
@@ -532,12 +492,79 @@ export class NewConversationDialogComponent implements OnInit, OnDestroy {
     return this.messagingService.createGroupConversation(this.groupName.trim(), participantIds).toPromise();
   }
 
+// Dans new-conversation-dialog.component.ts
+
+// Ajoutez cette propriété
+existingSkillConversation: Conversation | null = null;
+
+// Modifiez la méthode onSkillSelected
+async onSkillSelected() {
+  if (!this.selectedSkillId || !this.mySkillsData) {
+    this.skillParticipants = [];
+    this.selectedSkillData = undefined;
+    this.existingSkillConversation = null;
+    return;
+  }
+
+  // Trouver les données de la compétence sélectionnée
+  const skillData = this.mySkillsData.skills.find(s => s.skillId === this.selectedSkillId);
+  
+  if (skillData) {
+    this.selectedSkillData = skillData;
+    
+    // Vérifier si une conversation existe déjà pour cette compétence
+    this.checkExistingSkillConversation(this.selectedSkillId);
+    
+    // Préparer la liste des participants
+    const participants: User[] = [];
+    
+    if (skillData.skillProducer.id !== this.currentUserId) {
+      participants.push(this.mapUserResponseToUser(skillData.skillProducer));
+    }
+    
+    skillData.receivers
+      .filter(receiver => receiver.id !== this.currentUserId)
+      .forEach(receiver => {
+        participants.push(this.mapUserResponseToUser(receiver));
+      });
+    
+    this.skillParticipants = participants;
+  }
+  
+  this.error = '';
+}
+
+// Ajoutez cette nouvelle méthode
+private checkExistingSkillConversation(skillId: number) {
+  this.messagingService.checkSkillConversationExists(skillId)
+    .pipe(takeUntil(this.destroy$))
+    .subscribe({
+      next: (conversation) => {
+        this.existingSkillConversation = conversation;
+        if (conversation) {
+          console.log('✅ Conversation existante trouvée:', conversation);
+        }
+      },
+      error: (error) => {
+        console.error('❌ Erreur lors de la vérification:', error);
+        this.existingSkillConversation = null;
+      }
+    });
+}
+
+// Modifiez la méthode createSkillConversation
 private async createSkillConversation(): Promise<Conversation | undefined> {
   if (!this.selectedSkillId) {
     throw new Error('Aucune compétence sélectionnée');
   }
   
-  console.log('🚀 Creating skill conversation:', {
+  // Si une conversation existe déjà, l'ouvrir directement
+  if (this.existingSkillConversation) {
+    console.log('🚀 Ouvrir la conversation existante:', this.existingSkillConversation);
+    return this.existingSkillConversation;
+  }
+  
+  console.log('🚀 Créer une nouvelle conversation de compétence:', {
     skillId: this.selectedSkillId,
     currentUserId: this.currentUserId
   });
@@ -548,17 +575,39 @@ private async createSkillConversation(): Promise<Conversation | undefined> {
       .toPromise();
     
     if (conversation) {
-      console.log('✅ Skill conversation created successfully:', conversation);
-      
-      // ✅ S'assurer que l'événement est bien émis
+      console.log('✅ Nouvelle conversation de compétence créée:', conversation);
       return conversation;
     }
     
     return undefined;
-    
   } catch (error) {
-    console.error('❌ Error creating skill conversation:', error);
+    console.error('❌ Erreur création conversation:', error);
     throw error;
+  }
+}
+
+// Ajoutez cette méthode pour le template
+hasExistingSkillConversation(): boolean {
+  return !!this.existingSkillConversation;
+}
+
+// Modifiez getCreateButtonText pour refléter l'action appropriée
+getCreateButtonText(): string {
+  switch (this.conversationType) {
+    case 'direct':
+      return 'Créer la conversation';
+    case 'group':
+      return `Créer le groupe (${this.selectedParticipants.length + 1} membres)`;
+    case 'skill':
+      if (this.existingSkillConversation) {
+        return `Rejoindre la discussion existante (${this.selectedSkillData?.stats.totalUsers || 0} participants)`;
+      }
+      if (this.selectedSkillData) {
+        return `Créer la discussion (${this.selectedSkillData.stats.totalUsers} participants)`;
+      }
+      return 'Créer la discussion';
+    default:
+      return 'Créer';
   }
 }
 
@@ -586,21 +635,7 @@ private async createSkillConversation(): Promise<Conversation | undefined> {
 
   // ===== MÉTHODES PUBLIQUES POUR LE TEMPLATE =====
 
-  getCreateButtonText(): string {
-    switch (this.conversationType) {
-      case 'direct':
-        return 'Créer la conversation';
-      case 'group':
-        return `Créer le groupe (${this.selectedParticipants.length + 1} membres)`;
-      case 'skill':
-        if (this.selectedSkillData) {
-          return `Rejoindre la discussion (${this.selectedSkillData.stats.totalUsers} participants)`;
-        }
-        return 'Rejoindre la discussion';
-      default:
-        return 'Créer';
-    }
-  }
+ 
 
   getSelectedSkillName(): string {
     if (this.selectedSkillData) {

@@ -2326,5 +2326,92 @@ public forceRefreshConversations(): void {
     }
   });
 }
+// Dans messaging.service.ts
+
+/**
+ * ✅ NOUVEAU: Vérifie si une conversation de compétence existe déjà
+ */
+checkSkillConversationExists(skillId: number): Observable<Conversation | null> {
+  return from(this.keycloakService.getToken()).pipe(
+    switchMap(token => {
+      if (!token) {
+        return throwError(() => new Error('No token available'));
+      }
+
+      const headers = new HttpHeaders({
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      });
+
+      return this.http.get<Conversation[]>(
+        `${this.apiUrl}/conversations?type=SKILL_GROUP`,
+        { headers }
+      ).pipe(
+        map(conversations => {
+          // Rechercher spécifiquement une conversation liée à cette compétence
+          const skillConversation = conversations.find(conv => 
+            conv.skillId === skillId && conv.type === 'SKILL_GROUP'
+          );
+          return skillConversation || null;
+        })
+      );
+    }),
+    catchError(error => {
+      console.log('ℹ️ No existing skill conversation found:', error);
+      return of(null);
+    })
+  );
+}
+
+/**
+ * ✅ NOUVEAU: Récupère une conversation de compétence existante
+ */
+getSkillConversation(skillId: number): Observable<Conversation | null> {
+  return from(this.keycloakService.getToken()).pipe(
+    switchMap(token => {
+      if (!token) {
+        return throwError(() => new Error('No token available'));
+      }
+
+      const headers = new HttpHeaders({
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      });
+
+      return this.http.get<Conversation | null>(
+        `${this.apiUrl}/conversations/skill/${skillId}`,
+        { headers }
+      );
+    }),
+    catchError(error => {
+      console.error('❌ Error fetching skill conversation:', error);
+      return of(null);
+    })
+  );
+}
+
+getSkillConversationBySkillId(skillId: number): Observable<Conversation | null> {
+  return from(this.keycloakService.getToken()).pipe(
+    switchMap(token => {
+      if (!token) {
+        return throwError(() => new Error('No token available'));
+      }
+
+      const headers = new HttpHeaders({
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      });
+
+      return this.http.get<Conversation | null>(
+        `${this.apiUrl}/conversations/by-skill/${skillId}`,
+        { headers }
+      );
+    }),
+    catchError(error => {
+      console.error('❌ Error fetching skill conversation by skill ID:', error);
+      return of(null);
+    })
+  );
+}
 
 }
