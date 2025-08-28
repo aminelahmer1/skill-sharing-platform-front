@@ -2073,7 +2073,18 @@ private initializeReadStateSync() {
       retry(2)
     );
   }
-
+private formatFileUrl(fileUrl: string): string {
+  if (!fileUrl) return '';
+  
+  // Si l'URL est déjà complète
+  if (fileUrl.startsWith('http')) {
+    return fileUrl;
+  }
+  
+  // Si c'est un chemin relatif, construire l'URL complète
+  // CORRECTION: Utiliser le bon endpoint
+  return `http://localhost:8822/message-uploads/${fileUrl}`;
+}
   
 
   searchConversations(query: string): Observable<Conversation[]> {

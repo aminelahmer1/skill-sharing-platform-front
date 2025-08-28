@@ -36,8 +36,7 @@ interface SkillWithExchange extends SkillResponse {
     MatDialogModule,
     MatSnackBarModule,
     MatButtonModule,
-    MatChipsModule,
-    RatingDisplayComponent
+    MatChipsModule
   ],
   templateUrl: './accepted-skills.component.html',
   styleUrls: ['./accepted-skills.component.css']
