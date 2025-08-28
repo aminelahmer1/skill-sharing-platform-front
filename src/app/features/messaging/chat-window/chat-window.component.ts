@@ -12,7 +12,8 @@ import {
   OnChanges, 
   SimpleChanges,
   ChangeDetectorRef,
-  NgZone
+  NgZone,
+  HostListener
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -86,12 +87,18 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
   private scrollThreshold = 150;
   
   // Observables
-  private destroy$ = new Subject<void>();
   private typingSubject = new Subject<void>();
+   private destroy$ = new Subject<void>();
+  private markAsReadSubject = new Subject<void>();
+  private hasMarkedAsRead = false;
+  private lastMarkAsReadTime = 0;
   
   // Flags
   private isInitialized = false;
   private pendingScrollToBottom = false;
+
+  private isConversationActive = false;
+  private autoReadEnabled = true;
 
   constructor(
     private messagingService: MessagingService,
@@ -104,12 +111,20 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
     this.setupTypingIndicator();
     this.subscribeToUpdates();
     this.startCleanupTimer();
+      this.setupAutoRead();
+    this.notifyConversationActive(true);
+    this.subscribeToReadReceipts();
   }
 
   ngAfterViewInit() {
     this.isInitialized = true;
     this.initializeScrollListener();
     setTimeout(() => this.scrollToBottom(), 100);
+    
+    // Marquer comme lu après l'affichage
+    if (this.conversation) {
+      this.markAllAsReadOnActivity();
+    }
   }
 
   ngAfterViewChecked() {
@@ -118,33 +133,56 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
       this.performScrollToBottom();
     }
   }
+  
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['conversation'] && this.conversation) {
       console.log('Conversation changed:', this.conversation.id);
       this.resetForNewConversation();
       this.resetAndLoadMessages();
+      this.notifyConversationActive(true);
     }
   }
 
   private resetForNewConversation() {
-    // CORRECTION: Reset complet de tous les systèmes de déduplication
     this.isProcessingOwnMessage = false;
     this.lastProcessedMessageId = null;
     this.processedMessageIds.clear();
-    this.messageContentHashes.clear(); // NOUVEAU
+    this.messageContentHashes.clear(); 
     this.messages = [];
     this.lastMessageCount = 0;
     console.log('🔄 Chat window reset for new conversation');
   }
 
   ngOnDestroy() {
+    this.notifyConversationActive(false);
     this.destroy$.next();
     this.destroy$.complete();
     
     // NOUVEAU: Nettoyer le timer
     if (this.cleanupTimer) {
       clearInterval(this.cleanupTimer);
+    }
+  }
+private notifyConversationActive(active: boolean) {
+    if (!this.conversation) return;
+    
+    this.isConversationActive = active;
+    
+    // Utiliser le service messaging pour envoyer via WebSocket
+    const stompConnection = (this.messagingService as any).stompClient;
+    if (stompConnection && stompConnection.connected) {
+      stompConnection.publish({
+        destination: `/app/conversation/${this.conversation.id}/active`,
+        body: JSON.stringify({ active: active })
+      });
+    }
+    
+    console.log(`Conversation ${this.conversation.id} is now ${active ? 'active' : 'inactive'}`);
+    
+    // Si active, marquer tout comme lu
+    if (active && this.conversation.unreadCount > 0) {
+      this.markAllAsReadOnActivity();
     }
   }
 
@@ -184,6 +222,81 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
     }
     
     return hash.toString();
+  }
+private setupAutoRead() {
+    // Écouter les nouveaux messages
+    this.messagingService.messages$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(messages => {
+        if (!this.conversation || !this.isConversationActive) return;
+        
+        // Filtrer les messages de cette conversation
+        const conversationMessages = messages.filter(m => 
+          m.conversationId === this.conversation.id
+        );
+        
+        // Pour chaque nouveau message qui n'est pas de nous
+        conversationMessages.forEach(msg => {
+          if (msg.senderId !== this.currentUserId && msg.status !== 'READ') {
+            // Si la conversation est active, marquer comme lu immédiatement
+            this.autoMarkAsRead(msg);
+          }
+        });
+      });
+  }
+
+  /**
+   * CORRECTION: Marquer automatiquement comme lu
+   */
+  private autoMarkAsRead(message: Message) {
+    if (!this.autoReadEnabled || !this.isConversationActive) return;
+    
+    console.log(`Auto-marking message ${message.id} as read`);
+    
+    // Mise à jour locale immédiate
+    message.status = 'READ';
+    
+    // Appel serveur
+    this.messagingService.markAsRead(this.conversation.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => console.log('✅ Auto-marked as read'),
+        error: (err) => console.warn('⚠️ Auto-mark failed:', err)
+      });
+  }
+
+  /**
+   * CORRECTION: Quand l'utilisateur tape, marquer comme lu
+   */
+  onTyping() {
+    this.typingSubject.next();
+    
+    // NOUVEAU: Si on tape, on est actif donc marquer tout comme lu
+    if (this.conversation && this.conversation.unreadCount > 0) {
+      this.markAllAsReadOnActivity();
+    }
+  }
+
+  private markAllAsReadOnActivity() {
+    if (!this.conversation || this.conversation.unreadCount === 0) return;
+    
+    console.log('📖 Marking as read on user activity');
+    
+    // Mise à jour locale immédiate
+    this.conversation.unreadCount = 0;
+    
+    // Mise à jour serveur
+    this.messagingService.markAsRead(this.conversation.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          console.log('✅ Messages marked as read, sending notification');
+          // Le serveur enverra automatiquement les read receipts
+        },
+        error: (error) => {
+          console.warn('⚠️ Error marking as read:', error);
+        }
+      });
   }
 
   // ===== CORRECTION: Fonction de déduplication robuste =====
@@ -271,6 +384,10 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
   private handleScroll() {
     if (!this.scrollContainer) return;
 
+    // Si on scrolle, on est actif
+    if (this.isConversationActive && this.conversation?.unreadCount > 0) {
+      this.markAllAsReadOnActivity();
+    }
     const container = this.scrollContainer.nativeElement;
     const scrollTop = container.scrollTop;
     const scrollHeight = container.scrollHeight;
@@ -526,9 +643,7 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
       });
   }
 
-  onTyping() {
-    this.typingSubject.next();
-  }
+ 
 
   // ===== CORRECTION: Envoi de messages =====
 
@@ -730,5 +845,158 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
 
   onRetry() {
     this.resetAndLoadMessages();
+  }private performMarkAsRead() {
+    if (!this.conversation || this.hasMarkedAsRead) {
+      return;
+    }
+
+    console.log(`📖 Marking conversation ${this.conversation.id} as read`);
+    
+    this.lastMarkAsReadTime = Date.now();
+    
+    this.messagingService.markAsRead(this.conversation.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success !== false) {
+            console.log('✅ Conversation marked as read');
+            this.hasMarkedAsRead = true;
+            
+            // Mettre à jour le compteur local
+            if (this.conversation) {
+              this.conversation.unreadCount = 0;
+            }
+            
+            // Émettre un événement pour mettre à jour la liste
+            this.emitConversationRead();
+          }
+        },
+        error: (error) => {
+          console.warn('⚠️ Could not mark as read:', error);
+          // Réessayer après 3 secondes
+          setTimeout(() => {
+            this.hasMarkedAsRead = false;
+            this.triggerMarkAsRead();
+          }, 3000);
+        }
+      });
+  }
+  private emitConversationRead() {
+    window.dispatchEvent(new CustomEvent('conversationRead', {
+      detail: {
+        conversationId: this.conversation.id,
+        timestamp: new Date()
+      }
+    }));
+  }
+private triggerMarkAsRead() {
+    // Éviter les marquages répétés trop rapides
+    const now = Date.now();
+    if (now - this.lastMarkAsReadTime < 5000) { // 5 secondes minimum entre les marquages
+      return;
+    }
+    
+    this.markAsReadSubject.next();
+  }
+  /**
+   * ✅ NOUVEAU: Écoute les receipts de lecture
+   */
+   private subscribeToReadReceipts() {
+    // Écouter les notifications de lecture via le service
+    this.messagingService.readReceipts$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(receipts => {
+        receipts.forEach(receipt => {
+          if (receipt.conversationId === this.conversation?.id) {
+            this.updateMessageReadStatus(receipt);
+          }
+        });
+      });
+
+    // Écouter aussi directement les topics WebSocket si disponible
+    this.subscribeToWebSocketReadReceipts();
+  }
+private subscribeToWebSocketReadReceipts() {
+    // Utiliser le service messaging pour accéder au client STOMP
+    const stompConnection = (this.messagingService as any).stompClient;
+    if (!stompConnection || !stompConnection.connected) {
+      // Réessayer après connexion
+      setTimeout(() => this.subscribeToWebSocketReadReceipts(), 1000);
+      return;
+    }
+
+    // S'abonner au topic de lecture de cette conversation
+    stompConnection.subscribe(`/topic/conversation/${this.conversation.id}/read`, (message: any) => {
+      const readData = JSON.parse(message.body);
+      console.log('✅ Read receipt received:', readData);
+      this.handleReadReceipt(readData);
+    });
+  }
+private handleReadReceipt(readData: any) {
+    this.ngZone.run(() => {
+      // Mettre à jour le statut des messages
+      this.messages.forEach(msg => {
+        // Si c'est un de nos messages et qu'il a été lu par quelqu'un d'autre
+        if (msg.senderId === this.currentUserId && 
+            readData.userId !== this.currentUserId) {
+          
+          // Passer de SENT à READ (✓ vers ✓✓)
+          if (msg.status !== 'READ') {
+            msg.status = 'READ';
+            msg.readAt = new Date();
+            console.log(`Message ${msg.id} marked as READ ✓✓`);
+          }
+        }
+      });
+      
+      // Forcer la mise à jour de l'affichage
+      this.cdr.detectChanges();
+    });
+  }
+private updateMessageReadStatus(receipt: any) {
+    const message = this.messages.find(m => m.id === receipt.messageId);
+    if (message && message.senderId === this.currentUserId) {
+      message.status = 'READ';
+      message.readAt = receipt.timestamp || new Date();
+      this.cdr.detectChanges();
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU: Met à jour le statut de lecture des messages
+   */
+  private updateMessagesReadStatus(receipt: any) {
+    if (receipt.readByUserId === this.currentUserId) {
+      // Marquer tous les messages comme lus visuellement
+      this.messages.forEach(msg => {
+        if (msg.senderId !== this.currentUserId && msg.status !== 'READ') {
+          msg.status = 'READ';
+        }
+      });
+    }
+  }
+
+  @HostListener('window:focus')
+  onWindowFocus() {
+    this.isConversationActive = true;
+    this.notifyConversationActive(true);
+    
+    // Marquer tout comme lu au retour
+    if (this.conversation && this.conversation.unreadCount > 0) {
+      this.markAllAsReadOnActivity();
+    }
+  }
+
+  @HostListener('window:blur')
+  onWindowBlur() {
+    this.isConversationActive = false;
+    this.notifyConversationActive(false);
+  }
+
+  @HostListener('click')
+  onConversationClick() {
+    if (this.conversation?.unreadCount > 0) {
+      this.markAllAsReadOnActivity();
+    }
   }
 }

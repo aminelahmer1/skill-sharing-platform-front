@@ -1,7 +1,7 @@
 // messenger.component.ts - VERSION AVEC DEBUG ET S
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, takeUntil, debounceTime, tap, distinctUntilChanged } from 'rxjs';import { ConversationListComponent } from '../conversation-list/conversation-list.component';
+import { Subject, takeUntil, debounceTime, tap, distinctUntilChanged, interval } from 'rxjs';import { ConversationListComponent } from '../conversation-list/conversation-list.component';
 import { ChatWindowComponent } from '../chat-window/chat-window.component';
 import { NewConversationDialogComponent } from '../new-conversation-dialog/new-conversation-dialog.component';
 import { MessagingService, Conversation } from '../../../core/services/messaging/messaging.service';
@@ -57,12 +57,12 @@ export class MessengerComponent implements OnInit, OnDestroy {
   ttl: 30000 // 30 secondes
 };
 
-
+ private syncInterval?: any;
  // AJOUTER dans le constructor:
 constructor(
   private messagingService: MessagingService,
   private keycloakService: KeycloakService,
-  private cdr: ChangeDetectorRef // ✅ Ajouter ChangeDetectorRef
+  private cdr: ChangeDetectorRef 
 ) {
   console.log('🚀 MessengerComponent initializing...');
 }
@@ -89,6 +89,8 @@ async ngOnInit() {
         this.loadConversations();
         this.subscribeToUpdates();
         this.subscribeToConnectionStatus();
+         this.initializeReadStateManagement();
+         this.startPeriodicSync();
 
         
         
@@ -189,6 +191,9 @@ private showNotification(message: string, type: 'success' | 'info' | 'error' = '
 }
 
   ngOnDestroy() {
+     if (this.syncInterval) {
+      clearInterval(this.syncInterval);
+    }
     this.destroy$.next();
     this.destroy$.complete();
     
@@ -549,7 +554,9 @@ onConversationCreated(conversation: Conversation) {
     console.log('📋 Selecting conversation:', conversation.id, conversation.name);
     this.selectedConversation = conversation;
     this.messagingService.setCurrentConversation(conversation);
-    
+    if (conversation.unreadCount > 0) {
+      this.markConversationAsRead(conversation);
+    }
     // Marquer comme lu
     this.messagingService.markAsRead(conversation.id)
       .pipe(takeUntil(this.destroy$))
@@ -563,7 +570,75 @@ onConversationCreated(conversation: Conversation) {
         }
       });
   }
+ private markConversationAsRead(conversation: Conversation) {
+    console.log(`📖 Marking conversation ${conversation.id} as read`);
+    
+    // Mise à jour optimiste
+    const previousCount = conversation.unreadCount;
+    conversation.unreadCount = 0;
+    this.cdr.detectChanges();
+    
+    // Appel serveur
+    this.messagingService.markAsRead(conversation.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          if (response.success !== false) {
+            console.log('✅ Conversation marked as read successfully');
+          } else {
+            // Restaurer le compteur en cas d'échec
+            conversation.unreadCount = previousCount;
+            this.cdr.detectChanges();
+          }
+        },
+        error: (error) => {
+          console.error('❌ Failed to mark as read:', error);
+          // Restaurer le compteur
+          conversation.unreadCount = previousCount;
+          this.cdr.detectChanges();
+          
+          // Réessayer après 2 secondes
+          setTimeout(() => {
+            this.markConversationAsRead(conversation);
+          }, 2000);
+        }
+      });
+  }
+ forceSync() {
+    console.log('🔄 Force sync triggered');
+    this.syncAllReadStates();
+    
+    // Si une conversation est sélectionnée, forcer son rechargement
+    if (this.selectedConversation) {
+      this.messagingService.getUnreadCount(this.selectedConversation.id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe(count => {
+          if (this.selectedConversation) {
+            this.selectedConversation.unreadCount = count;
+            this.cdr.detectChanges();
+          }
+        });
+    }
+  }
 
+  /**
+   * ✅ NOUVEAU: Réinitialise tous les compteurs (pour debug)
+   */
+  resetAllUnreadCounts() {
+    console.log('🔄 Resetting all unread counts');
+    
+    this.messagingService.forceRecalculateUnread()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          console.log('✅ Unread counts recalculated');
+          this.syncAllReadStates();
+        },
+        error: (error) => {
+          console.error('❌ Error recalculating:', error);
+        }
+      });
+  }
   onCreateConversation() {
     console.log('➕ Opening new conversation dialog...');
     if (this.canCreateConversations()) {
@@ -571,7 +646,19 @@ onConversationCreated(conversation: Conversation) {
     }
   }
 
+/**
+   * ✅ Obtient le nombre total de messages non lus
+   */
+  getTotalUnreadCount(): number {
+    return this.conversations.reduce((total, conv) => total + (conv.unreadCount || 0), 0);
+  }
 
+  /**
+   * ✅ Vérifie si des messages non lus existent
+   */
+  hasUnreadMessages(): boolean {
+    return this.getTotalUnreadCount() > 0;
+  }
 
 
 
@@ -746,5 +833,137 @@ onConversationCreated(conversation: Conversation) {
     this.loadConversations();
   }
 
-  
+   private initializeReadStateManagement() {
+    console.log('🚀 Initializing read state management');
+    
+    // Synchroniser l'état au démarrage
+    this.syncAllReadStates();
+    
+    // Écouter les changements de visibilité de la page
+    document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+    
+    // Écouter le focus/blur de la fenêtre
+    window.addEventListener('focus', this.handleWindowFocus.bind(this));
+    window.addEventListener('blur', this.handleWindowBlur.bind(this));
+    
+    // S'abonner aux mises à jour en temps réel
+    this.subscribeToReadStateUpdates();
+  }
+
+  /**
+   * ✅ NOUVEAU: Synchronise tous les états de lecture
+   */
+  private syncAllReadStates() {
+    console.log('🔄 Syncing all read states');
+    
+    // Récupérer tous les compteurs non lus
+    this.messagingService.getAllUnreadCounts()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (counts) => {
+          // Mettre à jour chaque conversation
+          this.conversations.forEach(conv => {
+            const unreadCount = counts.get(conv.id) || 0;
+            if (conv.unreadCount !== unreadCount) {
+              conv.unreadCount = unreadCount;
+              console.log(`Updated unread count for ${conv.id}: ${unreadCount}`);
+            }
+          });
+          
+          // Forcer la détection de changements
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          console.error('❌ Error syncing read states:', error);
+        }
+      });
+  }
+
+  /**
+   * ✅ NOUVEAU: Démarre la synchronisation périodique
+   */
+  private startPeriodicSync() {
+    // Synchroniser toutes les 30 secondes
+    this.syncInterval = interval(30000)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (document.visibilityState === 'visible') {
+          this.syncAllReadStates();
+        }
+      });
+  }
+
+  /**
+   * ✅ NOUVEAU: S'abonne aux mises à jour d'état de lecture
+   */
+  private subscribeToReadStateUpdates() {
+    // Écouter les mises à jour de compteurs non lus
+    this.messagingService.unreadCounts$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(counts => {
+        let hasChanges = false;
+        
+        this.conversations.forEach(conv => {
+          const newCount = counts.get(conv.id) || 0;
+          if (conv.unreadCount !== newCount) {
+            conv.unreadCount = newCount;
+            hasChanges = true;
+          }
+        });
+        
+        if (hasChanges) {
+          this.cdr.detectChanges();
+        }
+      });
+
+    // Écouter les receipts de lecture
+    this.messagingService.readReceipts$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(receipts => {
+        receipts.forEach(receipt => {
+          const conv = this.conversations.find(c => c.id === receipt.conversationId);
+          if (conv && receipt.userId === this.currentUserId) {
+            conv.unreadCount = 0;
+          }
+        });
+        
+        this.cdr.detectChanges();
+      });
+  }
+
+  /**
+   * ✅ NOUVEAU: Gestion du changement de visibilité
+   */
+  private handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+      console.log('📱 Page became visible, syncing read states');
+      this.syncAllReadStates();
+      
+      // Si une conversation est sélectionnée, la marquer comme lue
+      if (this.selectedConversation && this.selectedConversation.unreadCount > 0) {
+        this.markConversationAsRead(this.selectedConversation);
+      }
+    }
+  }
+
+  /**
+   * ✅ NOUVEAU: Gestion du focus de la fenêtre
+   */
+  private handleWindowFocus() {
+    console.log('🔍 Window focused');
+    
+    // Synchroniser après un court délai
+    setTimeout(() => {
+      this.syncAllReadStates();
+    }, 500);
+  }
+
+  /**
+   * ✅ NOUVEAU: Gestion de la perte de focus
+   */
+  private handleWindowBlur() {
+    console.log('👋 Window blurred');
+    // Pas d'action particulière
+  }
+
 }

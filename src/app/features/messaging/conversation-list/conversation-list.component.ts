@@ -1,7 +1,8 @@
 // conversation-list.component.ts - VERSION CORRIGÉE
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Conversation } from '../../../core/services/messaging/messaging.service';
+import { Conversation, MessagingService } from '../../../core/services/messaging/messaging.service';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-conversation-list',
@@ -15,15 +16,154 @@ export class ConversationListComponent implements OnInit {
   @Input() selectedConversation: Conversation | null = null;
   @Input() currentUserId!: number;
   @Output() conversationSelected = new EventEmitter<Conversation>();
+private destroy$ = new Subject<void>();
+  
+  // Map pour stocker les compteurs non lus
+  unreadCounts = new Map<number, number>();
 
+  constructor(private messagingService: MessagingService) {}
   ngOnInit() {
-    console.log('📋 ConversationList initialized with', this.conversations.length, 'conversations');
+    console.log('📋 ConversationList initialized');
+    this.subscribeToUnreadCounts();
+    this.listenToConversationReadEvents();
+    this.syncUnreadCounts();
   }
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+
+
+
+
+ private subscribeToUnreadCounts() {
+    this.messagingService.unreadCounts$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(counts => {
+        this.unreadCounts = counts;
+        
+        // Mettre à jour les conversations avec les nouveaux compteurs
+        this.updateConversationsUnreadCounts();
+      });
+
+    // Écouter aussi le total
+    this.messagingService.totalUnread$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(total => {
+        console.log('📊 Total unread messages:', total);
+        this.updateBadge(total);
+      });
+  }
+
+
+
+private updateConversationsUnreadCounts() {
+    this.conversations.forEach(conv => {
+      const unreadCount = this.unreadCounts.get(conv.id) || 0;
+      if (conv.unreadCount !== unreadCount) {
+        conv.unreadCount = unreadCount;
+      }
+    });
+  }
+private syncUnreadCounts() {
+    this.messagingService.getAllUnreadCounts()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (counts) => {
+          console.log('✅ Unread counts synced:', counts);
+        },
+        error: (error) => {
+          console.error('❌ Error syncing unread counts:', error);
+        }
+      });
+  }
+
+ private listenToConversationReadEvents() {
+    // Écouter l'événement custom
+    const handleConversationRead = (event: any) => {
+      const { conversationId } = event.detail;
+      console.log('📖 Conversation read event:', conversationId);
+      
+      // Mettre à jour le compteur local
+      const conversation = this.conversations.find(c => c.id === conversationId);
+      if (conversation) {
+        conversation.unreadCount = 0;
+        this.unreadCounts.set(conversationId, 0);
+      }
+    };
+
+    window.addEventListener('conversationRead', handleConversationRead);
+    
+    // Cleanup
+    this.destroy$.subscribe(() => {
+      window.removeEventListener('conversationRead', handleConversationRead);
+    });
+  }
+
+
+
+
+
 
   selectConversation(conversation: Conversation) {
-    console.log('📋 Conversation selected:', conversation.id);
+    console.log('📋 Selecting conversation:', conversation.id);
+    
+    // Émettre la sélection
     this.conversationSelected.emit(conversation);
+    
+    // Si la conversation a des messages non lus, la marquer comme lue
+    if (conversation.unreadCount > 0) {
+      console.log(`📖 Marking conversation ${conversation.id} as read (${conversation.unreadCount} unread)`);
+      
+      // Mise à jour optimiste de l'UI
+      conversation.unreadCount = 0;
+      this.unreadCounts.set(conversation.id, 0);
+      
+      // Appel serveur asynchrone
+      this.messagingService.markAsRead(conversation.id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            console.log('✅ Conversation marked as read on server');
+          },
+          error: (error) => {
+            console.error('❌ Failed to mark as read:', error);
+            // Recharger les compteurs en cas d'erreur
+            this.syncUnreadCounts();
+          }
+        });
+    }
   }
+private updateBadge(count: number) {
+    // Mettre à jour le badge dans le titre de la page
+    if (count > 0) {
+      document.title = `(${count}) Messages`;
+    } else {
+      document.title = 'Messages';
+    }
+
+    // Si supported, utiliser l'API Badge
+    if ('setAppBadge' in navigator && 'clearAppBadge' in navigator) {
+      if (count > 0) {
+        (navigator as any).setAppBadge(count);
+      } else {
+        (navigator as any).clearAppBadge();
+      }
+    }
+  }
+
+  getUnreadCount(conversation: Conversation): number {
+    // Priorité au compteur en temps réel
+    const realtimeCount = this.unreadCounts.get(conversation.id);
+    if (realtimeCount !== undefined) {
+      return realtimeCount;
+    }
+    
+    // Fallback sur la propriété de l'objet
+    return conversation.unreadCount || 0;
+  }
+
 
   getConversationAvatar(conversation: Conversation): string {
     // Pour les conversations de compétence avec image
@@ -158,17 +298,39 @@ export class ConversationListComponent implements OnInit {
       : conversation.lastMessage;
   }
 
-  getUnreadBadgeText(count: number): string {
+  getUnreadBadgeText(conversation: Conversation): string {
+    const count = this.getUnreadCount(conversation);
     if (count === 0) return '';
     return count > 99 ? '99+' : count.toString();
   }
 
-  isConversationSelected(conversation: Conversation): boolean {
+   isConversationSelected(conversation: Conversation): boolean {
     return this.selectedConversation?.id === conversation.id;
   }
-
   hasUnreadMessages(conversation: Conversation): boolean {
-    return conversation.unreadCount > 0;
+    return this.getUnreadCount(conversation) > 0;
+  }
+forceSync() {
+    console.log('🔄 Force syncing unread counts');
+    this.syncUnreadCounts();
+  }
+
+    getConversationClass(conversation: Conversation): string {
+    const classes = ['conversation-item'];
+    
+    if (this.isConversationSelected(conversation)) {
+      classes.push('active');
+    }
+    
+    if (this.hasUnreadMessages(conversation)) {
+      classes.push('has-unread');
+    }
+    
+    if (conversation.status !== 'ACTIVE') {
+      classes.push('inactive');
+    }
+    
+    return classes.join(' ');
   }
 
   getConversationStatusClass(conversation: Conversation): string {
@@ -232,7 +394,6 @@ export class ConversationListComponent implements OnInit {
     }
   }
 
-  // Méthodes utilitaires pour le template
   trackByConversationId(index: number, conversation: Conversation): number {
     return conversation.id;
   }

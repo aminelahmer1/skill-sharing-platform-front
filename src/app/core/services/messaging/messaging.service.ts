@@ -164,6 +164,25 @@ export class MessagingService {
   private readonly skillApiUrl = 'http://localhost:8822/api/v1/skills';
   private readonly wsUrl = 'http://localhost:8822/ws/messaging';
   
+
+  //  Subjects pour gérer l'état de lecture
+  private unreadCountsSubject = new BehaviorSubject<Map<number, number>>(new Map());
+  private totalUnreadSubject = new BehaviorSubject<number>(0);
+  private readReceiptsSubject = new BehaviorSubject<any[]>([]);
+
+
+
+  // Observables publics
+  unreadCounts$ = this.unreadCountsSubject.asObservable();
+  totalUnread$ = this.totalUnreadSubject.asObservable();
+  readReceipts$ = this.readReceiptsSubject.asObservable();
+
+  // Cache pour éviter les appels répétés
+  private readStatusCache = new Map<number, {
+    lastRead: Date;
+    unreadCount: number;
+  }>();
+
   // ===== OBSERVABLES =====
   private conversationsSubject = new BehaviorSubject<Conversation[]>([]);
   private currentConversationSubject = new BehaviorSubject<Conversation | null>(null);
@@ -1707,7 +1726,7 @@ private mergeConversationsData(serverConversations: Conversation[]): void {
     );
   }
 
-  getConversationMessages(conversationId: number, page = 0, size = 50): Observable<Message[]> {
+ getConversationMessages(conversationId: number, page = 0, size = 50): Observable<Message[]> {
     return from(this.keycloakService.getToken()).pipe(
       switchMap(token => {
         const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
@@ -1717,17 +1736,59 @@ private mergeConversationsData(serverConversations: Conversation[]): void {
         });
       }),
       map(response => {
-        if (response.content) {
-          return response.content;
+        const messages = response.content || response || [];
+        
+        // Marquer automatiquement comme lu après chargement (seulement première page)
+        if (page === 0 && messages.length > 0) {
+          // Déclencher le marquage asynchrone sans bloquer
+          setTimeout(() => {
+            this.markAsRead(conversationId).subscribe({
+              next: () => console.log('✅ Auto-marked as read'),
+              error: (err) => console.warn('⚠️ Could not auto-mark as read:', err)
+            });
+          }, 500);
         }
-        return Array.isArray(response) ? response : [];
-      }),
-      tap(messages => {
-        console.log(`✅ Messages loaded for conversation ${conversationId}:`, messages.length);
-        this.messagesSubject.next(messages);
+        
+        return messages;
       }),
       retry(2)
     );
+  }
+
+
+  /**
+   * ✅ NOUVEAU: Force le recalcul des messages non lus
+   */
+  forceRecalculateUnread(): Observable<void> {
+    console.log('🔄 Force recalculating unread counts');
+    
+    return from(this.keycloakService.getToken()).pipe(
+      switchMap(token => {
+        const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+        return this.http.post<any>(`${this.apiUrl}/recalculate-unread`, {}, { headers });
+      }),
+      tap(() => {
+        this.syncReadState().subscribe();
+      }),
+      map(() => void 0)
+    );
+  }
+
+  /**
+   * ✅ NOUVEAU: Réinitialise le cache de lecture (pour debug)
+   */
+  clearReadCache() {
+    console.log('🗑️ Clearing read status cache');
+    this.readStatusCache.clear();
+    this.unreadCountsSubject.next(new Map());
+    this.totalUnreadSubject.next(0);
+  }
+getConversationReadStatus(conversationId: number): { isRead: boolean; unreadCount: number } {
+    const unreadCount = this.unreadCountsSubject.value.get(conversationId) || 0;
+    return {
+      isRead: unreadCount === 0,
+      unreadCount
+    };
   }
 
   sendMessage(request: MessageRequest): Observable<Message> {
@@ -1794,30 +1855,204 @@ this.updateConversationListOrder(message.conversationId, message)      }
   );
 }
 
-  markAsRead(conversationId: number): Observable<void> {
+markAsRead(conversationId: number): Observable<any> {
+    console.log(`📖 Marking conversation ${conversationId} as read`);
+    
     return from(this.keycloakService.getToken()).pipe(
       switchMap(token => {
         if (!token) {
           throw new Error('No token available');
         }
         
-        const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
-        return this.http.post<void>(
+        const headers = new HttpHeaders({ 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        });
+        
+        return this.http.post<any>(
           `${this.apiUrl}/conversation/${conversationId}/read`,
           {},
           { headers }
         );
       }),
-      tap(() => {
-        console.log('✅ Messages marked as read for conversation:', conversationId);
-        this.updateConversationUnreadCount(conversationId, 0);
+      tap(response => {
+        console.log('✅ Messages marked as read:', response);
+        
+        // Mettre à jour le cache local
+        this.updateLocalReadState(conversationId, 0);
+        
+        // Mettre à jour les compteurs
+        this.updateUnreadCount(conversationId, 0);
+        
+        // Émettre l'événement de lecture
+        this.emitReadReceipt(conversationId);
       }),
       catchError(error => {
-        console.warn('⚠️ Failed to mark as read:', error);
-        return of(undefined);
+        console.error('❌ Error marking as read:', error);
+        // Ne pas propager l'erreur pour ne pas bloquer l'UX
+        return of({ success: false, error: error.message });
       }),
-      retry(1)
+      retry(2) // Réessayer 2 fois en cas d'échec
     );
+  }
+
+  /**
+   * ✅ NOUVEAU: Met à jour l'état de lecture local
+   */
+  private updateLocalReadState(conversationId: number, unreadCount: number) {
+    this.readStatusCache.set(conversationId, {
+      lastRead: new Date(),
+      unreadCount: unreadCount
+    });
+    
+    // Mettre à jour le BehaviorSubject
+    const currentCounts = this.unreadCountsSubject.value;
+    currentCounts.set(conversationId, unreadCount);
+    this.unreadCountsSubject.next(new Map(currentCounts));
+    
+    // Recalculer le total
+    this.recalculateTotalUnread();
+  }
+    getUnreadCount(conversationId: number): Observable<number> {
+    // Vérifier d'abord le cache
+    const cached = this.readStatusCache.get(conversationId);
+    if (cached && (Date.now() - cached.lastRead.getTime() < 5000)) { // Cache de 5 secondes
+      return of(cached.unreadCount);
+    }
+    
+    return from(this.keycloakService.getToken()).pipe(
+      switchMap(token => {
+        const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+        return this.http.get<any>(
+          `${this.apiUrl}/conversation/${conversationId}/unread-count`,
+          { headers }
+        );
+      }),
+      map(response => response.unreadCount || 0),
+      tap(count => {
+        this.updateLocalReadState(conversationId, count);
+      }),
+      catchError(() => of(0))
+    );
+  }
+
+  /**
+   * ✅ NOUVEAU: Récupère tous les compteurs de messages non lus
+   */
+  getAllUnreadCounts(): Observable<Map<number, number>> {
+    return from(this.keycloakService.getToken()).pipe(
+      switchMap(token => {
+        const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+        return this.http.get<{[key: number]: number}>(
+          `${this.apiUrl}/unread-per-conversation`,
+          { headers }
+        );
+      }),
+      map(counts => {
+        const map = new Map<number, number>();
+        Object.entries(counts).forEach(([convId, count]) => {
+          map.set(Number(convId), count);
+        });
+        return map;
+      }),
+      tap(counts => {
+        this.unreadCountsSubject.next(counts);
+        this.recalculateTotalUnread();
+      }),
+      catchError(() => of(new Map()))
+    );
+  }
+
+  /**
+   * ✅ NOUVEAU: Force la synchronisation de l'état de lecture
+   */
+  syncReadState(): Observable<void> {
+    console.log('🔄 Syncing read state with server');
+    
+    return this.getAllUnreadCounts().pipe(
+      map(() => void 0)
+    );
+  }
+
+  /**
+   * ✅ NOUVEAU: Initialise la synchronisation WebSocket pour l'état de lecture
+   */
+private initializeReadStateSync() {
+    if (!this.stompClient) return;
+
+    // Écouter les receipts de lecture
+    this.stompClient.subscribe('/user/queue/read-receipt', (message: any) => {
+      const receipt = JSON.parse(message.body);
+      console.log('📖 Read receipt received:', receipt);
+      
+      // Mettre à jour l'état local
+      if (receipt.conversationId) {
+        this.updateLocalReadState(receipt.conversationId, 0);
+      }
+    });
+
+    // Écouter les mises à jour de compteurs
+    this.stompClient.subscribe('/user/queue/unread-update', (message: any) => {
+      const update = JSON.parse(message.body);
+      console.log('🔔 Unread count update:', update);
+      
+      if (update.conversationId && update.action) {
+        const current = this.unreadCountsSubject.value.get(update.conversationId) || 0;
+        let newCount = current;
+        
+        if (update.action === 'INCREMENT') {
+          newCount = current + 1;
+        } else if (update.action === 'DECREMENT') {
+          newCount = Math.max(0, current - (update.count || 1));
+        } else if (update.action === 'SET') {
+          newCount = update.count || 0;
+        }
+        
+        this.updateLocalReadState(update.conversationId, newCount);
+      }
+    });
+
+    // Synchronisation multi-device
+    this.stompClient.subscribe('/user/queue/sync-read-state', (message: any) => {
+      const syncData = JSON.parse(message.body);
+      console.log('🔄 Read state sync:', syncData);
+      
+      if (syncData.conversationId) {
+        this.updateLocalReadState(syncData.conversationId, 0);
+      }
+    });
+  }
+
+  /**
+   * ✅ NOUVEAU: Recalcule le nombre total de messages non lus
+   */
+  private recalculateTotalUnread() {
+    const total = Array.from(this.unreadCountsSubject.value.values())
+      .reduce((sum, count) => sum + count, 0);
+    this.totalUnreadSubject.next(total);
+  }
+
+  /**
+   * ✅ NOUVEAU: Met à jour le compteur pour une conversation
+   */
+  updateUnreadCount(conversationId: number, count: number) {
+    const counts = this.unreadCountsSubject.value;
+    counts.set(conversationId, count);
+    this.unreadCountsSubject.next(new Map(counts));
+    this.recalculateTotalUnread();
+  }
+
+  /**
+   * ✅ NOUVEAU: Émet un receipt de lecture
+   */
+  private emitReadReceipt(conversationId: number) {
+    const receipts = this.readReceiptsSubject.value;
+    receipts.push({
+      conversationId,
+      timestamp: new Date(),
+      userId: this.currentUserId
+    });
+    this.readReceiptsSubject.next([...receipts]);
   }
 
   uploadFile(file: File): Observable<string> {
@@ -1839,22 +2074,7 @@ this.updateConversationListOrder(message.conversationId, message)      }
     );
   }
 
-  getUnreadCount(): Observable<number> {
-    return from(this.keycloakService.getToken()).pipe(
-      switchMap(token => {
-        const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
-        return this.http.get<number>(`${this.apiUrl}/unread-count`, { headers });
-      }),
-      tap(count => {
-        this.unreadCountSubject.next(count);
-      }),
-      catchError(error => {
-        console.error('❌ Error fetching unread count:', error);
-        return of(0);
-      }),
-      retry(2)
-    );
-  }
+  
 
   searchConversations(query: string): Observable<Conversation[]> {
     return from(this.keycloakService.getToken()).pipe(
@@ -2026,16 +2246,57 @@ this.updateConversationListOrder(message.conversationId, message)      }
   }
 
   // ===== POLLING =====
-  private startPolling() {
-    this.pollingInterval = interval(30000).pipe(
-      takeUntil(this.destroy$),
-      switchMap(() => this.getUnreadCount()),
-      catchError(error => {
-        console.warn('⚠️ Polling error:', error);
-        return of(0);
-      })
-    ).subscribe();
+  // ===== POLLING =====
+private startPolling() {
+  this.pollingInterval = interval(30000).pipe(
+    takeUntil(this.destroy$),
+    switchMap(() => {
+      // Récupérer tous les compteurs non lus au lieu d'un seul
+      return this.getAllUnreadCounts().pipe(
+        map(() => void 0)
+      );
+    }),
+    catchError(error => {
+      console.warn('⚠️ Polling error:', error);
+      return of(void 0);
+    })
+  ).subscribe();
+}
+  sendConversationActiveStatus(conversationId: number, active: boolean): void {
+  if (!this.stompClient || !this.stompClient.connected) {
+    console.warn('⚠️ WebSocket not connected, cannot send active status');
+    return;
   }
+
+  try {
+    const payload = {
+      active: active,
+      conversationId: conversationId,
+      timestamp: new Date().toISOString()
+    };
+
+    this.stompClient.publish({
+      destination: `/app/conversation/${conversationId}/active`,
+      body: JSON.stringify(payload)
+    });
+
+    console.log(`📡 Sent conversation active status: ${conversationId} is ${active ? 'active' : 'inactive'}`);
+    
+    // Si la conversation devient active, marquer automatiquement les messages comme lus
+    if (active) {
+      // Déclencher le marquage après un petit délai
+      setTimeout(() => {
+        this.markAsRead(conversationId).subscribe({
+          next: () => console.log('✅ Auto-marked as read on activation'),
+          error: (err) => console.warn('⚠️ Could not auto-mark as read:', err)
+        });
+      }, 500);
+    }
+  } catch (error) {
+    console.error('❌ Error sending conversation active status:', error);
+  }
+}
+
 
   // ===== CLEANUP =====
  ngOnDestroy(): void {
@@ -2326,7 +2587,18 @@ public forceRefreshConversations(): void {
     }
   });
 }
-// Dans messaging.service.ts
+markConversationAsRead(conversationId: number): Observable<any> {
+  return from(this.keycloakService.getToken()).pipe(
+    switchMap(token => {
+      const headers = new HttpHeaders({ 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      });
+      
+      return this.http.post(`${this.apiUrl}/conversations/${conversationId}/mark-read`, {}, { headers });
+    })
+  );
+}
 
 /**
  * ✅ NOUVEAU: Vérifie si une conversation de compétence existe déjà
