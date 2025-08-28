@@ -164,28 +164,30 @@ export class ChatWindowComponent implements OnInit, OnDestroy, AfterViewInit, Af
       clearInterval(this.cleanupTimer);
     }
   }
+// Remplacer la méthode notifyConversationActive dans chat-window.component.ts
+
 private notifyConversationActive(active: boolean) {
     if (!this.conversation) return;
     
     this.isConversationActive = active;
     
-    // Utiliser le service messaging pour envoyer via WebSocket
-    const stompConnection = (this.messagingService as any).stompClient;
-    if (stompConnection && stompConnection.connected) {
-      stompConnection.publish({
-        destination: `/app/conversation/${this.conversation.id}/active`,
-        body: JSON.stringify({ active: active })
-      });
+    // Utiliser MessagingService pour envoyer le message via WebSocket
+    // au lieu d'accéder directement à stompClient qui n'existe pas
+    if (this.messagingService) {
+        // Envoyer le statut actif/inactif au backend
+        this.messagingService.sendConversationActiveStatus(
+            this.conversation.id, 
+            active
+        );
+        
+        console.log(`Conversation ${this.conversation.id} is now ${active ? 'active' : 'inactive'}`);
+        
+        // Si on active la conversation et qu'il y a des messages non lus, les marquer comme lus
+        if (active && this.conversation.unreadCount > 0) {
+            this.markAllAsReadOnActivity();
+        }
     }
-    
-    console.log(`Conversation ${this.conversation.id} is now ${active ? 'active' : 'inactive'}`);
-    
-    // Si active, marquer tout comme lu
-    if (active && this.conversation.unreadCount > 0) {
-      this.markAllAsReadOnActivity();
-    }
-  }
-
+}
   // ===== NOUVEAU: Système de nettoyage automatique =====
   private startCleanupTimer() {
     // Nettoyer les hachages anciens toutes les 5 minutes
@@ -277,26 +279,21 @@ private setupAutoRead() {
     }
   }
 
+  /**
+   * CORRECTION: Marquer comme lu sur activité utilisateur
+   */
   private markAllAsReadOnActivity() {
     if (!this.conversation || this.conversation.unreadCount === 0) return;
     
     console.log('📖 Marking as read on user activity');
     
-    // Mise à jour locale immédiate
+    // Mise à jour locale
     this.conversation.unreadCount = 0;
     
     // Mise à jour serveur
     this.messagingService.markAsRead(this.conversation.id)
       .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (response) => {
-          console.log('✅ Messages marked as read, sending notification');
-          // Le serveur enverra automatiquement les read receipts
-        },
-        error: (error) => {
-          console.warn('⚠️ Error marking as read:', error);
-        }
-      });
+      .subscribe();
   }
 
   // ===== CORRECTION: Fonction de déduplication robuste =====
@@ -981,7 +978,6 @@ private updateMessageReadStatus(receipt: any) {
     this.isConversationActive = true;
     this.notifyConversationActive(true);
     
-    // Marquer tout comme lu au retour
     if (this.conversation && this.conversation.unreadCount > 0) {
       this.markAllAsReadOnActivity();
     }
