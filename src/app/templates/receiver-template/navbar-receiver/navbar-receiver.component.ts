@@ -6,11 +6,12 @@ import { NotificationService } from '../../../core/services/notification/notific
 import { Subscription } from 'rxjs';
 import { QuickChatComponent } from "../../../features/messaging/quick-chat/quick-chat.component";
 import { MessageNotificationBadgeComponent } from '../../../features/shared/message-notification-badge/message-notification-badge.component';
+import { GlobalQuickChatComponent } from "../../../features/messaging/global-quick-chat/global-quick-chat.component";
 
 @Component({
   selector: 'app-navbar-receiver',
   standalone: true,
-  imports: [CommonModule, RouterModule, NotificationDropdownComponent, QuickChatComponent,    MessageNotificationBadgeComponent],
+  imports: [CommonModule, RouterModule, NotificationDropdownComponent, QuickChatComponent, MessageNotificationBadgeComponent, GlobalQuickChatComponent],
   templateUrl: './navbar-receiver.component.html',
   styleUrls: ['./navbar-receiver.component.css']
 })

@@ -8,17 +8,19 @@ import { MessageNotificationBadgeComponent } from '../../../features/shared/mess
 import { QuickChatComponent } from '../../../features/messaging/quick-chat/quick-chat.component';
 import { NotificationService } from '../../../core/services/notification/notification.service';
 import { Subscription } from 'rxjs';
+import { GlobalQuickChatComponent } from "../../../features/messaging/global-quick-chat/global-quick-chat.component";
 
 @Component({
   selector: 'app-navbar-producer',
   standalone: true,
   imports: [
-    CommonModule, 
-    RouterModule, 
+    CommonModule,
+    RouterModule,
     NotificationDropdownComponent,
     MessageNotificationBadgeComponent, // AJOUT: Import du badge de notification messages
-    QuickChatComponent
-  ],
+    QuickChatComponent,
+    GlobalQuickChatComponent
+],
   templateUrl: './navbar-producer.component.html',
   styleUrls: ['./navbar-producer.component.css'],
 })
