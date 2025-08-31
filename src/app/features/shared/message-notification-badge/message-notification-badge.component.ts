@@ -1,11 +1,12 @@
-// message-notification-badge.component.ts - VERSION REFACTORISÉE AVEC SYNCHRO TEMPS RÉEL ET GESTION READ/UNREAD
+// message-notification-badge.component.ts - VERSION COMBINÉE
+// Logique robuste de la version 1 + Design élégant de la version 2
 
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
 import { MessagingService, Conversation } from '../../../core/services/messaging/messaging.service';
 import { Router } from '@angular/router';
-import { trigger, transition, style, animate, state } from '@angular/animations';
+import { trigger, transition, style, animate } from '@angular/animations';
 import { MessageNotificationService, MessageNotification } from '../../../core/services/messaging/message-notification.service';
 
 @Component({
@@ -109,6 +110,12 @@ import { MessageNotificationService, MessageNotification } from '../../../core/s
       animation: pulse 2s infinite;
     }
 
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+
     .badge-icon {
       font-size: 1.5rem;
       display: block;
@@ -140,18 +147,6 @@ import { MessageNotificationService, MessageNotification } from '../../../core/s
       z-index: 1000;
       display: flex;
       flex-direction: column;
-      animation: slideDown 0.3s ease;
-    }
-
-    @keyframes slideDown {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
     }
 
     .dropdown-header {
@@ -343,18 +338,33 @@ export class MessageNotificationBadgeComponent implements OnInit, OnDestroy {
   showDropdown = false;
   currentUserId?: number;
   private destroy$ = new Subject<void>();
-  unreadCounts = new Map<number, number>(); // AJOUT: Pour gérer unread par conversation
+  unreadCounts = new Map<number, number>();
   unreadCount = 0;
   notifications: MessageNotification[] = [];
+  
   constructor(
-        private notificationService: MessageNotificationService,
+    private notificationService: MessageNotificationService,
     private messagingService: MessagingService,
     private router: Router,
-    private cdr: ChangeDetectorRef // AJOUT: Pour forcer updates
+    private cdr: ChangeDetectorRef
   ) {}
 
-  ngOnInit() {
-     this.notificationService.unreadCount$
+  async ngOnInit() {
+this.setupGlobalReadStateSync();
+    await this.initializeUserId();
+    
+    if (!this.currentUserId) {
+      console.error('❌ Failed to get current user ID in notification badge');
+      // Réessayer après un délai
+      setTimeout(() => this.initializeUserId(), 1000);
+    }
+    
+    this.subscribeToConversations();
+    this.subscribeToUnreadCounts();
+    this.setupClickOutside();
+    
+    // S'abonner aux notifications
+    this.notificationService.unreadCount$
       .pipe(takeUntil(this.destroy$))
       .subscribe(count => {
         this.unreadCount = count;
@@ -363,12 +373,105 @@ export class MessageNotificationBadgeComponent implements OnInit, OnDestroy {
     this.notificationService.notifications$
       .pipe(takeUntil(this.destroy$))
       .subscribe(notifications => {
-        this.notifications = notifications.slice(0, 10); // Afficher max 10 notifications
+        this.notifications = notifications.slice(0, 10);
       });
+  }
+
+  private setupGlobalReadStateSync() {
+  // Écouter les activités des quick chats
+  window.addEventListener('quickChatActivity', (event: any) => {
+    const { conversationId, type } = event.detail;
+    
+    // Si activité dans quick chat, marquer comme lu localement
+    if (this.unreadCounts.has(conversationId) && this.unreadCounts.get(conversationId)! > 0) {
+      this.unreadCounts.set(conversationId, 0);
+      this.updateTotalUnread();
+      this.cdr.detectChanges();
+    }
+  });
+  
+  // Écouter les événements de lecture
+  window.addEventListener('conversationMarkedAsRead', (event: any) => {
+    const { conversationId, source } = event.detail;
+    
+    if (source !== 'notification') {
+      // Mettre à jour localement
+      this.unreadCounts.set(conversationId, 0);
+      
+      // Mettre à jour la conversation dans la liste
+      const conversation = this.conversations.find(c => c.id === conversationId);
+      if (conversation) {
+        conversation.unreadCount = 0;
+      }
+      
+      this.updateTotalUnread();
+      this.cdr.detectChanges();
+    }
+  });
+}
+
+// Modifier openQuickChat() :
+openQuickChat(conversation: Conversation) {
+  this.showDropdown = false;
+  
+  // Marquer comme lu AVANT d'ouvrir
+  const unread = this.getUnreadCount(conversation);
+  if (unread > 0) {
+    // Mise à jour locale immédiate
+    this.unreadCounts.set(conversation.id, 0);
+    conversation.unreadCount = 0;
+    this.updateTotalUnread();
+    
+    // Appel serveur
+    this.messagingService.markAsRead(conversation.id).subscribe({
+      next: () => {
+        // Émettre événement global
+        window.dispatchEvent(new CustomEvent('conversationMarkedAsRead', {
+          detail: {
+            conversationId: conversation.id,
+            source: 'notification',
+            timestamp: new Date(),
+            unreadCount: 0
+          }
+        }));
+      }
+    });
+    
+    this.cdr.detectChanges();
+  }
+  
+  // Ouvrir le quick chat
+  if (this.router.url.includes('/messenger')) {
+    this.messagingService.setCurrentConversation(conversation);
+  } else {
+    window.dispatchEvent(new CustomEvent('openQuickChat', {
+      detail: { conversation }
+    }));
+    
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('refreshQuickChatMessages', {
+        detail: { conversationId: conversation.id }
+      }));
+    }, 500);
+  }
+}
+
+  private async initializeUserId() {
+    // LOGIQUE ROBUSTE: Essayer de récupérer l'ID depuis MessagingService
     this.currentUserId = this.messagingService.getCurrentUserId();
-    this.subscribeToConversations();
-    this.subscribeToUnreadCounts(); // AJOUT: Souscription aux unread counts
-    this.setupClickOutside();
+    
+    if (!this.currentUserId) {
+      // Si pas encore disponible, attendre
+      const userId = await this.messagingService.getCurrentUserIdAsync();
+      if (userId) {
+        this.currentUserId = userId;
+        console.log('✅ NotificationBadge: User ID initialized:', this.currentUserId);
+        // Forcer une mise à jour après avoir obtenu l'ID
+        this.cdr.detectChanges();
+      }
+    } else {
+      console.log('✅ NotificationBadge: User ID already available:', this.currentUserId);
+    }
   }
 
   ngOnDestroy() {
@@ -387,13 +490,11 @@ export class MessageNotificationBadgeComponent implements OnInit, OnDestroy {
             return timeB - timeA;
           });
         
-        // Mise à jour du total unread basé sur les compteurs
         this.updateTotalUnread();
         this.cdr.detectChanges();
       });
   }
 
-  // AJOUT: Souscription aux unread counts pour sync temps réel
   private subscribeToUnreadCounts() {
     this.messagingService.unreadCounts$
       .pipe(takeUntil(this.destroy$))
@@ -411,17 +512,16 @@ export class MessageNotificationBadgeComponent implements OnInit, OnDestroy {
       });
   }
 
-  // AJOUT: Calculer total unread
   private updateTotalUnread() {
     this.totalUnreadCount = Array.from(this.unreadCounts.values())
       .reduce((sum, count) => sum + count, 0);
   }
 
-  // AJOUT: Récupérer unread pour une conversation
   getUnreadCount(conversation: Conversation): number {
     return this.unreadCounts.get(conversation.id) || conversation.unreadCount || 0;
   }
 
+  
   private setupClickOutside() {
     document.addEventListener('click', (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -436,33 +536,7 @@ export class MessageNotificationBadgeComponent implements OnInit, OnDestroy {
     this.showDropdown = !this.showDropdown;
   }
 
-  openQuickChat(conversation: Conversation) {
-    this.showDropdown = false;
-    
-    // Vérifier si on est sur la page messenger
-    if (this.router.url.includes('/messenger')) {
-      // Si oui, juste sélectionner la conversation
-      this.messagingService.setCurrentConversation(conversation);
-    } else {
-      // Sinon, ouvrir le quick chat
-      window.dispatchEvent(new CustomEvent('openQuickChat', {
-        detail: { conversation }
-      }));
-    }
-    
-    // AJOUT: Marquer comme lu si unread
-    const unread = this.getUnreadCount(conversation);
-    if (unread > 0) {
-      this.messagingService.markAsRead(conversation.id).subscribe({
-        next: () => {
-          // Mise à jour locale
-          this.unreadCounts.set(conversation.id, 0);
-          this.updateTotalUnread();
-          this.cdr.detectChanges();
-        }
-      });
-    }
-  }
+
 
   openMessenger() {
     this.showDropdown = false;
@@ -476,10 +550,23 @@ export class MessageNotificationBadgeComponent implements OnInit, OnDestroy {
   }
 
   getConversationName(conversation: Conversation): string {
+    // LOGIQUE ROBUSTE: DEBUG + vérifications
+    if (!this.currentUserId) {
+      console.warn('⚠️ No currentUserId when getting conversation name');
+    }
+    
     if (conversation.type === 'DIRECT') {
       const otherParticipant = conversation.participants.find(
         p => p.userId !== this.currentUserId
       );
+      
+      if (!otherParticipant) {
+        console.warn('⚠️ Could not find other participant', {
+          currentUserId: this.currentUserId,
+          participants: conversation.participants
+        });
+      }
+      
       return otherParticipant?.userName || conversation.name;
     }
     return conversation.name;
@@ -493,6 +580,9 @@ export class MessageNotificationBadgeComponent implements OnInit, OnDestroy {
       if (otherParticipant?.avatar) {
         return otherParticipant.avatar;
       }
+      // LOGIQUE ROBUSTE: Générer avatar basé sur le nom de l'autre participant
+      const name = otherParticipant?.userName || conversation.name;
+      return this.generateAvatar(name);
     }
     
     return this.generateAvatar(this.getConversationName(conversation));
@@ -522,7 +612,7 @@ export class MessageNotificationBadgeComponent implements OnInit, OnDestroy {
   generateAvatar(name: string): string {
     const colors = ['667eea', '764ba2', 'f093fb', 'f5576c', '4facfe', '00f2fe'];
     const colorIndex = Math.abs(this.hashCode(name)) % colors.length;
-    return `https://ui-avatars.com/api/?name= ${encodeURIComponent(name)}&background=${colors[colorIndex]}&color=fff&size=100&bold=true`;
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${colors[colorIndex]}&color=fff&size=100&bold=true`;
   }
 
   private hashCode(str: string): number {

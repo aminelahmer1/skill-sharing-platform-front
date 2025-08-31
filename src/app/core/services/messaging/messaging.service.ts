@@ -1,7 +1,3 @@
-//2
-
-
-// messaging.service.ts - VERSION COMPLÈTE MISE À JOUR AVEC EXCHANGE SERVICE
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { BehaviorSubject, Observable, from, interval, Subject, timer, of, throwError, forkJoin } from 'rxjs';
@@ -121,7 +117,6 @@ export interface CreateGroupConversationRequest {
   description?: string;
 }
 
-// ✅ NOUVEAU: Interfaces pour Exchange Service
 export interface UserResponse {
   id: number;
   username: string;
@@ -214,15 +209,20 @@ export class MessagingService {
   private isInitialized = false;
   private pollingInterval?: any;
 
+  private onlineUsersSubject = new BehaviorSubject<Set<number>>(new Set());
+  onlineUsers$ = this.onlineUsersSubject.asObservable();
+  private presenceCheckInterval?: any;
+
 
     private processingConversationIds = new Set<number>();
 private recentlyProcessedMessages = new Set<string>();
-  constructor(
-    private http: HttpClient,
-    private keycloakService: KeycloakService
-  ) {
-    this.initializeService();
-  }
+ constructor(
+  private http: HttpClient,
+  private keycloakService: KeycloakService
+) {
+  this.initializeService();
+  this.subscribeToWindowEvents(); 
+}
 
   // ===== INITIALISATION =====
   private async initializeService() {
@@ -363,7 +363,6 @@ private async initializeStompConnection() {
       return;
     }
 
-    // S'assurer que l'ID utilisateur est chargé
     if (!this.currentUserId) {
       await this.loadUserInfo();
       if (!this.currentUserId) {
@@ -380,7 +379,7 @@ private async initializeStompConnection() {
       connectHeaders: {
         Authorization: `Bearer ${token}`,
         'X-Authorization': `Bearer ${token}`,
-        'X-User-Id': this.currentUserId.toString() // AJOUTER l'ID utilisateur
+        'X-User-Id': this.currentUserId.toString()
       },
       debug: (str) => {
         if (!str.includes('PING') && !str.includes('PONG')) {
@@ -392,16 +391,23 @@ private async initializeStompConnection() {
       heartbeatOutgoing: 25000,
       
       onConnect: (frame) => {
-  console.log('✅ STOMP Connected:', frame);
-  this.connectionStatusSubject.next('CONNECTED');
-  this.reconnectAttempts = 0;
+        console.log('✅ STOMP Connected:', frame);
+        this.connectionStatusSubject.next('CONNECTED');
+        this.reconnectAttempts = 0;
 
-  // ✅ Ajoute cet appel
-  this.subscribeToWebSocket();
-
-  this.subscribeToTopics();
-  this.getUserConversations().subscribe();
-},
+        // S'abonner aux topics
+        this.subscribeToTopics();
+        
+        // Charger les conversations après connexion
+        this.getUserConversations().subscribe();
+        
+        // IMPORTANT: Demander explicitement la liste des utilisateurs en ligne après connexion
+        setTimeout(() => {
+          this.requestOnlineUsersList();
+          this.debugOnlineStatus();
+        }, 1000);
+      },
+      
       onStompError: (frame) => {
         console.error('❌ STOMP Error:', frame);
         this.connectionStatusSubject.next('ERROR');
@@ -428,8 +434,7 @@ private async initializeStompConnection() {
     this.connectionStatusSubject.next('ERROR');
     this.scheduleReconnect();
   }
-}// Dans messaging.service.ts, après la méthode subscribeToWebSocket(), ajouter :
-
+}
 private handleIncomingMessage(message: Message): void {
   console.log('📬 Traitement message entrant:', message);
   
@@ -701,14 +706,15 @@ private subscribeToNewConversations(): void {
   });
 }
 
- private subscribeToTopics() {
+
+private subscribeToTopics() {
   if (!this.stompClient || !this.stompClient.connected) {
-    console.warn('⚠️ STOMP client not connected for subscriptions');
+    console.warn('STOMP client not connected for subscriptions');
     return;
   }
 
   if (!this.currentUserId) {
-    console.error('❌ No user ID available for subscriptions');
+    console.error('No user ID available for subscriptions');
     return;
   }
 
@@ -717,9 +723,8 @@ private subscribeToNewConversations(): void {
     this.stompClient.subscribe(`/user/${this.currentUserId}/queue/conversation`, (message) => {
       try {
         const data = JSON.parse(message.body);
-        console.log('📨 Received user message via WebSocket:', data);
+        console.log('Received user message via WebSocket:', data);
         
-        // Ignorer nos propres messages pour éviter les doublons
         if (data.senderId === this.currentUserId) {
           console.log('Skipping own message from WebSocket queue');
           return;
@@ -727,153 +732,294 @@ private subscribeToNewConversations(): void {
         
         this.handleIncomingMessage(data);
       } catch (error) {
-        console.error('❌ Error parsing user message:', error);
+        console.error('Error parsing user message:', error);
       }
     });
 
-    // 2. Subscription aux conversations générales
-    this.stompClient.subscribe('/topic/conversation/*', (message) => {
-      try {
-        const data = JSON.parse(message.body);
-        console.log('📨 Received conversation message from topic:', data);
-        
-        // Ignorer nos propres messages
-        if (data.senderId === this.currentUserId) {
-          console.log('Skipping own message from conversation topic');
-          return;
-        }
-        
-        this.handleIncomingMessage(data);
-      } catch (error) {
-        console.error('❌ Error parsing conversation message:', error);
-      }
-    });
-
-    // 3. Subscription aux indicateurs de frappe
-    this.stompClient.subscribe('/topic/typing', (message) => {
-      try {
-        const data = JSON.parse(message.body);
-        console.log('⌨️ Received typing indicator:', data);
-        
-        // Ne pas afficher notre propre indicateur de frappe
-        if (data.userId !== this.currentUserId) {
-          this.handleTypingIndicator(data);
-        }
-      } catch (error) {
-        console.error('❌ Error parsing typing indicator:', error);
-      }
-    });
-
-    // 4. Subscription aux nouvelles conversations
-    this.stompClient.subscribe(`/user/${this.currentUserId}/queue/new-conversation`, (message) => {
-      try {
-        const newConversation = JSON.parse(message.body) as Conversation;
-        console.log('🆕 New conversation notification received:', newConversation);
-        
-        this.handleNewConversation(newConversation);
-      } catch (error) {
-        console.error('❌ Error parsing new conversation:', error);
-      }
-    });
-
-    // 5. Subscription aux mises à jour de conversations (status, participants, etc.)
-    this.stompClient.subscribe(`/user/${this.currentUserId}/queue/conversation-update`, (message) => {
-      try {
-        const updatedConversation = JSON.parse(message.body) as Conversation;
-        console.log('🔄 Conversation update received:', updatedConversation);
-        
-        this.updateConversation(updatedConversation);
-      } catch (error) {
-        console.error('❌ Error parsing conversation update:', error);
-      }
-    });
-
-    // 6. Subscription aux notifications de lecture
-    this.stompClient.subscribe(`/user/${this.currentUserId}/queue/read-receipt`, (message) => {
-      try {
-        const receipt = JSON.parse(message.body);
-        console.log('✓ Read receipt received:', receipt);
-        
-        this.handleReadReceipt(receipt);
-      } catch (error) {
-        console.error('❌ Error parsing read receipt:', error);
-      }
-    });
-
-    // 7. Subscription aux conversations de compétences (skill groups)
-    this.getUserSkillsWithUsers().subscribe(response => {
-      if (!this.stompClient || !this.stompClient.connected) return;
-      
-      response.skills.forEach(skill => {
-        // Topic pour les messages de la compétence
-        const skillMessageTopic = `/topic/skill/${skill.skillId}/messages`;
-        this.stompClient!.subscribe(skillMessageTopic, (message) => {
-          try {
-            const data = JSON.parse(message.body);
-            console.log(`📬 Skill ${skill.skillId} message:`, data);
-            
-            // Ignorer nos propres messages
-            if (data.senderId === this.currentUserId) {
-              console.log('Skipping own skill message');
-              return;
-            }
-            
-            this.handleIncomingMessage(data);
-          } catch (error) {
-            console.error('❌ Error parsing skill message:', error);
-          }
-        });
-
-        // Topic pour les nouvelles conversations de compétence
-        const skillConversationTopic = `/topic/skill/${skill.skillId}/new-conversation`;
-        this.stompClient!.subscribe(skillConversationTopic, (message) => {
-          try {
-            const newConversation = JSON.parse(message.body) as Conversation;
-            console.log(`🆕 New skill conversation for skill ${skill.skillId}:`, newConversation);
-            
-            this.handleNewConversation(newConversation);
-          } catch (error) {
-            console.error('❌ Error parsing skill conversation:', error);
-          }
-        });
-      });
-    });
-
-    // 8. Subscription aux erreurs système
-    this.stompClient.subscribe(`/user/${this.currentUserId}/queue/errors`, (message) => {
-      try {
-        const error = JSON.parse(message.body);
-        console.error('❌ System error received:', error);
-        
-        this.handleSystemError(error);
-      } catch (error) {
-        console.error('❌ Error parsing system error:', error);
-      }
-    });
-
-    // 9. Subscription au statut de présence des utilisateurs
+    // 2. FIXED: Better presence topic handling
     this.stompClient.subscribe('/topic/presence', (message) => {
       try {
         const presence = JSON.parse(message.body);
-        console.log('👤 Presence update:', presence);
+        console.log('PRESENCE UPDATE RECEIVED:', presence);
         
-        this.handlePresenceUpdate(presence);
+        // FIXED: Process ALL presence updates, not just others
+        if (presence.userId) {
+          this.handlePresenceUpdate(presence);
+        }
       } catch (error) {
-        console.error('❌ Error parsing presence update:', error);
+        console.error('Error parsing presence update:', error);
       }
     });
 
-    console.log('✅ Successfully subscribed to all STOMP topics');
+    // 3. FIXED: Better online users list handling
+    this.stompClient.subscribe('/topic/online-users', (message) => {
+      try {
+        const onlineUsersList = JSON.parse(message.body);
+        console.log('ONLINE USERS LIST RECEIVED:', onlineUsersList);
+        
+        if (Array.isArray(onlineUsersList)) {
+          // FIXED: Validate and filter user IDs
+          const validUserIds = onlineUsersList.filter(id => 
+            typeof id === 'number' && id > 0
+          );
+          
+          const onlineSet = new Set<number>(validUserIds);
+          this.onlineUsersSubject.next(onlineSet);
+          
+          // FIXED: Update conversation participants immediately
+          this.updateConversationParticipantsFromOnlineList(onlineSet);
+          
+          console.log('Online users set updated:', Array.from(onlineSet));
+        }
+      } catch (error) {
+        console.error('Error parsing online users list:', error);
+      }
+    });
+
+    // 4. Personal presence updates
+    this.stompClient.subscribe(`/user/${this.currentUserId}/queue/presence-update`, (message) => {
+      try {
+        const presenceData = JSON.parse(message.body);
+        console.log('Personal presence update:', presenceData);
+        
+        if (presenceData.onlineUsers && Array.isArray(presenceData.onlineUsers)) {
+          const onlineSet = new Set<number>(presenceData.onlineUsers);
+          this.onlineUsersSubject.next(onlineSet);
+          this.updateConversationParticipantsFromOnlineList(onlineSet);
+        }
+      } catch (error) {
+        console.error('Error parsing personal presence update:', error);
+      }
+    });
+
+    // 5. New conversation subscriptions
+    this.stompClient.subscribe(`/user/${this.currentUserId}/queue/new-conversation`, (message) => {
+      try {
+        const newConversation = JSON.parse(message.body) as Conversation;
+        console.log('New conversation notification received:', newConversation);
+        this.handleNewConversation(newConversation);
+      } catch (error) {
+        console.error('Error parsing new conversation:', error);
+      }
+    });
+
+    // 6. FIXED: Subscribe to read state management
+    this.initializeReadStateSync();
+
+    // 7. FIXED: Request initial online users list
+    this.requestOnlineUsersListInternal();
+
+    // 8. Send initial presence and start heartbeat
+    this.sendPresenceUpdate(true);
+    this.startPresenceHeartbeat();
+    
+    console.log('Successfully subscribed to all STOMP topics');
     
   } catch (error) {
-    console.error('❌ Failed to subscribe to topics:', error);
-    // Tenter de se reconnecter après une erreur
+    console.error('Failed to subscribe to topics:', error);
     this.scheduleReconnect();
   }
 }
 
-// Méthodes auxiliaires pour gérer les différents types de messages
 
+public requestOnlineUsersList(): void {
+  this.requestOnlineUsersListInternal();
+}
+
+// FIXED: Private implementation
+private requestOnlineUsersListInternal(): void {
+  if (!this.stompClient || !this.stompClient.connected) {
+    console.warn('Cannot request online users - not connected');
+    return;
+  }
+
+  try {
+    this.stompClient.publish({
+      destination: '/app/presence/request-online-users',
+      body: JSON.stringify({
+        userId: this.currentUserId,
+        timestamp: new Date().toISOString()
+      })
+    });
+
+    console.log('Requested current online users list');
+  } catch (error) {
+    console.error('Error requesting online users:', error);
+  }
+}
+
+// FIXED: New method to update conversation participants from online list
+private updateConversationParticipantsFromOnlineList(onlineUsers: Set<number>): void {
+  const conversations = this.conversationsSubject.value;
+  let hasChanges = false;
+  
+  const updatedConversations = conversations.map(conv => {
+    const updatedParticipants = conv.participants.map(participant => {
+      const wasOnline = participant.isOnline;
+      const isNowOnline = onlineUsers.has(participant.userId);
+      
+      if (wasOnline !== isNowOnline) {
+        hasChanges = true;
+        console.log(`Status change for user ${participant.userId}: ${wasOnline} -> ${isNowOnline}`);
+        return {
+          ...participant,
+          isOnline: isNowOnline,
+          lastSeen: isNowOnline ? undefined : new Date()
+        };
+      }
+      return participant;
+    });
+    
+    return { ...conv, participants: updatedParticipants };
+  });
+  
+  if (hasChanges) {
+    this.conversationsSubject.next(updatedConversations);
+    console.log('Updated conversation participants online status');
+  }
+}
+
+
+
+sendPresenceUpdate(isOnline: boolean): void {
+  if (!this.stompClient || !this.stompClient.connected || !this.currentUserId) {
+    console.warn('Cannot send presence update - not connected');
+    return;
+  }
+
+  try {
+    const payload = {
+      userId: this.currentUserId,
+      isOnline: isOnline,
+      status: isOnline ? 'ONLINE' : 'OFFLINE',
+      timestamp: new Date().toISOString()
+    };
+
+    // FIXED: Send to both endpoints for reliability
+    this.stompClient.publish({
+      destination: '/app/presence/update',
+      body: JSON.stringify(payload)
+    });
+
+    this.stompClient.publish({
+      destination: '/app/user/presence',
+      body: JSON.stringify(payload)
+    });
+
+    console.log(`Sent presence update: user ${this.currentUserId} is ${isOnline ? 'online' : 'offline'}`);
+  } catch (error) {
+    console.error('Error sending presence update:', error);
+  }
+}
+
+// FIXED: Make debugOnlineStatus public
+public debugOnlineStatus(): void {
+  console.log('DEBUG ONLINE STATUS:');
+  console.log('- Current user ID:', this.currentUserId);
+  console.log('- WebSocket connected:', this.stompClient?.connected);
+  console.log('- Online users:', Array.from(this.onlineUsersSubject.value));
+  console.log('- Connection status:', this.connectionStatusSubject.value);
+  
+  // Force refresh
+  this.requestOnlineUsersListInternal();
+  this.sendPresenceUpdate(true);
+  
+  // FIXED: Send debug request to backend
+  if (this.stompClient?.connected) {
+    this.stompClient.publish({
+      destination: '/app/presence/debug',
+      body: JSON.stringify({
+        userId: this.currentUserId,
+        timestamp: new Date().toISOString()
+      })
+    });
+  }
+}
+
+
+private startPresenceHeartbeat(): void {
+  if (this.presenceCheckInterval) {
+    clearInterval(this.presenceCheckInterval);
+  }
+
+  this.presenceCheckInterval = setInterval(() => {
+    if (this.stompClient?.connected && this.currentUserId) {
+      this.sendPresenceUpdate(true);
+      
+      // FIXED: Also ping to validate connection
+      this.stompClient.publish({
+        destination: '/app/presence/ping',
+        body: JSON.stringify({
+          userId: this.currentUserId,
+          timestamp: new Date().toISOString()
+        })
+      });
+    } else {
+      console.warn('Cannot send presence heartbeat - not connected');
+      if (!this.stompClient?.connected) {
+        this.scheduleReconnect();
+      }
+    }
+  }, 30000);
+
+  console.log('Presence heartbeat started (30s interval)');
+}
+
+isUserOnline(userId: number): boolean {
+  if (userId === this.currentUserId) {
+    return true; // Current user is always online to themselves
+  }
+  return this.onlineUsersSubject.value.has(userId);
+}
+
+public refreshPresenceStatus(): void {
+  console.log('Force refreshing presence status');
+  
+  if (this.stompClient?.connected) {
+    this.sendPresenceUpdate(true);
+    this.requestOnlineUsersListInternal();
+  } else {
+    console.warn('Cannot refresh presence - not connected');
+    this.reconnect();
+  }
+}
+
+private subscribeToWindowEvents(): void {
+  // Handle page visibility changes
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      console.log('Page hidden, maintaining connection');
+      // Don't disconnect, just reduce heartbeat frequency
+    } else {
+      console.log('Page visible, refreshing presence');
+      this.refreshPresenceStatus();
+    }
+  });
+
+  // Handle before page unload
+  window.addEventListener('beforeunload', () => {
+    console.log('Page unloading, sending offline status');
+    if (this.currentUserId && this.stompClient?.connected) {
+      // Send offline status synchronously
+      this.sendPresenceUpdate(false);
+    }
+  });
+
+  // Handle focus/blur events
+  window.addEventListener('focus', () => {
+    console.log('Window focused, refreshing presence');
+    this.refreshPresenceStatus();
+  });
+
+  window.addEventListener('blur', () => {
+    console.log('Window blurred, but keeping connection alive');
+    // Keep connection but don't send offline immediately
+  });
+}
+
+getOnlineUsers(): Set<number> {
+  return new Set(this.onlineUsersSubject.value);
+}
 private updateConversation(updatedConversation: Conversation): void {
   const conversations = this.conversationsSubject.value;
   const index = conversations.findIndex(c => c.id === updatedConversation.id);
@@ -919,14 +1065,43 @@ private handleSystemError(error: any): void {
 }
 
 private handlePresenceUpdate(presence: any): void {
+  console.log('Processing presence update:', presence);
+  
+  if (!presence || !presence.userId) {
+    console.log('Ignoring invalid presence update');
+    return;
+  }
+
+  const onlineUsers = new Set(this.onlineUsersSubject.value);
+  
+  // FIXED: Handle all presence updates properly
+  if (presence.isOnline === true || presence.status === 'ONLINE') {
+    onlineUsers.add(presence.userId);
+    console.log(`User ${presence.userId} is now ONLINE`);
+  } else if (presence.isOnline === false || presence.status === 'OFFLINE') {
+    onlineUsers.delete(presence.userId);
+    console.log(`User ${presence.userId} is now OFFLINE`);
+  }
+  
+  this.onlineUsersSubject.next(onlineUsers);
+  
+  // FIXED: Update conversation participants for the specific user
+  this.updateSpecificUserPresenceInConversations(presence.userId, presence.isOnline === true || presence.status === 'ONLINE');
+}
+
+// FIXED: New method to update specific user presence
+private updateSpecificUserPresenceInConversations(userId: number, isOnline: boolean): void {
   const conversations = this.conversationsSubject.value;
+  let hasChanges = false;
+  
   const updatedConversations = conversations.map(conv => {
     const updatedParticipants = conv.participants.map(participant => {
-      if (participant.userId === presence.userId) {
+      if (participant.userId === userId) {
+        hasChanges = true;
         return {
           ...participant,
-          isOnline: presence.isOnline,
-          lastSeen: presence.lastSeen
+          isOnline: isOnline,
+          lastSeen: isOnline ? undefined : new Date()
         };
       }
       return participant;
@@ -935,7 +1110,10 @@ private handlePresenceUpdate(presence: any): void {
     return { ...conv, participants: updatedParticipants };
   });
   
-  this.conversationsSubject.next(updatedConversations);
+  if (hasChanges) {
+    this.conversationsSubject.next(updatedConversations);
+    console.log(`Updated presence for user ${userId} to ${isOnline ? 'online' : 'offline'} in conversations`);
+  }
 }
 
 private showErrorNotification(message: string): void {
@@ -1815,9 +1993,6 @@ getConversationReadStatus(conversationId: number): { isRead: boolean; unreadCoun
         replyToMessageId: request.replyToMessageId
       };
       
-      console.log('📤 Sending message:', payload);
-      
-      // Créer une clé pour ce message qu'on envoie
       const messageKey = `${payload.conversationId}_${request.senderId}_${payload.content}_${Math.floor(Date.now() / 1000)}`;
       this.recentlyProcessedMessages.add(messageKey);
       
@@ -1828,7 +2003,6 @@ getConversationReadStatus(conversationId: number): { isRead: boolean; unreadCoun
       
       const messages = this.messagesSubject.value;
       
-      // Vérifier que le message n'existe pas déjà
       const exists = messages.some(m => 
         m.id === message.id || 
         (m.content === message.content && 
@@ -1838,7 +2012,11 @@ getConversationReadStatus(conversationId: number): { isRead: boolean; unreadCoun
       
       if (!exists) {
         this.messagesSubject.next([...messages, message]);
-this.updateConversationListOrder(message.conversationId, message)      }
+        this.updateConversationListOrder(message.conversationId, message);
+      }
+      
+      // NOUVEAU: Marquer automatiquement comme lu quand on envoie un message
+      this.markAsRead(message.conversationId).subscribe();
     }),
     catchError(error => {
       console.error('❌ Error sending message:', error);
@@ -1856,49 +2034,70 @@ this.updateConversationListOrder(message.conversationId, message)      }
 }
 
 markAsRead(conversationId: number): Observable<any> {
-    console.log(`📖 Marking conversation ${conversationId} as read`);
-    
-    return from(this.keycloakService.getToken()).pipe(
-      switchMap(token => {
-        if (!token) {
-          throw new Error('No token available');
-        }
-        
-        const headers = new HttpHeaders({ 
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        });
-        
-        return this.http.post<any>(
-          `${this.apiUrl}/conversation/${conversationId}/read`,
-          {},
-          { headers }
-        );
-      }),
-      tap(response => {
-        console.log('✅ Messages marked as read:', response);
-        
-        // Mettre à jour le cache local
-        this.updateLocalReadState(conversationId, 0);
-        
-        // Mettre à jour les compteurs
-        this.updateUnreadCount(conversationId, 0);
-        
-        // Émettre l'événement de lecture
-        this.emitReadReceipt(conversationId);
-      }),
-      catchError(error => {
-        console.error('❌ Error marking as read:', error);
-        // Ne pas propager l'erreur pour ne pas bloquer l'UX
-        return of({ success: false, error: error.message });
-      }),
-      retry(2) // Réessayer 2 fois en cas d'échec
-    );
-  }
+  console.log(`📖 Marking conversation ${conversationId} as read`);
+  
+  return from(this.keycloakService.getToken()).pipe(
+    switchMap(token => {
+      if (!token) {
+        throw new Error('No token available');
+      }
+      
+      const headers = new HttpHeaders({ 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      });
+      
+      return this.http.post<any>(
+        `${this.apiUrl}/conversation/${conversationId}/read`,
+        {},
+        { headers }
+      );
+    }),
+    tap(response => {
+      console.log('✅ Messages marked as read:', response);
+      
+      // Mettre à jour le cache local
+      this.updateLocalReadState(conversationId, 0);
+      
+      // Mettre à jour les compteurs
+      this.updateUnreadCount(conversationId, 0);
+      
+      // NOUVEAU: Émettre événement global de synchronisation
+      this.emitGlobalReadEvent(conversationId);
+      
+      // Émettre l'événement de lecture
+      this.emitReadReceipt(conversationId);
+    }),
+    catchError(error => {
+      console.error('❌ Error marking as read:', error);
+      return of({ success: false, error: error.message });
+    }),
+    retry(2)
+  );
+}
 
-  /**
-   * ✅ NOUVEAU: Met à jour l'état de lecture local
-   */
+// Nouvelle méthode à ajouter :
+private emitGlobalReadEvent(conversationId: number) {
+  // Émettre vers tous les composants
+  window.dispatchEvent(new CustomEvent('globalConversationRead', {
+    detail: {
+      conversationId: conversationId,
+      timestamp: new Date(),
+      source: 'messaging-service'
+    }
+  }));
+  
+  // Mettre à jour les conversations locales
+  const conversations = this.conversationsSubject.value;
+  const updated = conversations.map(conv => {
+    if (conv.id === conversationId) {
+      return { ...conv, unreadCount: 0 };
+    }
+    return conv;
+  });
+  
+  this.conversationsSubject.next(updated);
+}
   private updateLocalReadState(conversationId: number, unreadCount: number) {
     this.readStatusCache.set(conversationId, {
       lastRead: new Date(),
@@ -2309,16 +2508,29 @@ private startPolling() {
 }
 
 
-  // ===== CLEANUP =====
- ngOnDestroy(): void {
-  // Nettoyer le Set des messages traités
-  this.recentlyProcessedMessages.clear();
+ngOnDestroy(): void {
+  // FIXED: Send offline status before disconnecting
+  if (this.currentUserId && this.stompClient?.connected) {
+    try {
+      this.sendPresenceUpdate(false);
+      
+      // Wait a moment for the message to be sent
+      setTimeout(() => {
+        if (this.stompClient) {
+          this.stompClient.deactivate();
+        }
+      }, 200);
+    } catch (error) {
+      console.error('Error sending offline status on destroy:', error);
+    }
+  }
   
+  this.recentlyProcessedMessages.clear();
   this.destroy$.next();
   this.destroy$.complete();
   
-  if (this.stompClient) {
-    this.stompClient.deactivate();
+  if (this.presenceCheckInterval) {
+    clearInterval(this.presenceCheckInterval);
   }
   
   if (this.reconnectTimer) {

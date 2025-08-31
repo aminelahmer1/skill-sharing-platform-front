@@ -1,8 +1,9 @@
-// conversation-header.component.ts - VERSION CORRIGÉE AVEC VRAIES PHOTOS
-import { Component, Input } from '@angular/core';
+// conversation-header.component.ts - VERSION CORRIGÉE COMPLÈTE
+import { Component, Input, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { trigger, state, style, transition, animate } from '@angular/animations';
-import { Conversation } from '../../../core/services/messaging/messaging.service';
+import { Conversation, MessagingService } from '../../../core/services/messaging/messaging.service';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-conversation-header',
@@ -26,11 +27,45 @@ import { Conversation } from '../../../core/services/messaging/messaging.service
     ])
   ]
 })
-export class ConversationHeaderComponent {
+export class ConversationHeaderComponent implements OnInit, OnDestroy {
   @Input() conversation!: Conversation;
   @Input() currentUserId!: number;
   
   showInfo = false;
+  private destroy$ = new Subject<void>();
+  onlineUsers = new Set<number>();
+
+  constructor(
+    private messagingService: MessagingService,
+    private cdr: ChangeDetectorRef
+  ) {}
+
+  ngOnInit() {
+    this.subscribeToOnlineUsers();
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private subscribeToOnlineUsers() {
+    this.messagingService.onlineUsers$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(onlineSet => {
+        this.onlineUsers = onlineSet;
+        
+        // Mettre à jour les participants de la conversation
+        if (this.conversation?.participants) {
+          this.conversation.participants.forEach(participant => {
+            participant.isOnline = this.onlineUsers.has(participant.userId);
+          });
+        }
+        
+        this.cdr.detectChanges();
+        console.log('🎯 Header - Online users updated:', Array.from(onlineSet));
+      });
+  }
 
   getConversationName(): string {
     if (this.conversation.type === 'DIRECT') {
@@ -42,7 +77,6 @@ export class ConversationHeaderComponent {
     return this.conversation.name;
   }
 
-  // ✅ MÉTHODE CORRIGÉE POUR VRAIES PHOTOS
   getConversationAvatar(): string {
     // Pour les conversations directes - utiliser la vraie photo du participant
     if (this.conversation.type === 'DIRECT') {
@@ -74,7 +108,6 @@ export class ConversationHeaderComponent {
     return this.generateDefaultAvatar(this.getConversationName());
   }
 
-  // ✅ MÉTHODE AJOUTÉE POUR GÉRER LES AVATARS UTILISATEURS (comme dans NewConversationDialogComponent)
   getUserAvatar(participant: any): string {
     // Essayer différentes propriétés pour l'avatar
     const avatarUrl = participant.avatar || 
@@ -95,7 +128,6 @@ export class ConversationHeaderComponent {
     return this.generateDefaultAvatar(participant.userName || participant.name || '');
   }
 
-  // ✅ MÉTHODE CORRIGÉE POUR GÉNÉRER AVATAR PAR DÉFAUT
   private generateDefaultAvatar(name: string): string {
     if (!name || name.trim() === '') {
       return 'assets/default-avatar.png';
@@ -123,10 +155,17 @@ export class ConversationHeaderComponent {
       const otherParticipant = this.conversation.participants.find(
         p => p.userId !== this.currentUserId
       );
-      return otherParticipant?.isOnline ? 'En ligne' : 'Hors ligne';
+      if (otherParticipant) {
+        // Utiliser le statut en temps réel depuis onlineUsers
+        const isOnline = this.onlineUsers.has(otherParticipant.userId);
+        return isOnline ? 'En ligne' : 'Hors ligne';
+      }
+      return 'Hors ligne';
     }
     
-    const onlineCount = this.conversation.participants.filter(p => p.isOnline).length;
+    const onlineCount = this.conversation.participants.filter(p => 
+      this.onlineUsers.has(p.userId)
+    ).length;
     const totalCount = this.conversation.participants.length;
     return `${totalCount} membre${totalCount > 1 ? 's' : ''} · ${onlineCount} en ligne`;
   }
@@ -150,7 +189,6 @@ export class ConversationHeaderComponent {
     }
   }
 
-  // ✅ MÉTHODE CORRIGÉE POUR UTILISER getUserAvatar()
   getParticipantAvatar(participant: any): string {
     return this.getUserAvatar(participant);
   }
@@ -159,7 +197,7 @@ export class ConversationHeaderComponent {
     this.showInfo = !this.showInfo;
   }
 
-  // Nouvelles méthodes utilitaires
+  // Méthodes utilitaires
   isDirectConversation(): boolean {
     return this.conversation.type === 'DIRECT';
   }
@@ -195,8 +233,23 @@ export class ConversationHeaderComponent {
     }
   }
 
-  // === MÉTHODES PUBLIQUES POUR LE TEMPLATE ===
+  getOtherParticipant() {
+    if (this.conversation.type === 'DIRECT') {
+      const participant = this.conversation.participants.find(p => p.userId !== this.currentUserId);
+      if (participant) {
+        // Mettre à jour le statut en temps réel
+        participant.isOnline = this.onlineUsers.has(participant.userId);
+        return participant;
+      }
+    }
+    return null;
+  }
 
+  isUserOnline(userId: number): boolean {
+    return this.onlineUsers.has(userId);
+  }
+
+  // Méthodes d'action publiques
   onVoiceCall() {
     console.log('🎤 Voice call initiated for conversation:', this.conversation.id);
     this.initiateVoiceCall();
@@ -236,8 +289,7 @@ export class ConversationHeaderComponent {
     }
   }
 
-  // === MÉTHODES PRIVÉES D'IMPLÉMENTATION ===
-
+  // Méthodes privées d'implémentation
   private initiateVoiceCall() {
     if (this.conversation.type === 'DIRECT') {
       const otherParticipant = this.getOtherParticipant();
@@ -341,7 +393,7 @@ export class ConversationHeaderComponent {
         this.removeParticipant();
         break;
       default:
-        console.log('❌ Action annulée');
+        console.log('Action annulée');
     }
   }
 
@@ -482,15 +534,6 @@ export class ConversationHeaderComponent {
         setTimeout(() => notification.remove(), 300);
       }
     }, 3000);
-  }
-
-  // === MÉTHODES UTILITAIRES ===
-
-  getOtherParticipant() {
-    if (this.conversation.type === 'DIRECT') {
-      return this.conversation.participants.find(p => p.userId !== this.currentUserId);
-    }
-    return null;
   }
 
   formatDate(date: Date): string {

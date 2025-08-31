@@ -1,9 +1,8 @@
-// global-quick-chat.component.ts - VERSION REFACTORISÉE COMPLÈTE
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, combineLatest } from 'rxjs';
 import { MessagingService, Conversation, Message, TypingIndicator } from '../../../core/services/messaging/messaging.service';
 import { trigger, transition, style, animate, state } from '@angular/animations';
 
@@ -19,6 +18,13 @@ interface QuickChatWindow {
   isRecording: boolean;
   recordingDuration: number;
   showEmojiPicker: boolean;
+  onlineStatus: {
+    isDirectOnline?: boolean;
+    onlineCount?: number;
+    totalParticipants?: number;
+    statusText?: string;
+    
+  };
 }
 
 @Component({
@@ -26,278 +32,281 @@ interface QuickChatWindow {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="quick-chat-container" *ngIf="!isMessengerPage()">
-      <div 
-        *ngFor="let window of chatWindows; let i = index" 
-        class="chat-window"
-        [class.minimized]="window.isMinimized"
-        [style.right.px]="getWindowPosition(i)"
-        [@slideUp]>
-        
-        <!-- Header -->
-        <div class="chat-header" (click)="toggleMinimize(window)">
-          <div class="header-left">
-            <img 
-              [src]="getConversationAvatar(window.conversation)" 
-              [alt]="getConversationName(window.conversation)"
-              class="conversation-avatar"
-              onerror="this.src = generateAvatar(getConversationName(window.conversation))">
-            <div class="header-info">
-              <span class="conversation-name">{{ getConversationName(window.conversation) }}</span>
-              <span class="conversation-status">{{ getConversationStatus(window.conversation) }}</span>
-            </div>
-          </div>
-          
-          <div class="header-actions">
-            <button class="action-btn" (click)="openInMessenger(window); $event.stopPropagation()" title="Ouvrir dans Messenger">
-              <span>📬</span>
-            </button>
-            <button class="action-btn" (click)="toggleMinimize(window); $event.stopPropagation()" title="Réduire/Agrandir">
-              <span>{{ window.isMinimized ? '▲' : '▼' }}</span>
-            </button>
-            <button class="action-btn close-btn" (click)="closeChat(window); $event.stopPropagation()" title="Fermer">
-              <span>✕</span>
-            </button>
-          </div>
+   <div class="quick-chat-container" *ngIf="!isMessengerPage()">
+  <div 
+    *ngFor="let window of chatWindows; let i = index" 
+    class="chat-window"
+    [class.minimized]="window.isMinimized"
+    [style.right.px]="getWindowPosition(i)"
+    [@slideUp]>
+    
+    <!-- Header avec indicateur de statut -->
+    <div class="chat-header" (click)="toggleMinimize(window)">
+      <div class="header-left">
+        <img 
+          [src]="getConversationAvatar(window.conversation)" 
+          [alt]="getConversationName(window.conversation)"
+          class="conversation-avatar"
+          onerror="this.src = generateAvatar(getConversationName(window.conversation))">
+        <div class="header-info">
+          <span class="conversation-name">{{ getConversationName(window.conversation) }}</span>
+          <span class="conversation-status" 
+                [class.online]="window.onlineStatus?.isDirectOnline"
+                [class.offline]="!window.onlineStatus?.isDirectOnline && window.conversation.type === 'DIRECT'">
+            {{ getConversationStatusText(window) }}
+          </span>
         </div>
+      </div>
+      
+      <div class="header-actions">
+        <div class="status-indicator" *ngIf="window.conversation.type === 'DIRECT'">
+          <span class="status-dot" 
+                [class.online]="window.onlineStatus?.isDirectOnline"
+                [class.offline]="!window.onlineStatus?.isDirectOnline">
+          </span>
+        </div>
+        
+        <button class="action-btn" (click)="openInMessenger(window); $event.stopPropagation()" title="Ouvrir dans Messenger">
+          <span>📬</span>
+        </button>
+        <button class="action-btn" (click)="toggleMinimize(window); $event.stopPropagation()" title="Réduire/Agrandir">
+          <span>{{ window.isMinimized ? '▲' : '▼' }}</span>
+        </button>
+        <button class="action-btn close-btn" (click)="closeChat(window); $event.stopPropagation()" title="Fermer">
+          <span>✕</span>
+        </button>
+      </div>
+    </div>
 
-        <!-- Chat Body -->
-        <div class="chat-body" *ngIf="!window.isMinimized">
-          
-          <!-- Messages Area -->
-          <div class="messages-area" #messageContainer (scroll)="onScroll($event, window)">
+    <!-- Chat Body -->
+    <div class="chat-body" *ngIf="!window.isMinimized">
+      
+      <!-- Messages Area -->
+      <div class="messages-area" #messageContainer (scroll)="onScroll($event, window)">
+        
+        <!-- Load More Button -->
+        <button 
+          *ngIf="window.hasMoreMessages" 
+          class="load-more-btn"
+          (click)="loadMoreMessages(window)"
+          [disabled]="window.isLoading">
+          {{ window.isLoading ? 'Chargement...' : 'Charger plus' }}
+        </button>
+        
+        <!-- Messages -->
+        <div class="messages-wrapper">
+          <div 
+            *ngFor="let message of window.messages; trackBy: trackByMessageId" 
+            class="message-bubble-container"
+            [class.own]="isOwnMessage(message)">
             
-            <!-- Load More Button -->
-            <button 
-              *ngIf="window.hasMoreMessages" 
-              class="load-more-btn"
-              (click)="loadMoreMessages(window)"
-              [disabled]="window.isLoading">
-              {{ window.isLoading ? 'Chargement...' : 'Charger plus' }}
-            </button>
+            <img 
+              *ngIf="!isOwnMessage(message) && shouldShowSenderInfo(message, window.conversation)"
+              [src]="getMessageAvatar(message, window.conversation)" 
+              [alt]="message.senderName"
+              class="message-avatar"
+              onerror="this.src = generateAvatar(message.senderName)">
             
-            <!-- Messages -->
-            <div class="messages-wrapper">
-              <div 
-                *ngFor="let message of window.messages; trackBy: trackByMessageId" 
-                class="message-bubble-container"
-                [class.own]="isOwnMessage(message)">
+            <div class="message-bubble">
+              <div class="message-sender" *ngIf="shouldShowSenderInfo(message, window.conversation)">
+                {{ message.senderName }}
+                <span class="message-sender-status">
+                  <span class="status-dot-mini" 
+                        [class.online]="isUserOnline(message.senderId)"
+                        [class.offline]="!isUserOnline(message.senderId)">
+                  </span>
+                  {{ getUserStatusText(message.senderId) }}
+                </span>
+              </div>
+              
+              <div class="message-content">
+                <p *ngIf="message.type === 'TEXT'">{{ message.content }}</p>
                 
-                <!-- Avatar pour les messages des autres uniquement -->
-                <img 
-                  *ngIf="!isOwnMessage(message)"
-                  [src]="message.senderAvatar || generateAvatar(message.senderName)" 
-                  [alt]="message.senderName"
-                  class="message-avatar"
-                  onerror="this.src = generateAvatar(message.senderName)">
-                
-                <!-- Bulle de message -->
-                <div class="message-bubble">
-                  <!-- Nom du sender pour les messages des autres uniquement -->
-                  <div class="message-sender" *ngIf="!isOwnMessage(message)">
-                    {{ message.senderName }}
+                <div *ngIf="message.type === 'IMAGE'" class="image-message">
+                  <img 
+                    [src]="message.attachmentUrl"
+                    [alt]="message.content"
+                    class="message-image"
+                    (click)="openImageModal(message.attachmentUrl, message.content)"
+                    loading="lazy">
+                  <div class="image-overlay" (click)="openImageModal(message.attachmentUrl, message.content)">
+                    <span class="zoom-icon">🔍</span>
                   </div>
-                  
-                  <!-- Contenu selon le type -->
-                  <div class="message-content">
-                    <!-- Texte -->
-                    <p *ngIf="message.type === 'TEXT'">{{ message.content }}</p>
-                    
-                    <!-- Image -->
-                    <div *ngIf="message.type === 'IMAGE'" class="image-message">
-                      <img 
-                        [src]="message.attachmentUrl"
-                        [alt]="message.content"
-                        class="message-image"
-                        (click)="openImageModal(message.attachmentUrl, message.content)"
-                        loading="lazy">
-                      <div class="image-overlay" (click)="openImageModal(message.attachmentUrl, message.content)">
-                        <span class="zoom-icon">🔍</span>
-                      </div>
-                      <p *ngIf="message.content" class="image-caption">{{ message.content }}</p>
-                    </div>
-                    
-                    <!-- Vidéo -->
-                    <div *ngIf="message.type === 'VIDEO'" class="video-message">
-                      <video 
-                        [src]="message.attachmentUrl" 
-                        controls 
-                        preload="metadata"
-                        class="message-video">
-                        Votre navigateur ne supporte pas la lecture vidéo.
-                      </video>
-                      <p *ngIf="message.content" class="video-caption">{{ message.content }}</p>
-                    </div>
+                  <p *ngIf="message.content" class="image-caption">{{ message.content }}</p>
+                </div>
+                
+                <div *ngIf="message.type === 'VIDEO'" class="video-message">
+                  <video 
+                    [src]="message.attachmentUrl" 
+                    controls 
+                    preload="metadata"
+                    class="message-video">
+                    Votre navigateur ne supporte pas la lecture vidéo.
+                  </video>
+                  <p *ngIf="message.content" class="video-caption">{{ message.content }}</p>
+                </div>
 
-                    <!-- Audio -->
-                    <div *ngIf="message.type === 'AUDIO'" class="audio-message">
-                      <div class="audio-player">
-                        <button 
-                          class="audio-play-btn"
-                          (click)="toggleAudioPlay($event, message.attachmentUrl)">
-                          <span class="play-icon">▶</span>
-                        </button>
-                        <audio 
-                          [src]="message.attachmentUrl" 
-                          preload="metadata"
-                          class="audio-element"
-                          (ended)="onAudioEnded($event)">
-                        </audio>
-                        <div class="audio-info">
-                          <span class="audio-name">{{ message.content || 'Message vocal' }}</span>
-                          <span class="audio-duration">{{ formatAudioDuration(message.attachmentUrl) }}</span>
-                        </div>
-                      </div>
+                <div *ngIf="message.type === 'AUDIO'" class="audio-message">
+                  <div class="audio-player">
+                    <button 
+                      class="audio-play-btn"
+                      (click)="toggleAudioPlay($event, message.attachmentUrl)">
+                      <span class="play-icon">▶</span>
+                    </button>
+                    <audio 
+                      [src]="message.attachmentUrl" 
+                      preload="metadata"
+                      class="audio-element"
+                      (ended)="onAudioEnded($event)">
+                    </audio>
+                    <div class="audio-info">
+                      <span class="audio-name">{{ message.content || 'Message vocal' }}</span>
+                      <span class="audio-duration">{{ formatAudioDuration(message.attachmentUrl) }}</span>
                     </div>
-                    
-                    <!-- Fichier -->
-                    <a 
-                      *ngIf="message.type === 'FILE'" 
-                      [href]="message.attachmentUrl"
-                      target="_blank"
-                      class="message-file">
-                      <span class="file-icon">📎</span>
-                      <span class="file-name">{{ message.content }}</span>
-                      <span class="file-size">{{ getFileSize(message) }}</span>
-                    </a>
-                  </div>
-                  
-                  <div class="message-meta">
-                    <span class="message-time">{{ formatTime(message.sentAt) }}</span>
-                    <!-- Statut uniquement pour nos messages -->
-                    <span class="message-status" *ngIf="isOwnMessage(message)">
-                      <span *ngIf="message.status === 'SENT'" class="status-sent"></span>
-                      <span *ngIf="message.status === 'DELIVERED'" class="status-delivered"></span>
-                      <span *ngIf="message.status === 'READ'" class="status-read"></span>
-                    </span>
                   </div>
                 </div>
+                
+                <a 
+                  *ngIf="message.type === 'FILE'" 
+                  [href]="message.attachmentUrl"
+                  target="_blank"
+                  class="message-file">
+                  <span class="file-icon">📎</span>
+                  <span class="file-name">{{ message.content }}</span>
+                  <span class="file-size">{{ getFileSize(message) }}</span>
+                </a>
               </div>
-            </div>
-            
-            <!-- Indicateur de frappe -->
-            <div class="typing-indicator" *ngIf="getTypingUsers(window).length > 0">
-              <div class="typing-dots">
-                <span></span>
-                <span></span>
-                <span></span>
+              
+              <div class="message-meta">
+                <span class="message-time">{{ formatTime(message.sentAt) }}</span>
+                <span class="message-status" *ngIf="isOwnMessage(message)">
+                  <span *ngIf="message.status === 'SENT'" class="status-sent" title="Envoyé"></span>
+                  <span *ngIf="message.status === 'DELIVERED'" class="status-delivered" title="Délivré"></span>
+                  <span *ngIf="message.status === 'READ'" class="status-read" title="Lu"></span>
+                </span>
               </div>
-              <span>{{ getTypingText(window) }}</span>
             </div>
           </div>
-
-          <!-- Picker Emoji -->
-          <div class="emoji-picker" *ngIf="window.showEmojiPicker" [@slideUp]>
-            <div class="emoji-header">
-              <span>Emojis</span>
-              <button (click)="toggleEmojiPicker(window)">✕</button>
-            </div>
-            <div class="emoji-grid">
-              <span 
-                *ngFor="let emoji of getPopularEmojis()" 
-                class="emoji-item"
-                (click)="insertEmoji(window, emoji)">
-                {{ emoji }}
-              </span>
-            </div>
+        </div>
+        
+        <!-- Indicateur de frappe -->
+        <div class="typing-indicator" *ngIf="getTypingUsers(window).length > 0">
+          <div class="typing-dots">
+            <span></span>
+            <span></span>
+            <span></span>
           </div>
-
-          <!-- Input Area -->
-          <div class="chat-input-area">
-            
-            <!-- Indicateur d'enregistrement -->
-            <div class="recording-indicator" *ngIf="window.isRecording" [@slideUp]>
-              <div class="recording-animation">
-                <div class="recording-dot"></div>
-                <span class="recording-text">Enregistrement en cours... {{ formatRecordingTime(window.recordingDuration) }}</span>
-              </div>
-              <div class="recording-actions">
-                <button class="cancel-recording" (click)="cancelRecording(window)">✕ Annuler</button>
-                <button class="stop-recording" (click)="stopRecording(window)">⏹ Arrêter</button>
-              </div>
-            </div>
-
-            <div class="input-wrapper" *ngIf="!window.isRecording">
-              
-              <!-- Bouton fichier -->
-              <button class="input-btn" (click)="triggerFileUpload(window)" title="Joindre un fichier">
-                📎
-              </button>
-              <input 
-                type="file" 
-                #fileInput
-                style="display: none"
-                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
-                (change)="onFileSelect($event, window)">
-              
-              <!-- Zone de texte -->
-              <input 
-                type="text"
-                [(ngModel)]="window.newMessage"
-                (keypress)="onKeyPress($event, window)"
-                (input)="onTyping(window)"
-                placeholder="Écrivez un message..."
-                class="message-input"
-                maxlength="1000">
-              
-              <!-- Bouton emoji -->
-              <button 
-                class="input-btn" 
-                (click)="toggleEmojiPicker(window)"
-                [class.active]="window.showEmojiPicker"
-                title="Emojis">
-                😊
-              </button>
-
-              <!-- Bouton vocal -->
-              <button 
-                class="input-btn voice-btn" 
-                (mousedown)="startRecording(window)"
-                (mouseup)="stopRecording(window)"
-                (touchstart)="startRecording(window)"
-                (touchend)="stopRecording(window)"
-                title="Maintenir pour enregistrer un message vocal">
-                🎤
-              </button>
-              
-              <!-- Bouton envoyer -->
-              <button 
-                class="send-btn"
-                (click)="sendMessage(window)"
-                [disabled]="!canSendMessage(window)"
-                title="Envoyer">
-                ➤
-              </button>
-            </div>
-          </div>
+          <span>{{ getTypingText(window) }}</span>
         </div>
       </div>
-    </div>
 
-    <!-- Modal d'image -->
-    <div class="image-modal" *ngIf="showImageModal" (click)="closeImageModal()" [@fadeIn]>
-      <div class="modal-backdrop"></div>
-      <div class="modal-content" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <h3>{{ currentImageTitle || 'Image' }}</h3>
-          <button class="modal-close" (click)="closeImageModal()">✕</button>
+      <!-- Picker Emoji -->
+      <div class="emoji-picker" *ngIf="window.showEmojiPicker" [@slideUp]>
+        <div class="emoji-header">
+          <span>Emojis</span>
+          <button (click)="toggleEmojiPicker(window)">✕</button>
         </div>
-        <div class="modal-body">
-          <img [src]="currentImageUrl" [alt]="currentImageTitle" class="modal-image">
+        <div class="emoji-grid">
+          <span 
+            *ngFor="let emoji of getPopularEmojis()" 
+            class="emoji-item"
+            (click)="insertEmoji(window, emoji)">
+            {{ emoji }}
+          </span>
         </div>
-        <div class="modal-actions">
-          <button class="btn-download" (click)="downloadImage()">
-            📥 Télécharger
+      </div>
+
+      <!-- Input Area -->
+      <div class="chat-input-area">
+        
+        <!-- Indicateur d'enregistrement -->
+        <div class="recording-indicator" *ngIf="window.isRecording" [@slideUp]>
+          <div class="recording-animation">
+            <div class="recording-dot"></div>
+            <span class="recording-text">Enregistrement en cours... {{ formatRecordingTime(window.recordingDuration) }}</span>
+          </div>
+          <div class="recording-actions">
+            <button class="cancel-recording" (click)="cancelRecording(window)">✕ Annuler</button>
+            <button class="stop-recording" (click)="sendRecording(window)">📤 Envoyer</button>
+          </div>
+        </div>
+
+        <div class="input-wrapper" *ngIf="!window.isRecording">
+          
+          <button class="input-btn" (click)="triggerFileUpload(window)" title="Joindre un fichier">
+            📎
           </button>
-          <button class="btn-open-tab" (click)="openImageInTab()">
-            🔗 Ouvrir dans un nouvel onglet
+          <input 
+            type="file" 
+            #fileInput
+            style="display: none"
+            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+            (change)="onFileSelect($event, window)">
+          
+          <input 
+            type="text"
+            [(ngModel)]="window.newMessage"
+            (keypress)="onKeyPress($event, window)"
+            (input)="onTyping(window)"
+            placeholder="Écrivez un message..."
+            class="message-input"
+            maxlength="1000">
+          
+          <button 
+            class="input-btn" 
+            (click)="toggleEmojiPicker(window)"
+            [class.active]="window.showEmojiPicker"
+            title="Emojis">
+            😊
+          </button>
+
+          <button 
+            class="input-btn voice-btn" 
+            (mousedown)="startRecording(window)"
+            (mouseup)="stopRecording(window)"
+            (touchstart)="startRecording(window)"
+            (touchend)="stopRecording(window)"
+            title="Maintenir pour enregistrer un message vocal">
+            🎤
+          </button>
+          
+          <button 
+            class="send-btn"
+            (click)="sendMessage(window)"
+            [disabled]="!canSendMessage(window)"
+            title="Envoyer">
+            ➤
           </button>
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Modal d'image -->
+<div class="image-modal" *ngIf="showImageModal" (click)="closeImageModal()" [@fadeIn]>
+  <div class="modal-backdrop"></div>
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>{{ currentImageTitle || 'Image' }}</h3>
+      <button class="modal-close" (click)="closeImageModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <img [src]="currentImageUrl" [alt]="currentImageTitle" class="modal-image">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-download" (click)="downloadImage()">
+        📥 Télécharger
+      </button>
+      <button class="btn-open-tab" (click)="openImageInTab()">
+        🔗 Ouvrir dans un nouvel onglet
+      </button>
+    </div>
+  </div>
+</div>
   `,
   styles: [`
-    /* ========== STRUCTURE DE BASE ========== */
+    /* ========== STRUCTURE DE BASE - DIMENSIONS CORRIGÉES ========== */
     .quick-chat-container {
       position: fixed;
       bottom: 20px;
@@ -305,90 +314,100 @@ interface QuickChatWindow {
       z-index: 1500;
       display: flex;
       flex-direction: row-reverse;
-      gap: 10px;
+      gap: 8px;
       pointer-events: none;
     }
 
     .chat-window {
-      width: 400px;
-      height: 520px;
+      width: 350px;
+      height: 500px;
       background: white;
-      border-radius: 15px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.15);
       display: flex;
       flex-direction: column;
       pointer-events: all;
-      transition: height 0.3s ease;
-      overflow: hidden;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: absolute;
+      bottom: 0;
     }
 
     .chat-window.minimized {
-      height: 60px;
+      height: 56px;
     }
 
-    /* ========== HEADER ========== */
+    /* ========== HEADER - DIMENSIONS FIXES ========== */
     .chat-header {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      padding: 12px 15px;
+      padding: 10px 12px;
       cursor: pointer;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-shrink: 0;
+      height: 56px;
+      border-radius: 12px 12px 0 0;
     }
 
     .header-left {
       display: flex;
       align-items: center;
       gap: 10px;
+      flex: 1;
+      min-width: 0;
     }
 
     .conversation-avatar {
-      width: 35px;
-      height: 35px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       border: 2px solid rgba(255,255,255,0.3);
       object-fit: cover;
+      flex-shrink: 0;
     }
 
     .header-info {
       display: flex;
       flex-direction: column;
       min-width: 0;
+      flex: 1;
     }
 
     .conversation-name {
       font-weight: 600;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      max-width: 150px;
     }
 
     .conversation-status {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       opacity: 0.9;
     }
 
     .header-actions {
       display: flex;
-      gap: 5px;
+      gap: 4px;
+      align-items: center;
+      flex-shrink: 0;
     }
 
     .action-btn {
       background: rgba(255,255,255,0.2);
       border: none;
-      width: 28px;
-      height: 28px;
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.3s ease;
+      transition: all 0.2s ease;
       color: white;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
 
     .action-btn:hover {
@@ -396,59 +415,73 @@ interface QuickChatWindow {
       transform: scale(1.1);
     }
 
-    /* ========== BODY & MESSAGES ========== */
+    /* ========== BODY & MESSAGES - HAUTEUR FIXE ========== */
     .chat-body {
       flex: 1;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      height: calc(100% - 56px);
     }
 
     .messages-area {
       flex: 1;
       overflow-y: auto;
-      padding: 15px;
+      overflow-x: hidden;
+      padding: 12px;
       background: #f8f9fa;
       scroll-behavior: smooth;
+      height: calc(100% - 70px);
+    }
+
+    /* Scrollbar personnalisée */
+    .messages-area::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .messages-area::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+
+    .messages-area::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 3px;
+    }
+
+    .messages-area::-webkit-scrollbar-thumb:hover {
+      background: #555;
     }
 
     .messages-wrapper {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
+      min-height: 100%;
     }
 
-    /* ========== REFACTORING DESIGN MESSAGES ========== */
-    
+    /* ========== BULLES DE MESSAGE - LARGEUR OPTIMISÉE ========== */
     .message-bubble-container {
       display: flex;
       align-items: flex-start;
-      gap: 10px;
-      margin: 6px 0;
+      gap: 8px;
+      margin: 4px 0;
       width: 100%;
-      clear: both;
     }
 
-    /* Messages utilisateur connecté - DROITE BLEU */
     .message-bubble-container.own {
       flex-direction: row-reverse;
       justify-content: flex-start;
-      margin-left: 60px;
-      margin-right: 10px;
     }
 
-    /* Messages des autres - GAUCHE GRIS */
     .message-bubble-container:not(.own) {
       flex-direction: row;
       justify-content: flex-start;
-      margin-left: 10px;
-      margin-right: 60px;
     }
 
-    /* AVATARS */
     .message-avatar {
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       border-radius: 50%;
       object-fit: cover;
       flex-shrink: 0;
@@ -456,81 +489,101 @@ interface QuickChatWindow {
       border: 2px solid #e9ecef;
     }
 
-    /* ========== BULLES DE MESSAGE ========== */
+    .message-bubble-container.own .message-avatar {
+      display: none !important;
+    }
+
     .message-bubble {
-      max-width: 75%;
-      padding: 10px 14px;
-      border-radius: 18px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+      max-width: 70%;
+      min-width: 60px;
+      padding: 8px 12px;
+      border-radius: 16px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.08);
       word-wrap: break-word;
       position: relative;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       line-height: 1.4;
     }
 
-    /* Bulle utilisateur connecté - STYLE BLEU */
     .message-bubble-container.own .message-bubble {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      border-bottom-right-radius: 6px;
+      border-bottom-right-radius: 4px;
+      margin-right: 4px;
     }
 
-    /* Bulle des autres - STYLE GRIS */
     .message-bubble-container:not(.own) .message-bubble {
       background: white;
       border: 1px solid #e9ecef;
       color: #2d3436;
-      border-bottom-left-radius: 6px;
+      border-bottom-left-radius: 4px;
+      margin-left: 4px;
     }
 
-    /* NOM DE L'EXPÉDITEUR */
     .message-sender {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 600;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       color: #6c757d;
-      opacity: 0.9;
+      display: flex;
+      align-items: center;
     }
 
-    /* Cacher le nom pour nos messages */
     .message-bubble-container.own .message-sender {
       display: none;
     }
 
-    /* CONTENU DES MESSAGES */
     .message-content p {
       margin: 0;
       word-wrap: break-word;
-      line-height: 1.4;
+      line-height: 1.3;
+      font-size: 0.9rem;
     }
 
-    /* ========== MÉTADONNÉES DES MESSAGES ========== */
     .message-meta {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-top: 6px;
-      font-size: 0.7rem;
+      gap: 6px;
+      margin-top: 4px;
+      font-size: 0.65rem;
     }
 
-    /* Meta pour utilisateur connecté - DROITE BLANC */
     .message-bubble-container.own .message-meta {
       justify-content: flex-end;
       color: rgba(255, 255, 255, 0.85);
     }
 
-    /* Meta pour les autres - GAUCHE GRIS */
     .message-bubble-container:not(.own) .message-meta {
       justify-content: flex-start;
       color: #95a5a6;
     }
 
-    .message-time {
-      opacity: 0.9;
-      font-weight: 500;
+    /* ========== STATUTS ET CHECKMARKS ========== */
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
     }
 
-    /* ========== STATUTS DE MESSAGE (CHECKMARKS) ========== */
+    .status-dot.online {
+      background-color: #4CAF50;
+      box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+    }
+
+    .status-dot.offline {
+      background-color: #9e9e9e;
+    }
+
+    .status-dot-mini {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 2px;
+    }
+
+    /* CHECKMARKS pour les statuts de message */
     .message-status {
       display: inline-flex;
       align-items: center;
@@ -538,251 +591,249 @@ interface QuickChatWindow {
       font-weight: 600;
     }
 
-    /* Cacher statuts pour messages des autres */
     .message-bubble-container:not(.own) .message-status {
-      display: none;
+      display: none !important;
     }
 
-    /* Un check - Envoyé */
     .message-bubble-container.own .status-sent::after {
       content: '✓';
       color: rgba(255, 255, 255, 0.7);
-      font-size: 0.8rem;
+      font-size: 0.75rem;
     }
 
-    /* Double check gris - Délivré */
     .message-bubble-container.own .status-delivered::after {
       content: '✓✓';
       color: rgba(255, 255, 255, 0.8);
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       letter-spacing: -2px;
     }
 
-    /* Double check blanc - Lu */
     .message-bubble-container.own .status-read::after {
       content: '✓✓';
       color: #ffffff;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       letter-spacing: -2px;
       font-weight: bold;
       text-shadow: 0 0 2px rgba(255,255,255,0.3);
     }
 
-    /* ========== MÉDIAS DANS MESSAGES ========== */
-    
-    /* IMAGES */
+    /* ========== MÉDIAS - TAILLES OPTIMISÉES ========== */
     .image-message {
       position: relative;
-      border-radius: 12px;
+      border-radius: 8px;
       overflow: hidden;
-      max-width: 280px;
+      max-width: 200px;
     }
 
     .message-image {
       width: 100%;
       height: auto;
-      max-height: 200px;
+      max-height: 150px;
       object-fit: cover;
       cursor: pointer;
-      border-radius: 8px;
-      transition: transform 0.3s ease;
+      border-radius: 6px;
+      display: block;
     }
 
-    .message-image:hover {
-      transform: scale(1.02);
-    }
-
-    .image-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      cursor: pointer;
-    }
-
-    .image-message:hover .image-overlay {
-      opacity: 1;
-    }
-
-    .zoom-icon {
-      font-size: 1.5rem;
-      color: white;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-    }
-
-    .image-caption, .video-caption {
-      margin: 6px 0 0 0;
-      font-size: 0.85rem;
-      opacity: 0.9;
-      font-style: italic;
-    }
-
-    /* VIDÉOS */
     .video-message {
-      max-width: 280px;
+      max-width: 200px;
     }
 
     .message-video {
       width: 100%;
       height: auto;
-      max-height: 200px;
-      border-radius: 8px;
+      max-height: 150px;
+      border-radius: 6px;
     }
 
-    /* AUDIO */
     .audio-message {
-      min-width: 220px;
+      min-width: 180px;
     }
 
     .audio-player {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      border-radius: 20px;
-      transition: all 0.3s ease;
-    }
-
-    /* Audio dans messages des autres */
-    .message-bubble-container:not(.own) .audio-player {
-      background: rgba(0,0,0,0.05);
-    }
-
-    /* Audio dans nos messages */
-    .message-bubble-container.own .audio-player {
-      background: rgba(255,255,255,0.2);
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 16px;
     }
 
     .audio-play-btn {
       background: #667eea;
       border: none;
-      width: 36px;
-      height: 36px;
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       color: white;
-      transition: all 0.3s ease;
-      font-size: 0.9rem;
+      font-size: 0.8rem;
+      flex-shrink: 0;
     }
 
-    .audio-play-btn:hover {
-      background: #5a6fd8;
-      transform: scale(1.05);
-    }
-
-    .audio-element {
-      display: none;
-    }
-
-    .audio-info {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-
-    .audio-name {
-      font-size: 0.85rem;
-      font-weight: 500;
-    }
-
-    .audio-duration {
-      font-size: 0.75rem;
-      opacity: 0.8;
-    }
-
-    /* FICHIERS */
     .message-file {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      border-radius: 12px;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
       text-decoration: none;
       color: inherit;
-      transition: all 0.3s ease;
+      font-size: 0.85rem;
+    }
+
+    /* ========== ZONE INPUT - HAUTEUR FIXE ========== */
+    .chat-input-area {
+      padding: 12px;
+      background: white;
+      border-top: 1px solid #e9ecef;
+      flex-shrink: 0;
+      height: 70px;
+      border-radius: 0 0 12px 12px;
+    }
+
+    .input-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #f8f9fa;
+      border-radius: 22px;
+      padding: 8px 10px;
+      height: 46px;
+    }
+
+    .message-input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 0.9rem;
+      padding: 4px 6px;
+      min-width: 0;
+    }
+
+    .input-btn {
+      background: transparent;
+      border: none;
+      font-size: 1.1rem;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: all 0.2s ease;
+      padding: 6px;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .input-btn:hover {
+      opacity: 1;
+      background: rgba(102, 126, 234, 0.1);
+    }
+
+    .send-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      font-size: 0.95rem;
+      flex-shrink: 0;
+    }
+
+    .send-btn:hover:not(:disabled) {
+      transform: scale(1.1);
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ========== EMOJI PICKER - POSITION CORRIGÉE ========== */
+    .emoji-picker {
+      position: absolute;
+      bottom: 72px;
+      left: 12px;
+      right: 12px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      z-index: 10;
+      max-height: 200px;
+    }
+
+    .emoji-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid #e9ecef;
+      font-weight: 600;
       font-size: 0.9rem;
     }
 
-    /* Fichiers dans messages des autres */
-    .message-bubble-container:not(.own) .message-file {
-      background: rgba(0,0,0,0.05);
-      color: #2d3436;
+    .emoji-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      padding: 10px;
+      max-height: 140px;
+      overflow-y: auto;
     }
 
-    .message-bubble-container:not(.own) .message-file:hover {
-      background: rgba(0,0,0,0.1);
-      transform: translateY(-1px);
+    .emoji-item {
+      font-size: 1.2rem;
+      cursor: pointer;
+      text-align: center;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all 0.15s ease;
     }
 
-    /* Fichiers dans nos messages */
-    .message-bubble-container.own .message-file {
-      background: rgba(255,255,255,0.2);
-      color: white;
+    .emoji-item:hover {
+      background: #f0f2f5;
+      transform: scale(1.15);
     }
 
-    .message-bubble-container.own .message-file:hover {
-      background: rgba(255,255,255,0.3);
-      transform: translateY(-1px);
-    }
-
-    .file-icon {
-      font-size: 1.4rem;
-    }
-
-    .file-name {
-      font-weight: 500;
-      flex: 1;
-    }
-
-    .file-size {
-      font-size: 0.75rem;
-      opacity: 0.7;
-    }
-
-    /* ========== INDICATEUR DE FRAPPE ========== */
+    /* ========== INDICATEURS ========== */
     .typing-indicator {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 10px;
+      gap: 6px;
+      padding: 8px;
       color: #636e72;
-      font-size: 0.85rem;
-      margin-left: 42px;
+      font-size: 0.8rem;
+      margin-left: 36px;
     }
 
     .typing-dots {
       display: flex;
-      gap: 4px;
+      gap: 3px;
       background: white;
-      padding: 8px 12px;
-      border-radius: 18px;
+      padding: 6px 10px;
+      border-radius: 16px;
       border: 1px solid #e9ecef;
     }
 
     .typing-dots span {
-      width: 8px;
-      height: 8px;
+      width: 6px;
+      height: 6px;
       background: #636e72;
       border-radius: 50%;
       animation: bounce 1.4s infinite ease-in-out;
-    }
-
-    .typing-dots span:nth-child(2) {
-      animation-delay: 0.2s;
-    }
-
-    .typing-dots span:nth-child(3) {
-      animation-delay: 0.4s;
     }
 
     @keyframes bounce {
@@ -791,73 +842,20 @@ interface QuickChatWindow {
         opacity: 0.4;
       }
       30% { 
-        transform: translateY(-10px);
+        transform: translateY(-8px);
         opacity: 1;
       }
     }
 
-    /* ========== PICKER EMOJI ========== */
-    .emoji-picker {
-      position: absolute;
-      bottom: 70px;
-      left: 15px;
-      right: 15px;
-      background: white;
-      border-radius: 15px;
-      box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-      z-index: 10;
-    }
-
-    .emoji-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 15px;
-      border-bottom: 1px solid #e9ecef;
-      font-weight: 600;
-    }
-
-    .emoji-header button {
-      background: none;
-      border: none;
-      font-size: 1.2rem;
-      cursor: pointer;
-      opacity: 0.7;
-    }
-
-    .emoji-grid {
-      display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      gap: 8px;
-      padding: 15px;
-      max-height: 150px;
-      overflow-y: auto;
-    }
-
-    .emoji-item {
-      font-size: 1.3rem;
-      cursor: pointer;
-      text-align: center;
-      padding: 5px;
-      border-radius: 5px;
-      transition: all 0.2s ease;
-    }
-
-    .emoji-item:hover {
-      background: #f0f2f5;
-      transform: scale(1.2);
-    }
-
-    /* ========== INDICATEUR D'ENREGISTREMENT ========== */
     .recording-indicator {
       background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
       color: white;
-      padding: 15px;
+      padding: 12px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-radius: 15px;
-      margin: 10px 15px;
+      border-radius: 12px;
+      margin: 8px 12px;
     }
 
     .recording-animation {
@@ -879,130 +877,61 @@ interface QuickChatWindow {
       50% { opacity: 0.3; }
     }
 
+    .recording-text {
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
     .recording-actions {
       display: flex;
-      gap: 10px;
+      gap: 8px;
     }
 
     .cancel-recording, .stop-recording {
       background: rgba(255,255,255,0.2);
-      border: none;
-      padding: 6px 12px;
-      border-radius: 15px;
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 8px 14px;
+      border-radius: 20px;
       color: white;
       font-size: 0.85rem;
+      font-weight: 500;
       cursor: pointer;
       transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
-    .cancel-recording:hover, .stop-recording:hover {
+    .cancel-recording:hover {
       background: rgba(255,255,255,0.3);
+      transform: scale(1.02);
     }
 
-    /* ========== ZONE INPUT ========== */
-    .chat-input-area {
-      padding: 18px;
+    .stop-recording {
+      background: rgba(255,255,255,0.9);
+      color: #e74c3c;
+      font-weight: 600;
+    }
+
+    .stop-recording:hover {
       background: white;
-      border-top: 1px solid #e9ecef;
-      flex-shrink: 0;
-    }
-
-    .input-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: #f8f9fa;
-      border-radius: 25px;
-      padding: 12px 15px;
-      min-height: 45px;
-    }
-
-    .message-input {
-      flex: 1;
-      border: none;
-      background: transparent;
-      outline: none;
-      font-size: 1rem;
-      padding: 4px 8px;
-    }
-
-    .input-btn {
-      background: transparent;
-      border: none;
-      font-size: 1.3rem;
-      cursor: pointer;
-      opacity: 0.7;
-      transition: all 0.3s ease;
-      padding: 8px;
-      border-radius: 50%;
-      width: 36px;
-      height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .input-btn:hover, .input-btn.active {
-      opacity: 1;
-      transform: scale(1.1);
-      background: rgba(102, 126, 234, 0.1);
-    }
-
-    .voice-btn {
-      font-size: 1.3rem;
-    }
-
-    .voice-btn:active {
-      background: #e74c3c;
-      color: white;
-      transform: scale(0.95);
-    }
-
-    .send-btn {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.3s ease;
-      font-size: 1.1rem;
-      flex-shrink: 0;
-    }
-
-    .send-btn:hover:not(:disabled) {
-      transform: scale(1.1);
-      box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4);
-    }
-
-    .send-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+      transform: scale(1.02);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
 
     .load-more-btn {
       width: 100%;
-      padding: 8px;
-      margin-bottom: 10px;
+      padding: 6px;
+      margin-bottom: 8px;
       background: white;
       border: 1px solid #e9ecef;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 0.85rem;
-      transition: all 0.3s ease;
+      font-size: 0.8rem;
+      transition: all 0.2s ease;
     }
 
-    .load-more-btn:hover:not(:disabled) {
-      background: #f8f9fa;
-      transform: translateY(-1px);
-    }
-
-    /* NOUVEAU: Modal d'image */
+    /* ========== MODAL IMAGE ========== */
     .image-modal {
       position: fixed;
       top: 0;
@@ -1027,47 +956,11 @@ interface QuickChatWindow {
     .modal-content {
       position: relative;
       background: white;
-      border-radius: 15px;
+      border-radius: 12px;
       max-width: 90vw;
       max-height: 90vh;
       overflow: hidden;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 15px 20px;
-      background: #f8f9fa;
-      border-bottom: 1px solid #e9ecef;
-    }
-
-    .modal-header h3 {
-      margin: 0;
-      font-size: 1.2rem;
-      color: #2d3436;
-    }
-
-    .modal-close {
-      background: none;
-      border: none;
-      font-size: 1.5rem;
-      cursor: pointer;
-      opacity: 0.7;
-      transition: opacity 0.3s ease;
-    }
-
-    .modal-close:hover {
-      opacity: 1;
-    }
-
-    .modal-body {
-      padding: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #000;
+      box-shadow: 0 15px 30px rgba(0,0,0,0.3);
     }
 
     .modal-image {
@@ -1076,58 +969,68 @@ interface QuickChatWindow {
       object-fit: contain;
     }
 
-    .modal-actions {
-      display: flex;
-      gap: 15px;
-      padding: 15px 20px;
-      background: #f8f9fa;
-      border-top: 1px solid #e9ecef;
-    }
-
-    .btn-download, .btn-open-tab {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: all 0.3s ease;
-    }
-
-    .btn-download:hover, .btn-open-tab:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
-    }
-
-    /* Responsive */
+    /* ========== RESPONSIVE ========== */
     @media (max-width: 768px) {
       .quick-chat-container {
         right: 10px;
         bottom: 10px;
+        gap: 10px;
       }
 
       .chat-window {
         width: calc(100vw - 20px);
-        max-width: 340px;
+        max-width: 320px;
+        height: 480px;
       }
 
-      .modal-content {
-        margin: 20px;
-        max-width: calc(100vw - 40px);
-        max-height: calc(100vh - 40px);
+      .conversation-name {
+        max-width: 120px;
       }
 
-      .modal-image {
-        max-height: 60vh;
+      .message-bubble {
+        max-width: 75%;
+        font-size: 0.85rem;
       }
 
       .emoji-grid {
         grid-template-columns: repeat(6, 1fr);
       }
 
-      .message-bubble {
-        max-width: 85%;
+      .input-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 1rem;
+      }
+
+      .send-btn {
+        width: 32px;
+        height: 32px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .chat-window {
+        width: calc(100vw - 20px);
+        max-width: 300px;
+        height: 450px;
+      }
+
+      .messages-area {
+        padding: 8px;
+      }
+
+      .chat-input-area {
+        padding: 10px;
+        height: 64px;
+      }
+
+      .input-wrapper {
+        height: 42px;
+        padding: 6px 8px;
+      }
+
+      .emoji-grid {
+        grid-template-columns: repeat(5, 1fr);
       }
     }
   `],
@@ -1155,50 +1058,212 @@ interface QuickChatWindow {
 export class GlobalQuickChatComponent implements OnInit, OnDestroy {
   @ViewChild('fileInput') fileInput!: ElementRef;
   
+   private autoScrollEnabled = new Map<number, boolean>();
+  private scrollTimeouts = new Map<number, any>();
+
+
   chatWindows: QuickChatWindow[] = [];
   currentUserId?: number;
   maxWindows = 3;
   private destroy$ = new Subject<void>();
 
-  // NOUVEAU: Gestion du modal d'image
+  // Cache pour les statuts des utilisateurs (similaire à ConversationList)
+  private onlineUsersCache = new Map<number, { isOnline: boolean; lastSeen: Date }>();
+  private onlineUsers = new Set<number>();
+
+  // Variables existantes pour modals...
   showImageModal = false;
   currentImageUrl = '';
   currentImageTitle = '';
 
-  // NOUVEAU: Gestion de l'enregistrement vocal
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private recordingTimer: any;
+private audioDurations = new Map<string, string>();
+
+private shouldProcessRecording = false;
 
   constructor(
     private messagingService: MessagingService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
+
   ) {}
 
-  ngOnInit() {
-    this.loadUserInfo();
-    this.listenToQuickChatEvents();
-    this.subscribeToMessages();
-    this.subscribeToTypingIndicators();
-    this.setupClickOutside();
-  }
+ ngOnInit() {
+  this.loadUserInfo();
+  this.listenToQuickChatEvents();
+  this.subscribeToMessages();
+  this.subscribeToTypingIndicators();
+  this.subscribeToOnlineUsers();
+  this.setupClickOutside();
+  this.setupReadStateSynchronization();
+
+}
+private setupReadStateSynchronization() {
+  // Écouter les événements globaux de lecture
+  window.addEventListener('conversationMarkedAsRead', (event: any) => {
+    const { conversationId, source } = event.detail;
+    
+    if (source !== 'quick-chat') {
+      // Mettre à jour localement si marqué depuis ailleurs
+      const window = this.chatWindows.find(w => w.conversation.id === conversationId);
+      if (window) {
+        window.conversation.unreadCount = 0;
+        this.cdr.detectChanges();
+      }
+    }
+  });
+}
 
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();
     this.cleanupRecording();
+    
+    // NOUVEAU: Nettoyer tous les timeouts de scroll
+    this.scrollTimeouts.forEach(timeout => clearTimeout(timeout));
+    this.scrollTimeouts.clear();
   }
 
-  private loadUserInfo() {
+private async loadUserInfo() {
+  try {
+    // Récupérer l'ID depuis MessagingService
     this.currentUserId = this.messagingService.getCurrentUserId();
+    
+    if (!this.currentUserId) {
+      // Attendre que MessagingService soit initialisé
+      const userId = await this.messagingService.getCurrentUserIdAsync();
+      if (userId) {
+        this.currentUserId = userId;
+      }
+    }
+    
+    console.log('✅ QuickChat user ID loaded:', this.currentUserId);
+  } catch (error) {
+    console.error('❌ Error loading user info:', error);
   }
+}
 
   private listenToQuickChatEvents() {
-    window.addEventListener('openQuickChat', (event: any) => {
-      const conversation = event.detail.conversation;
-      this.openChat(conversation);
+  // Événement d'ouverture du quick chat
+  window.addEventListener('openQuickChat', (event: any) => {
+    const conversation = event.detail.conversation;
+    this.openChat(conversation);
+  });
+  
+  // NOUVEAU: Événement de rafraîchissement forcé des messages
+  window.addEventListener('refreshQuickChatMessages', (event: any) => {
+    const conversationId = event.detail.conversationId;
+    const window = this.chatWindows.find(w => w.conversation.id === conversationId);
+    if (window) {
+      console.log('📥 Refreshing messages for conversation:', conversationId);
+      this.forceRefreshMessages(window);
+    }
+  });
+}
+
+  // ===== NOUVEAU: GESTION DES STATUTS DE CONNEXION =====
+
+  private subscribeToOnlineUsers() {
+    this.messagingService.onlineUsers$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(onlineSet => {
+        console.log('QuickChat - Online users updated:', Array.from(onlineSet));
+        
+        // Mettre à jour le cache
+        const now = new Date();
+        
+        // Marquer les utilisateurs comme hors ligne s'ils ne sont pas dans le nouvel ensemble
+        this.onlineUsersCache.forEach((status, userId) => {
+          if (!onlineSet.has(userId) && status.isOnline) {
+            this.onlineUsersCache.set(userId, {
+              isOnline: false,
+              lastSeen: now
+            });
+          }
+        });
+        
+        // Marquer les utilisateurs comme en ligne s'ils sont dans le nouvel ensemble
+        onlineSet.forEach(userId => {
+          this.onlineUsersCache.set(userId, {
+            isOnline: true,
+            lastSeen: now
+          });
+        });
+        
+        this.onlineUsers = onlineSet;
+        this.updateAllWindowsOnlineStatus();
+        this.cdr.detectChanges();
+      });
+  }
+
+  private updateAllWindowsOnlineStatus() {
+    this.chatWindows.forEach(window => {
+      this.updateWindowOnlineStatus(window);
     });
   }
+
+ 
+
+  isUserOnline(userId: number): boolean {
+    if (userId === this.currentUserId) {
+      return false; // Ne pas afficher soi-même comme en ligne
+    }
+    
+    const cachedStatus = this.onlineUsersCache.get(userId);
+    if (cachedStatus) {
+      return cachedStatus.isOnline;
+    }
+    
+    return this.onlineUsers.has(userId);
+  }
+
+  private getDirectConversationStatusText(userId: number, isOnline: boolean): string {
+    if (isOnline) {
+      return 'En ligne';
+    } else {
+      const cachedStatus = this.onlineUsersCache.get(userId);
+      if (cachedStatus && cachedStatus.lastSeen) {
+        const timeDiff = Date.now() - cachedStatus.lastSeen.getTime();
+        const minutesAgo = Math.floor(timeDiff / (1000 * 60));
+        
+        if (minutesAgo < 1) {
+          return 'Déconnecté à l\'instant';
+        } else if (minutesAgo < 60) {
+          return `Connecté(e) il y a ${minutesAgo} min`;
+        } else if (minutesAgo < 1440) {
+          const hoursAgo = Math.floor(minutesAgo / 60);
+          return `Connecté(e) il y a ${hoursAgo}h`;
+        }
+      }
+      return 'Hors ligne';
+    }
+  }
+
+  private getGroupOnlineCount(conversation: Conversation): number {
+    return conversation.participants.filter(p => 
+      p.userId !== this.currentUserId && this.isUserOnline(p.userId)
+    ).length;
+  }
+
+  private getGroupStatusText(onlineCount: number, totalParticipants: number): string {
+    if (totalParticipants === 0) return 'Aucun participant';
+    if (onlineCount === 0) return 'Tous hors ligne';
+    if (onlineCount === 1) return '1 en ligne';
+    return `${onlineCount} en ligne`;
+  }
+
+  getConversationStatusText(window: QuickChatWindow): string {
+    return window.onlineStatus?.statusText || this.getConversationStatus(window.conversation);
+  }
+
+  getUserStatusText(userId: number): string {
+    const isOnline = this.isUserOnline(userId);
+    return isOnline ? 'En ligne' : 'Hors ligne';
+  }
+
+  // ===== FIN NOUVELLE GESTION DES STATUTS =====
 
   private setupClickOutside() {
     document.addEventListener('click', (event: MouseEvent) => {
@@ -1215,36 +1280,215 @@ export class GlobalQuickChatComponent implements OnInit, OnDestroy {
 
   // ===== GESTION DES MESSAGES =====
 
-  private subscribeToMessages() {
+private subscribeToMessages() {
     this.messagingService.messages$
       .pipe(takeUntil(this.destroy$))
       .subscribe(allMessages => {
+        let hasUpdates = false;
+        
         this.chatWindows.forEach(window => {
           const conversationMessages = allMessages
             .filter(m => m.conversationId === window.conversation.id)
             .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
 
-          // CORRECTION: Ne mettre à jour QUE si on a vraiment de nouveaux messages
-          // et éviter d'écraser les messages existants
           if (conversationMessages.length > 0) {
-            const existingMessageIds = new Set(window.messages.map(m => m.id));
-            const newMessages = conversationMessages.filter(m => !existingMessageIds.has(m.id));
+            const previousMessageCount = window.messages.length;
             
-            // Seulement ajouter les nouveaux messages sans toucher aux existants
-            if (newMessages.length > 0) {
-              window.messages = [...window.messages, ...newMessages]
-                .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+            // CAS 1: Première charge de messages
+            if (window.messages.length === 0) {
+              console.log(`📥 First time loading messages for conversation ${window.conversation.id}`);
+              window.messages = this.deduplicateMessages(conversationMessages);
+              this.enableAutoScrollForWindow(window);
+              this.scrollToBottomSmooth(window, 150);
+              hasUpdates = true;
+              return;
+            }
+
+            // CAS 2: Nouveaux messages
+            const latestServerMessage = conversationMessages[conversationMessages.length - 1];
+            const latestWindowMessage = window.messages[window.messages.length - 1];
+            
+            const hasNewMessage = !latestWindowMessage || 
+              latestServerMessage.id !== latestWindowMessage.id ||
+              new Date(latestServerMessage.sentAt).getTime() !== new Date(latestWindowMessage.sentAt).getTime();
+            
+            if (hasNewMessage) {
+              const existingIds = new Set(window.messages.map(m => m.id));
+              const newMessages = conversationMessages.filter(m => !existingIds.has(m.id));
               
-              // CORRECTION: Auto-scroll seulement pour les messages des autres
-              const hasNewFromOthers = newMessages.some(m => m.senderId !== this.currentUserId);
-              if (hasNewFromOthers) {
-                setTimeout(() => this.scrollToBottom(window), 100);
+              if (newMessages.length > 0) {
+                console.log(`📨 Adding ${newMessages.length} new messages to conversation ${window.conversation.id}`);
+                
+                // Vérifier si l'utilisateur était en bas avant l'ajout
+                const wasAtBottom = this.isUserAtBottom(window);
+                
+                // Ajouter les nouveaux messages
+                window.messages = this.deduplicateMessages([...window.messages, ...newMessages])
+                  .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+                
+                // LOGIQUE D'AUTO-SCROLL AMÉLIORÉE
+                const hasOwnNewMessage = newMessages.some(m => m.senderId === this.currentUserId);
+                const hasOthersNewMessage = newMessages.some(m => m.senderId !== this.currentUserId);
+                
+                // Scroll automatique si :
+                // 1. L'utilisateur a envoyé un message
+                // 2. L'utilisateur était déjà en bas et a reçu un nouveau message
+                // 3. La fenêtre n'est pas minimisée
+                if (!window.isMinimized && (hasOwnNewMessage || (hasOthersNewMessage && wasAtBottom))) {
+                  this.scrollToBottomSmooth(window, hasOwnNewMessage ? 100 : 200);
+                }
+                
+                hasUpdates = true;
               }
             }
           }
         });
+        
+        if (hasUpdates) {
+          this.cdr.detectChanges();
+        }
       });
   }
+  
+  
+  
+  
+  private isUserAtBottom(window: QuickChatWindow): boolean {
+    const index = this.chatWindows.indexOf(window);
+    const messageContainer = document.querySelectorAll('.messages-area')[index] as HTMLElement;
+    
+    if (!messageContainer) return true;
+    
+    const scrollTop = messageContainer.scrollTop;
+    const scrollHeight = messageContainer.scrollHeight;
+    const clientHeight = messageContainer.clientHeight;
+    
+    // Considérer comme "en bas" si on est à moins de 50px du bas
+    const threshold = 50;
+    const isAtBottom = (scrollTop + clientHeight + threshold) >= scrollHeight;
+    
+    return isAtBottom;
+  }
+
+  // 4. NOUVELLE MÉTHODE: Activer l'auto-scroll pour une fenêtre
+  private enableAutoScrollForWindow(window: QuickChatWindow) {
+    this.autoScrollEnabled.set(window.conversation.id, true);
+  }
+
+  // 5. MÉTHODE AMÉLIORÉE: Scroll fluide vers le bas
+  private scrollToBottomSmooth(window: QuickChatWindow, delay: number = 100) {
+    const conversationId = window.conversation.id;
+    
+    // Annuler le timeout précédent s'il existe
+    const existingTimeout = this.scrollTimeouts.get(conversationId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+    
+    // Programmer le nouveau scroll
+    const newTimeout = setTimeout(() => {
+      const index = this.chatWindows.indexOf(window);
+      const messageContainer = document.querySelectorAll('.messages-area')[index] as HTMLElement;
+      
+      if (messageContainer) {
+        // Scroll fluide vers le bas
+        messageContainer.scrollTo({
+          top: messageContainer.scrollHeight,
+          behavior: 'smooth'
+        });
+        
+        console.log(`📜 Auto-scrolled to bottom for conversation ${conversationId}`);
+      }
+      
+      // Nettoyer le timeout
+      this.scrollTimeouts.delete(conversationId);
+    }, delay);
+    
+    this.scrollTimeouts.set(conversationId, newTimeout);
+  }
+  
+  
+  
+  
+  
+  
+  
+  private forceRefreshMessages(window: QuickChatWindow) {
+    console.log('🔄 Forcing refresh messages for conversation:', window.conversation.id);
+    
+    const wasAtBottom = this.isUserAtBottom(window);
+    
+    window.page = 0;
+    window.hasMoreMessages = true;
+    window.isLoading = true;
+    
+    const optimisticMessages = window.messages.filter(m => 
+      typeof m.id === 'number' && m.id > Date.now() - 60000 && m.senderId === this.currentUserId
+    );
+    
+    this.messagingService.getConversationMessages(
+      window.conversation.id, 
+      0, 
+      20
+    ).pipe(takeUntil(this.destroy$))
+    .subscribe({
+      next: (messages) => {
+        const serverMessages = this.deduplicateMessages(messages);
+        const allMessages = [...serverMessages, ...optimisticMessages]
+          .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+        
+        window.messages = this.deduplicateMessages(allMessages);
+        window.isLoading = false;
+        window.hasMoreMessages = messages.length === 20;
+        
+        // Auto-scroll seulement si l'utilisateur était en bas ou si c'est un nouveau message
+        if (wasAtBottom || optimisticMessages.length > 0) {
+          this.scrollToBottomSmooth(window, 200);
+        }
+        
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('❌ Error in force refresh:', error);
+        window.isLoading = false;
+        
+        setTimeout(() => {
+          if (window.messages.length === 0) {
+            this.loadMessages(window, false);
+          }
+        }, 3000);
+        
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+
+// ===== MÉTHODE 7: NOUVELLE - shouldRefreshMessages() =====
+private shouldRefreshMessages(window: QuickChatWindow): boolean {
+  // Toujours rafraîchir si aucun message
+  if (window.messages.length === 0) {
+    console.log('🔄 Should refresh: no messages');
+    return true;
+  }
+  
+  // Vérifier si le dernier message est trop ancien (plus de 5 minutes)
+  const lastMessage = window.messages[window.messages.length - 1];
+  if (lastMessage) {
+    const timeDiff = Date.now() - new Date(lastMessage.sentAt).getTime();
+    const shouldRefresh = timeDiff > 5 * 60 * 1000; // 5 minutes
+    
+    if (shouldRefresh) {
+      console.log('🔄 Should refresh: last message too old', timeDiff / 1000 / 60, 'minutes ago');
+    }
+    
+    return shouldRefresh;
+  }
+  
+  console.log('🔄 Should refresh: no valid last message');
+  return true;
+}
+
 
   private hasNewMessagesForWindow(window: QuickChatWindow, newMessages: Message[]): boolean {
     if (window.messages.length === 0 && newMessages.length > 0) {
@@ -1302,86 +1546,173 @@ export class GlobalQuickChatComponent implements OnInit, OnDestroy {
   // ===== GESTION DES FENÊTRES DE CHAT =====
 
   openChat(conversation: Conversation) {
-    const existingWindow = this.chatWindows.find(w => 
-      w.conversation.id === conversation.id
-    );
+  console.log('🚀 Opening quick chat for conversation:', conversation.id);
+  
+  const existingWindow = this.chatWindows.find(w => 
+    w.conversation.id === conversation.id
+  );
 
-    if (existingWindow) {
-      existingWindow.isMinimized = false;
-      
-      // NOUVEAU: Marquer automatiquement comme lu quand on ouvre
-      this.markConversationAsRead(conversation);
-      return;
-    }
-
-    if (this.chatWindows.length >= this.maxWindows) {
-      this.chatWindows.shift();
-    }
-
-    const newWindow: QuickChatWindow = {
-      conversation,
-      messages: [],
-      isMinimized: false,
-      newMessage: '',
-      typingIndicators: [],
-      isLoading: true,
-      hasMoreMessages: true,
-      page: 0,
-      isRecording: false,
-      recordingDuration: 0,
-      showEmojiPicker: false
-    };
-
-    this.chatWindows.push(newWindow);
-    this.loadMessages(newWindow);
+  if (existingWindow) {
+    console.log('📂 Existing window found, restoring...');
+    existingWindow.isMinimized = false;
     
-    // NOUVEAU: Marquer comme lu dès l'ouverture
+    // Mettre à jour le statut en ligne
+    this.updateWindowOnlineStatus(existingWindow);
+    
+    // CORRECTION: Vérifier si on a besoin de recharger les messages
+    if (existingWindow.messages.length === 0 || this.shouldRefreshMessages(existingWindow)) {
+      console.log('🔄 Refreshing messages for existing window...');
+      this.forceRefreshMessages(existingWindow);
+    } else {
+      // Scroller vers le bas même si pas de rechargement
+      setTimeout(() => this.scrollToBottom(existingWindow), 100);
+    }
+    this.markAsReadOnOpen(existingWindow);
+    return;
+    // Marquer automatiquement comme lu quand on ouvre
     this.markConversationAsRead(conversation);
+    return;
   }
 
-private loadMessages(window: QuickChatWindow, append = false) {
-    window.isLoading = true;
-    
-    this.messagingService.getConversationMessages(
-      window.conversation.id, 
-      window.page, 
-      20
-    ).pipe(takeUntil(this.destroy$))
-    .subscribe({
-      next: (messages) => {
-        if (append) {
-          // Éviter les doublons lors de l'ajout
-          const existingIds = new Set(window.messages.map(m => m.id));
-          const newMessages = messages.filter(m => !existingIds.has(m.id));
-          window.messages = [...newMessages, ...window.messages];
-        } else {
-          // CORRECTION: Préserver les messages optimistes lors du chargement initial
-          const optimisticMessages = window.messages.filter(m => 
-            typeof m.id === 'number' && m.id > Date.now() - 60000 && m.senderId === this.currentUserId
-          );
-          
-          const serverMessages = this.deduplicateMessages(messages);
-          
-          // Fusionner les messages optimistes avec les messages du serveur
-          const allMessages = [...serverMessages, ...optimisticMessages]
-            .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
-          
-          window.messages = this.deduplicateMessages(allMessages);
-        }
-        
-        window.hasMoreMessages = messages.length === 20;
-        window.isLoading = false;
-        
-        if (!append) {
-          setTimeout(() => this.scrollToBottom(window), 100);
-        }
-      },
-      error: (error) => {
-        console.error('Erreur chargement messages:', error);
-        window.isLoading = false;
-      }
-    });
+  // Gérer le maximum de fenêtres
+  if (this.chatWindows.length >= this.maxWindows) {
+    console.log('🗂️ Maximum windows reached, closing oldest...');
+    this.chatWindows.shift();
   }
+
+  console.log('🆕 Creating new quick chat window...');
+  const newWindow: QuickChatWindow = {
+    conversation,
+    messages: [],
+    isMinimized: false,
+    newMessage: '',
+    typingIndicators: [],
+    isLoading: true,
+    hasMoreMessages: true,
+    page: 0,
+    isRecording: false,
+    recordingDuration: 0,
+    showEmojiPicker: false,
+    onlineStatus: {}
+  };
+
+  // Mettre à jour le statut en ligne immédiatement
+  this.updateWindowOnlineStatus(newWindow);
+  
+  this.chatWindows.push(newWindow);
+  
+  // CORRECTION: Chargement initial + backup retry
+  this.loadMessages(newWindow);
+  
+  // Système de backup: si pas de messages après 1.5 secondes, forcer le rechargement
+  setTimeout(() => {
+    if (newWindow.messages.length === 0 && !newWindow.isLoading) {
+      console.log('⚠️ No messages loaded after timeout, forcing refresh...');
+      this.forceRefreshMessages(newWindow);
+    }
+  }, 1500);
+    this.markAsReadOnOpen(newWindow);
+
+  // Marquer comme lu dès l'ouverture
+  this.markConversationAsRead(conversation);
+}
+
+private markAsReadOnOpen(chatWindow: QuickChatWindow) {
+  if (chatWindow.conversation.unreadCount > 0) {
+    console.log(`📂 Marking as read on quick chat open: ${chatWindow.conversation.id}`);
+    
+    // Mise à jour locale
+    chatWindow.conversation.unreadCount = 0;
+    
+    // Appel serveur avec délai pour éviter les conflits
+    setTimeout(() => {
+      this.messagingService.markAsRead(chatWindow.conversation.id).subscribe({
+        next: () => {
+          window.dispatchEvent(new CustomEvent('conversationMarkedAsRead', {
+            detail: {
+              conversationId: chatWindow.conversation.id,
+              source: 'quick-chat-open',
+              timestamp: new Date(),
+              unreadCount: 0
+            }
+          }));
+        }
+      });
+    }, 500);
+  }
+}
+
+
+
+
+  private loadMessages(window: QuickChatWindow, append = false) {
+  console.log(`🔄 Loading messages for conversation ${window.conversation.id}, page: ${window.page}, append: ${append}`);
+  
+  window.isLoading = true;
+  
+  this.messagingService.getConversationMessages(
+    window.conversation.id, 
+    window.page, 
+    20
+  ).pipe(takeUntil(this.destroy$))
+  .subscribe({
+    next: (messages) => {
+      console.log(`📥 Received ${messages.length} messages from server for conversation ${window.conversation.id}`);
+      
+      if (append) {
+        // Mode ajout (pagination) - éviter les doublons
+        const existingIds = new Set(window.messages.map(m => m.id));
+        const newMessages = messages.filter(m => !existingIds.has(m.id));
+        
+        if (newMessages.length > 0) {
+          window.messages = [...newMessages, ...window.messages];
+          console.log(`📋 Added ${newMessages.length} older messages`);
+        }
+      } else {
+        // Chargement initial - préserver les messages optimistes
+        const optimisticMessages = window.messages.filter(m => 
+          typeof m.id === 'number' && m.id > Date.now() - 60000 && m.senderId === this.currentUserId
+        );
+        
+        const serverMessages = this.deduplicateMessages(messages);
+        
+        // Fusionner les messages optimistes avec les messages du serveur
+        const allMessages = [...serverMessages, ...optimisticMessages]
+          .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+        
+        window.messages = this.deduplicateMessages(allMessages);
+        
+        console.log(`✅ Initial load complete: ${window.messages.length} total messages`);
+      }
+      
+      window.hasMoreMessages = messages.length === 20;
+      window.isLoading = false;
+      
+      // Scroller vers le bas seulement pour le chargement initial
+      if (!append) {
+        setTimeout(() => this.scrollToBottom(window), 200);
+      }
+      
+      this.cdr.detectChanges();
+    },
+    error: (error) => {
+      console.error('❌ Error loading messages for conversation', window.conversation.id, ':', error);
+      window.isLoading = false;
+      
+      // NOUVEAU: Système de retry en cas d'erreur
+      if (!append && window.messages.length === 0) {
+        console.log('🔄 Retrying message load after error in 2 seconds...');
+        setTimeout(() => {
+          if (window.messages.length === 0) {
+            this.loadMessages(window, false);
+          }
+        }, 2000);
+      }
+      
+      this.cdr.detectChanges();
+    }
+  });
+}
 
 
 
@@ -1391,37 +1722,69 @@ private loadMessages(window: QuickChatWindow, append = false) {
     window.page++;
     this.loadMessages(window, true);
   }
-
-  // ===== ENVOI DE MESSAGES =====
-
-  sendMessage(window: QuickChatWindow) {
-    if (!window.newMessage.trim()) return;
-
-    const messageContent = window.newMessage.trim();
-    window.newMessage = '';
-
-    // CORRECTION SIMPLIFIÉE: Pas de message optimiste, directement l'envoi serveur
-    this.messagingService.sendMessage({
-      conversationId: window.conversation.id,
-      content: messageContent,
-      type: 'TEXT'
-    }).subscribe({
-      next: (message) => {
-        // Vérifier si le message n'existe pas déjà pour éviter les doublons
-        const exists = window.messages.find(m => m.id === message.id);
-        if (!exists) {
-          window.messages.push(message);
-          window.messages.sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
-          setTimeout(() => this.scrollToBottom(window), 100);
-        }
+private markAsReadOnSend(chatWindow: QuickChatWindow) {
+  if (chatWindow.conversation.unreadCount > 0) {
+    console.log(`📤 Marking as read on message send: ${chatWindow.conversation.id}`);
+    
+    // Mise à jour locale immédiate
+    chatWindow.conversation.unreadCount = 0;
+    
+    // Appel serveur
+    this.messagingService.markAsRead(chatWindow.conversation.id).subscribe({
+      next: () => {
+        // Émettre événement global
+        window.dispatchEvent(new CustomEvent('conversationMarkedAsRead', {
+          detail: {
+            conversationId: chatWindow.conversation.id,
+            source: 'quick-chat-send',
+            timestamp: new Date(),
+            unreadCount: 0
+          }
+        }));
       },
-      error: (error) => {
-        console.error('Erreur envoi message:', error);
-        window.newMessage = messageContent; // Restaurer en cas d'erreur
-        alert('Erreur lors de l\'envoi du message. Veuillez réessayer.');
-      }
+      error: (err) => console.warn('⚠️ Could not mark as read on send:', err)
     });
   }
+}
+  // ===== ENVOI DE MESSAGES =====
+
+  sendMessage(chatWindow: QuickChatWindow) {
+  if (!chatWindow.newMessage.trim()) return;
+
+  const messageContent = chatWindow.newMessage.trim();
+  chatWindow.newMessage = '';
+
+  // Activer l'auto-scroll avant l'envoi
+  this.enableAutoScrollForWindow(chatWindow);
+
+  this.messagingService.sendMessage({
+    conversationId: chatWindow.conversation.id,
+    content: messageContent,
+    type: 'TEXT'
+  }).subscribe({
+    next: (message) => {
+      // Vérifier si le message n'existe pas déjà
+      const exists = chatWindow.messages.find(m => m.id === message.id);
+      if (!exists) {
+        chatWindow.messages.push(message);
+        chatWindow.messages.sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+        
+        // SCROLL IMMÉDIAT pour nos propres messages
+        this.scrollToBottomSmooth(chatWindow, 50);
+      }
+      
+      // NOUVEAU: Marquer comme lu seulement à l'envoi de message
+      this.markAsReadOnSend(chatWindow);
+    },
+    error: (error) => {
+      console.error('Erreur envoi message:', error);
+      chatWindow.newMessage = messageContent;
+      alert('Erreur lors de l\'envoi du message. Veuillez réessayer.');
+    }
+  });
+}
+
+
 
   canSendMessage(window: QuickChatWindow): boolean {
     return window.newMessage.trim().length > 0 && !window.isRecording;
@@ -1436,47 +1799,62 @@ private loadMessages(window: QuickChatWindow, append = false) {
 
   // ===== GESTION DES FICHIERS =====
 
-  onTyping(window: QuickChatWindow) {
-    this.messagingService.sendTypingIndicator(window.conversation.id, true);
-    
-    // NOUVEAU: Marquer comme lu quand on tape
-    this.markAsReadOnActivity(window);
-  }
-
-  // NOUVEAU: Marquer une conversation comme lue
+onTyping(chatWindow: QuickChatWindow) {
+  this.messagingService.sendTypingIndicator(chatWindow.conversation.id, true);
+  
+  // SUPPRIMER cette ligne :
+  // this.markAsReadOnActivity(chatWindow);
+  
+  // Garder seulement l'événement de typing sans marquer comme lu
+  window.dispatchEvent(new CustomEvent('quickChatActivity', {
+    detail: { 
+      conversationId: chatWindow.conversation.id, 
+      type: 'typing',
+      timestamp: new Date()
+    }
+  }));
+}
+  // Marquer une conversation comme lue
   private markConversationAsRead(conversation: Conversation) {
-    if (conversation.unreadCount > 0) {
-      console.log(`Marquage comme lu: conversation ${conversation.id}`);
+  // Vérifier s'il y a vraiment des messages non lus
+  if (!conversation.unreadCount || conversation.unreadCount === 0) {
+    return; // Pas besoin de marquer comme lu
+  }
+  
+  console.log(`📖 Marking conversation ${conversation.id} as read (${conversation.unreadCount} unread)`);
+  
+  // Mise à jour optimiste locale immédiate
+  const originalUnreadCount = conversation.unreadCount;
+  conversation.unreadCount = 0;
+  
+  // Appel serveur pour marquer comme lu
+  this.messagingService.markAsRead(conversation.id).subscribe({
+    next: () => {
+      console.log('✅ Conversation marked as read successfully');
       
-      // Mise à jour optimiste locale
-      conversation.unreadCount = 0;
-      
-      // Appel serveur
-      this.messagingService.markAsRead(conversation.id).subscribe({
-        next: () => {
-          console.log('Conversation marquée comme lue avec succès');
-          
-          // Émettre l'événement pour synchroniser avec les autres composants
-          window.dispatchEvent(new CustomEvent('conversationRead', {
-            detail: {
-              conversationId: conversation.id,
-              timestamp: new Date()
-            }
-          }));
-        },
-        error: (error) => {
-          console.warn('Erreur lors du marquage comme lu:', error);
+      // Émettre un événement global pour synchroniser avec les autres composants
+      window.dispatchEvent(new CustomEvent('conversationRead', {
+        detail: {
+          conversationId: conversation.id,
+          timestamp: new Date(),
+          unreadCount: 0
         }
-      });
+      }));
+      
+      this.cdr.detectChanges();
+    },
+    error: (error) => {
+      console.warn('❌ Error marking conversation as read:', error);
+      
+      // Restaurer l'état original en cas d'erreur
+      conversation.unreadCount = originalUnreadCount;
+      this.cdr.detectChanges();
     }
-  }
+  });
+}
 
-  // NOUVEAU: Marquer comme lu lors de l'activité (écoute, écriture, etc.)
-  private markAsReadOnActivity(window: QuickChatWindow) {
-    if (window.conversation.unreadCount > 0) {
-      this.markConversationAsRead(window.conversation);
-    }
-  }
+ 
+
 
   triggerFileUpload(window: QuickChatWindow) {
     this.fileInput.nativeElement.click();
@@ -1526,115 +1904,154 @@ private loadMessages(window: QuickChatWindow, append = false) {
     return 'FILE';
   }
 
-  // ===== NOUVEAU: GESTION DE L'ENREGISTREMENT VOCAL =====
+  // ===== GESTION DE L'ENREGISTREMENT VOCAL =====
 
   async startRecording(window: QuickChatWindow) {
-    if (window.isRecording) return;
+  if (window.isRecording) return;
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      this.mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-      
-      this.audioChunks = [];
-      window.isRecording = true;
-      window.recordingDuration = 0;
-
-      this.mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          this.audioChunks.push(event.data);
-        }
-      };
-
-      this.mediaRecorder.onstop = () => {
-        this.handleRecordingStop(window);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      this.mediaRecorder.start();
-      
-      // Timer pour la durée d'enregistrement
-      this.recordingTimer = setInterval(() => {
-        window.recordingDuration++;
-        
-        // Arrêt automatique après 5 minutes
-        if (window.recordingDuration >= 300) {
-          this.stopRecording(window);
-        }
-      }, 1000);
-
-    } catch (error) {
-      console.error('Erreur accès microphone:', error);
-      alert('Impossible d\'accéder au microphone. Vérifiez les permissions.');
-      window.isRecording = false;
-    }
-  }
-
-  stopRecording(window: QuickChatWindow) {
-    if (!window.isRecording || !this.mediaRecorder) return;
-
-    window.isRecording = false;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     
-    if (this.recordingTimer) {
-      clearInterval(this.recordingTimer);
-    }
+    this.mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'audio/webm;codecs=opus'
+    });
+    
+    this.audioChunks = [];
+    window.isRecording = true;
+    window.recordingDuration = 0;
+    this.shouldProcessRecording = false; // Réinitialiser le flag
 
-    if (this.mediaRecorder.state !== 'inactive') {
-      this.mediaRecorder.stop();
-    }
+    this.mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        this.audioChunks.push(event.data);
+      }
+    };
+
+    this.mediaRecorder.onstop = () => {
+      // CORRECTION: Vérifier le flag avant de traiter
+      if (this.shouldProcessRecording) {
+        this.handleRecordingStop(window);
+      } else {
+        console.log('🚫 Enregistrement annulé - pas de traitement');
+        this.cleanupRecordingData(window);
+      }
+      
+      // Toujours nettoyer le stream
+      stream.getTracks().forEach(track => track.stop());
+    };
+
+    this.mediaRecorder.start();
+    
+    // Timer pour la durée d'enregistrement
+    this.recordingTimer = setInterval(() => {
+      window.recordingDuration++;
+      
+      // Arrêt automatique après 5 minutes
+      if (window.recordingDuration >= 300) {
+        this.sendRecording(window);
+      }
+    }, 1000);
+
+  } catch (error) {
+    console.error('Erreur accès microphone:', error);
+    alert('Impossible d\'accéder au microphone. Vérifiez les permissions.');
+    window.isRecording = false;
   }
+}
+
+
+ stopRecording(window: QuickChatWindow) {
+  if (!window.isRecording || !this.mediaRecorder) return;
+
+  // CORRECTION: Marquer que l'enregistrement doit être traité
+  this.shouldProcessRecording = true;
+  window.isRecording = false;
+  
+  if (this.recordingTimer) {
+    clearInterval(this.recordingTimer);
+  }
+
+  if (this.mediaRecorder.state !== 'inactive') {
+    this.mediaRecorder.stop();
+  }
+}
 
   cancelRecording(window: QuickChatWindow) {
-    if (!window.isRecording) return;
+  if (!window.isRecording) return;
 
-    window.isRecording = false;
-    window.recordingDuration = 0;
-    
-    if (this.recordingTimer) {
-      clearInterval(this.recordingTimer);
-    }
-
-    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-      this.mediaRecorder.stop();
-    }
-
-    this.audioChunks = [];
+  console.log('🚫 Annulation de l\'enregistrement');
+  
+  // CORRECTION: Marquer que l'enregistrement NE doit PAS être traité
+  this.shouldProcessRecording = false;
+  window.isRecording = false;
+  
+  if (this.recordingTimer) {
+    clearInterval(this.recordingTimer);
   }
 
-  private handleRecordingStop(window: QuickChatWindow) {
-    if (this.audioChunks.length === 0) return;
-
-    const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-    const audioFile = new File([audioBlob], `vocal-${Date.now()}.webm`, {
-      type: 'audio/webm'
-    });
-
-    // Upload et envoi du message vocal
-    this.messagingService.uploadFile(audioFile).subscribe({
-      next: (url) => {
-        this.messagingService.sendMessage({
-          conversationId: window.conversation.id,
-          content: `Message vocal (${this.formatRecordingTime(window.recordingDuration)})`,
-          type: 'AUDIO',
-          attachmentUrl: url
-        }).subscribe({
-          next: (message) => {
-            window.messages.push(message);
-            setTimeout(() => this.scrollToBottom(window), 100);
-          }
-        });
-      },
-      error: (error) => {
-        console.error('Erreur upload audio:', error);
-        alert('Erreur lors de l\'envoi du message vocal');
-      }
-    });
-
-    window.recordingDuration = 0;
-    this.audioChunks = [];
+  // Arrêter le MediaRecorder sans traiter les données
+  if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+    this.mediaRecorder.stop();
   }
+  
+  // Nettoyer immédiatement les données
+  this.cleanupRecordingData(window);
+}
+private cleanupRecordingData(window: QuickChatWindow) {
+  window.recordingDuration = 0;
+  this.audioChunks = [];
+  this.shouldProcessRecording = false;
+  
+  console.log('🧹 Données d\'enregistrement nettoyées');
+}
+
+private handleRecordingStop(window: QuickChatWindow) {
+  if (this.audioChunks.length === 0) return;
+
+  const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+  const recordedDuration = window.recordingDuration;
+  const durationText = this.formatRecordingTime(recordedDuration);
+  
+  const audioFile = new File([audioBlob], `vocal-${Date.now()}.webm`, {
+    type: 'audio/webm'
+  });
+
+  // CORRECTION: NE PAS ajouter le message manuellement à window.messages
+  // Laisser le WebSocket s'en charger via subscribeToMessages()
+  
+  this.messagingService.uploadFile(audioFile).subscribe({
+    next: (url) => {
+      this.messagingService.sendMessage({
+        conversationId: window.conversation.id,
+        content: `Message vocal (${durationText})`,
+        type: 'AUDIO',
+        attachmentUrl: url
+      }).subscribe({
+        next: (message) => {
+          // SUPPRIMÉ: L'ajout manuel du message
+          // window.messages.push(message); // ❌ CAUSE LA DUPLICATION
+          // Le message sera ajouté automatiquement via subscribeToMessages()
+          
+          console.log('✅ Message vocal envoyé, ID:', message.id);
+          // Le scroll sera géré par subscribeToMessages() aussi
+        },
+        error: (error) => {
+          console.error('Erreur envoi message vocal:', error);
+          alert('Erreur lors de l\'envoi du message vocal');
+        }
+      });
+    },
+    error: (error) => {
+      console.error('Erreur upload audio:', error);
+      alert('Erreur lors de l\'envoi du message vocal');
+    }
+  });
+
+  // Nettoyer les données d'enregistrement
+  window.recordingDuration = 0;
+  this.audioChunks = [];
+}
+
 
   formatRecordingTime(seconds: number): string {
     const mins = Math.floor(seconds / 60);
@@ -1651,7 +2068,7 @@ private loadMessages(window: QuickChatWindow, append = false) {
     }
   }
 
-  // ===== NOUVEAU: GESTION DES EMOJIS =====
+  // ===== GESTION DES EMOJIS =====
 
   toggleEmojiPicker(window: QuickChatWindow) {
     // Fermer les autres emoji pickers
@@ -1682,7 +2099,7 @@ private loadMessages(window: QuickChatWindow, append = false) {
     ];
   }
 
-  // ===== NOUVEAU: GESTION DU MODAL D'IMAGE =====
+  // ===== GESTION DU MODAL D'IMAGE =====
 
   openImageModal(url?: string, title?: string) {
     if (!url) return;
@@ -1749,11 +2166,76 @@ private loadMessages(window: QuickChatWindow, append = false) {
       button.innerHTML = '<span class="play-icon">▶</span>';
     }
   }
+private getAudioDuration(audioUrl: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio();
+      audio.src = audioUrl;
+      
+      const cleanup = () => {
+        audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+        audio.removeEventListener('error', onError);
+        audio.src = ''; // Libérer les ressources
+      };
+      
+      const onLoadedMetadata = () => {
+        const duration = audio.duration;
+        if (isNaN(duration) || !isFinite(duration)) {
+          cleanup();
+          resolve('0:00');
+          return;
+        }
+        
+        const mins = Math.floor(duration / 60);
+        const secs = Math.floor(duration % 60);
+        const formatted = `${mins}:${secs.toString().padStart(2, '0')}`;
+        
+        cleanup();
+        resolve(formatted);
+      };
+      
+      const onError = () => {
+        cleanup();
+        resolve('0:00');
+      };
+      
+      audio.addEventListener('loadedmetadata', onLoadedMetadata);
+      audio.addEventListener('error', onError);
+      
+      // Timeout après 5 secondes
+      setTimeout(() => {
+        cleanup();
+        resolve('0:00');
+      }, 5000);
+    });
+  }
 
-  formatAudioDuration(audioUrl?: string): string {
-    // Cette méthode devrait idéalement récupérer la vraie durée
-    // Pour l'instant, on retourne une durée par défaut
-    return '0:00';
+ formatAudioDuration(audioUrl?: string): string {
+    if (!audioUrl) return '0:00';
+    
+    // Retourner la durée du cache si disponible
+    const cachedDuration = this.audioDurations.get(audioUrl);
+    if (cachedDuration) {
+      return cachedDuration;
+    }
+    
+    // Si pas en cache, lancer le chargement asynchrone et retourner "Loading..."
+    this.loadAudioDurationAsync(audioUrl);
+    return 'Chargement...';
+  }
+  
+  // Méthode asynchrone pour charger la durée
+  private async loadAudioDurationAsync(audioUrl: string): Promise<void> {
+    try {
+      const duration = await this.getAudioDuration(audioUrl);
+      this.audioDurations.set(audioUrl, duration);
+      
+      // Déclencher la détection de changements pour mettre à jour l'affichage
+      this.cdr.detectChanges();
+    } catch (error) {
+      console.warn('Erreur chargement durée audio:', error);
+      this.audioDurations.set(audioUrl, '0:00');
+      this.cdr.detectChanges();
+    }
   }
 
   getFileSize(message: Message): string {
@@ -1764,20 +2246,52 @@ private loadMessages(window: QuickChatWindow, append = false) {
 
   // ===== MÉTHODES UTILITAIRES =====
 
-  onScroll(event: Event, window: QuickChatWindow) {
-    const element = event.target as HTMLElement;
-    if (element.scrollTop < 100 && window.hasMoreMessages && !window.isLoading) {
-      this.loadMoreMessages(window);
+onScroll(event: Event, chatWindow: QuickChatWindow) {
+  const element = event.target as HTMLElement;
+  
+  // Chargement de messages plus anciens
+  if (element.scrollTop < 100 && chatWindow.hasMoreMessages && !chatWindow.isLoading) {
+    this.loadMoreMessages(chatWindow);
+  }
+  
+  // Vérifier si l'utilisateur a scrollé vers le haut manuellement
+  const isAtBottom = this.isUserAtBottom(chatWindow);
+  if (!isAtBottom) {
+    this.autoScrollEnabled.set(chatWindow.conversation.id, false);
+  } else {
+    this.autoScrollEnabled.set(chatWindow.conversation.id, true);
+  }
+  
+  // SUPPRIMER cette ligne :
+  // this.markAsReadOnActivity(chatWindow);
+  
+  // Garder seulement l'événement de scroll
+  window.dispatchEvent(new CustomEvent('quickChatActivity', {
+    detail: { 
+      conversationId: chatWindow.conversation.id, 
+      type: 'scroll',
+      timestamp: new Date()
     }
-    
-    // NOUVEAU: Marquer comme lu lors du scroll (activité utilisateur)
-    this.markAsReadOnActivity(window);
-  }
+  }));
+}
 
-  toggleMinimize(window: QuickChatWindow) {
-    window.isMinimized = !window.isMinimized;
-    window.showEmojiPicker = false;
+
+
+
+  // Modifier toggleMinimize() :
+toggleMinimize(chatWindow: QuickChatWindow) {
+  const wasMinimized = chatWindow.isMinimized;
+  chatWindow.isMinimized = !chatWindow.isMinimized;
+  chatWindow.showEmojiPicker = false;
+  
+  // Si on agrandit la fenêtre, scroll vers le bas après un délai
+  if (wasMinimized && !chatWindow.isMinimized) {
+    setTimeout(() => {
+      this.scrollToBottomSmooth(chatWindow, 300);
+      // SUPPRIMER : this.markAsReadOnActivity(chatWindow);
+    }, 350);
   }
+}
 
   closeChat(window: QuickChatWindow) {
     const index = this.chatWindows.indexOf(window);
@@ -1823,50 +2337,200 @@ private loadMessages(window: QuickChatWindow, append = false) {
   }
 
   getWindowPosition(index: number): number {
-    return 25 + (index * 420);
+    return 25 + (index * 365);
   }
 
-  getConversationName(conversation: Conversation): string {
-    if (conversation.type === 'DIRECT') {
-      const otherParticipant = conversation.participants.find(
-        p => p.userId !== this.currentUserId
-      );
-      return otherParticipant?.userName || conversation.name;
-    }
-    return conversation.name;
+getWindowPositionCompact(index: number): number {
+  return 10 + (index * 320); /* Espacement très compact */
+}
+getWindowPositionAdaptive(index: number): number {
+  const baseOffset = 15;
+  const windowCount = this.chatWindows.length;
+  
+  // Plus il y a de fenêtres, plus l'espacement se réduit
+  let spacing: number;
+  if (windowCount <= 2) {
+    spacing = 365; // Espacement normal pour 1-2 fenêtres
+  } else if (windowCount === 3) {
+    spacing = 320; // Espacement réduit pour 3 fenêtres
+  } else {
+    spacing = 280; // Espacement minimal pour 4+ fenêtres
   }
+  
+  return baseOffset + (index * spacing);
+}
 
-  getConversationAvatar(conversation: Conversation): string {
-    if (conversation.type === 'SKILL_GROUP' && conversation.skillImageUrl) {
-      return conversation.skillImageUrl.startsWith('http') ? 
-        conversation.skillImageUrl : 
-        `http://localhost:8822${conversation.skillImageUrl}`;
+
+getConversationName(conversation: Conversation): string {
+  console.log('🔍 Getting conversation name for:', {
+    id: conversation.id,
+    type: conversation.type,
+    name: conversation.name,
+    participants: conversation.participants,
+    currentUserId: this.currentUserId
+  });
+
+  if (conversation.type === 'DIRECT') {
+    // Pour les conversations directes, toujours afficher le nom de l'AUTRE participant
+    const otherParticipant = conversation.participants.find(
+      p => p.userId !== this.currentUserId
+    );
+    
+    if (otherParticipant) {
+      const displayName = otherParticipant.userName || `Utilisateur ${otherParticipant.userId}`;
+      console.log('✅ QuickChat - Display name for direct conversation:', displayName);
+      return displayName;
     }
     
-    if (conversation.type === 'DIRECT') {
-      const otherParticipant = conversation.participants.find(
-        p => p.userId !== this.currentUserId
-      );
-      if (otherParticipant?.avatar) {
-        return otherParticipant.avatar.startsWith('http') ? 
-          otherParticipant.avatar : 
-          `http://localhost:8822${otherParticipant.avatar}`;
-      }
+    // Fallback: analyser le nom de la conversation si pas d'autre participant
+    if (conversation.name && conversation.name.includes(' et ')) {
+      const parts = conversation.name.split(' et ');
+      // Essayer de deviner quel nom n'est pas le nôtre
+      // Retourner la deuxième partie par défaut (souvent l'autre utilisateur)
+      const fallbackName = parts[1]?.trim() || parts[0]?.trim() || 'Discussion';
+      console.log('⚠️ QuickChat - Using fallback name:', fallbackName);
+      return fallbackName;
     }
     
-    return this.generateAvatar(this.getConversationName(conversation));
+    return conversation.name || 'Discussion directe';
   }
+  
+  // Pour les groupes et conversations de compétence, garder le nom original
+  return conversation.name || 'Conversation';
+}
+
+
+getConversationAvatar(conversation: Conversation): string {
+  if (conversation.type === 'SKILL_GROUP' && conversation.skillImageUrl) {
+    return conversation.skillImageUrl.startsWith('http') ? 
+      conversation.skillImageUrl : 
+      `http://localhost:8822${conversation.skillImageUrl}`;
+  }
+  
+  if (conversation.type === 'DIRECT') {
+    // Pour les conversations directes, utiliser l'avatar de l'AUTRE participant
+    const otherParticipant = conversation.participants.find(
+      p => p.userId !== this.currentUserId
+    );
+    
+    if (otherParticipant?.avatar) {
+      return otherParticipant.avatar.startsWith('http') ? 
+        otherParticipant.avatar : 
+        `http://localhost:8822${otherParticipant.avatar}`;
+    }
+    
+    // Générer un avatar pour l'autre participant
+    if (otherParticipant) {
+      return this.generateAvatar(otherParticipant.userName);
+    }
+  }
+  
+  // Fallback : générer un avatar basé sur le nom affiché
+  return this.generateAvatar(this.getConversationName(conversation));
+}
+
 
   getConversationStatus(conversation: Conversation): string {
-    if (conversation.type === 'DIRECT') {
-      const other = conversation.participants.find(p => p.userId !== this.currentUserId);
-      return other?.isOnline ? 'En ligne' : 'Hors ligne';
+  if (conversation.type === 'DIRECT') {
+    // Pour les conversations directes, vérifier le statut de l'AUTRE participant
+    const otherParticipant = conversation.participants.find(p => p.userId !== this.currentUserId);
+    if (otherParticipant) {
+      const isOnline = this.isUserOnline(otherParticipant.userId);
+      return isOnline ? 'En ligne' : 'Hors ligne';
     }
-    
-    const onlineCount = conversation.participants.filter(p => p.isOnline).length;
+  } else {
+    // Pour les groupes, compter les participants en ligne (excluant nous-même)
+    const onlineCount = conversation.participants
+      .filter(p => p.userId !== this.currentUserId && this.isUserOnline(p.userId))
+      .length;
     return `${onlineCount} en ligne`;
   }
+  
+  return 'Statut inconnu';
+}
+shouldShowSenderInfo(message: Message, conversation: Conversation): boolean {
+  // Ne jamais afficher les infos pour nos propres messages
+  if (this.isOwnMessage(message)) {
+    return false;
+  }
+  
+  // Dans les conversations directes, pas besoin d'afficher le nom (on sait que c'est l'autre personne)
+  if (conversation.type === 'DIRECT') {
+    return false;
+  }
+  
+  // Dans les groupes et conversations de compétence, afficher le nom
+  return true;
+}
 
+// 5. AJOUTER une méthode pour obtenir l'avatar du message
+getMessageAvatar(message: Message, conversation: Conversation): string {
+  // Pas d'avatar pour nos propres messages
+  if (this.isOwnMessage(message)) {
+    return '';
+  }
+  
+  // Trouver le participant correspondant
+  const participant = conversation.participants.find(p => p.userId === message.senderId);
+  
+  if (participant?.avatar) {
+    return participant.avatar.startsWith('http') ? 
+      participant.avatar : 
+      `http://localhost:8822${participant.avatar}`;
+  }
+  
+  // Avatar généré pour l'expéditeur
+  return this.generateAvatar(message.senderName);
+}
+
+// 6. CORRIGER updateWindowOnlineStatus() pour mieux gérer les statuts
+private updateWindowOnlineStatus(window: QuickChatWindow) {
+  const conversation = window.conversation;
+  
+  if (conversation.type === 'DIRECT') {
+    // Trouver l'AUTRE participant (pas nous)
+    const otherUser = conversation.participants.find(p => p.userId !== this.currentUserId);
+    if (otherUser) {
+      const isOnline = this.isUserOnline(otherUser.userId);
+      window.onlineStatus = {
+        isDirectOnline: isOnline,
+        statusText: this.getDirectUserStatusText(otherUser.userId, isOnline)
+      };
+    }
+  } else if (conversation.type === 'GROUP' || conversation.type === 'SKILL_GROUP') {
+    const onlineCount = this.getGroupOnlineCount(conversation);
+    const totalParticipants = conversation.participants.filter(p => p.userId !== this.currentUserId).length;
+    
+    window.onlineStatus = {
+      onlineCount,
+      totalParticipants,
+      statusText: this.getGroupStatusText(onlineCount, totalParticipants)
+    };
+  }
+}
+
+// 7. AJOUTER méthode pour obtenir le statut d'un utilisateur direct
+private getDirectUserStatusText(userId: number, isOnline: boolean): string {
+  if (isOnline) {
+    return 'En ligne';
+  } else {
+    const cachedStatus = this.onlineUsersCache.get(userId);
+    if (cachedStatus && cachedStatus.lastSeen) {
+      const timeDiff = Date.now() - cachedStatus.lastSeen.getTime();
+      const minutesAgo = Math.floor(timeDiff / (1000 * 60));
+      
+      if (minutesAgo < 1) {
+        return 'À l\'instant';
+      } else if (minutesAgo < 60) {
+        return `il y a ${minutesAgo} min`;
+      } else if (minutesAgo < 1440) {
+        const hoursAgo = Math.floor(minutesAgo / 60);
+        return `il y a ${hoursAgo}h`;
+      }
+    }
+    return 'Hors ligne';
+  }
+}
   formatTime(date: Date): string {
     const messageDate = new Date(date);
     const hours = messageDate.getHours().toString().padStart(2, '0');
@@ -1910,4 +2574,85 @@ private loadMessages(window: QuickChatWindow, append = false) {
     
     return `${typingUsers.length} personnes écrivent...`;
   }
+  // Ajouter cette méthode dans GlobalQuickChatComponent
+
+sendRecording(window: QuickChatWindow) {
+  if (!window.isRecording || !this.mediaRecorder) {
+    console.warn('Aucun enregistrement en cours');
+    return;
+  }
+
+  // Arrêter l'enregistrement et déclencher le traitement
+  this.stopRecording(window);
+  
+  // Le traitement de l'envoi se fait automatiquement dans handleRecordingStop()
+  // qui est appelé par l'événement 'onstop' du MediaRecorder
+}
+
+// Alternative plus explicite si vous voulez plus de contrôle :
+async sendRecordingAlternative(window: QuickChatWindow) {
+  if (!window.isRecording || !this.mediaRecorder || this.audioChunks.length === 0) {
+    console.warn('Aucun enregistrement valide à envoyer');
+    return;
+  }
+
+  try {
+    const recordedDuration = window.recordingDuration;
+    const durationText = this.formatRecordingTime(recordedDuration);
+    
+    window.isRecording = false;
+    
+    if (this.recordingTimer) {
+      clearInterval(this.recordingTimer);
+    }
+
+    const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+    const audioFile = new File([audioBlob], `vocal-${Date.now()}.webm`, {
+      type: 'audio/webm'
+    });
+
+    if (this.mediaRecorder.state !== 'inactive') {
+      this.mediaRecorder.stop();
+    }
+
+    window.isLoading = true;
+
+    this.messagingService.uploadFile(audioFile).subscribe({
+      next: (url) => {
+        this.messagingService.sendMessage({
+          conversationId: window.conversation.id,
+          content: `Message vocal (${durationText})`,
+          type: 'AUDIO',
+          attachmentUrl: url
+        }).subscribe({
+          next: (message) => {
+            // CORRECTION: SUPPRIMER l'ajout manuel
+            // Le message sera ajouté via WebSocket dans subscribeToMessages()
+            console.log('✅ Message vocal envoyé via alternative method, ID:', message.id);
+            window.isLoading = false;
+          },
+          error: (error) => {
+            console.error('Erreur envoi message vocal:', error);
+            alert('Erreur lors de l\'envoi du message vocal');
+            window.isLoading = false;
+          }
+        });
+      },
+      error: (error) => {
+        console.error('Erreur upload audio:', error);
+        alert('Erreur lors de l\'upload du fichier audio');
+        window.isLoading = false;
+      }
+    });
+
+    window.recordingDuration = 0;
+    this.audioChunks = [];
+    
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de l\'enregistrement:', error);
+    window.isRecording = false;
+    window.isLoading = false;
+    alert('Erreur lors de l\'envoi du message vocal');
+  }
+}
 }
