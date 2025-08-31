@@ -71,7 +71,7 @@ export interface RatingDialogData {
                 <mat-icon>{{ isStarFilled(i) ? 'star' : 'star_border' }}</mat-icon>
               </button>
             </div>
-            <div class="rating-text">
+            <div class="rating-text" [ngClass]="getRatingTextClass()">
               {{ getRatingText() }}
             </div>
           </div>
@@ -238,19 +238,16 @@ export interface RatingDialogData {
       transition: all 0.2s ease;
     }
 
-    /* 🌟 CORRECTION : Étoiles remplies (sélectionnées) */
     .star-btn.filled mat-icon {
       color: #FFD700;
       text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
     }
 
-    /* 🎯 CORRECTION : Étoiles en survol */
     .star-btn.hover mat-icon {
       color: #FFA500;
       transform: scale(1.1);
     }
 
-    /* Animation pour les étoiles sélectionnées */
     .star-btn.filled {
       animation: starSelected 0.3s ease-out;
     }
@@ -269,7 +266,6 @@ export interface RatingDialogData {
       transition: color 0.2s ease;
     }
 
-    /* Coloration du texte selon la note */
     .rating-text.excellent { color: #4CAF50; }
     .rating-text.very-good { color: #8BC34A; }
     .rating-text.good { color: #FFC107; }
@@ -356,7 +352,7 @@ export interface RatingDialogData {
 export class RatingDialogComponent implements OnInit {
   stars = [1, 2, 3, 4, 5];
   selectedRating = 0;
-  hoveredRating = 0; // 🔧 CORRECTION : Changé de hoveredStar en hoveredRating
+  hoveredRating = 0;
   comment = '';
   isSubmitting = false;
 
@@ -369,7 +365,6 @@ export class RatingDialogComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // Si une évaluation existe déjà, pré-remplir les champs
     if (this.data.existingRating) {
       this.selectedRating = this.data.existingRating;
     }
@@ -380,34 +375,28 @@ export class RatingDialogComponent implements OnInit {
 
   selectRating(rating: number): void {
     this.selectedRating = rating;
-    console.log('Rating sélectionné:', rating); // Debug
   }
 
   hoverStar(rating: number): void {
     this.hoveredRating = rating;
   }
 
-  // 🎯 CORRECTION : Logique claire pour déterminer si une étoile doit être remplie
   isStarFilled(starIndex: number): boolean {
-    const position = starIndex + 1; // Les étoiles commencent à 1
+    const position = starIndex + 1;
     
-    // Si on survole, utiliser la valeur de survol
     if (this.hoveredRating > 0) {
       return position <= this.hoveredRating;
     }
     
-    // Sinon, utiliser la sélection
     return position <= this.selectedRating;
   }
 
-  // 🎯 CORRECTION : Logique pour l'effet de survol
   isStarHovered(starIndex: number): boolean {
     const position = starIndex + 1;
     return this.hoveredRating > 0 && position <= this.hoveredRating;
   }
 
   getRatingText(): string {
-    // Utiliser le survol en priorité, sinon la sélection
     const rating = this.hoveredRating > 0 ? this.hoveredRating : this.selectedRating;
     
     switch(rating) {
@@ -420,7 +409,6 @@ export class RatingDialogComponent implements OnInit {
     }
   }
 
-  // 🎨 BONUS : Obtenir la classe CSS pour colorer le texte
   getRatingTextClass(): string {
     const rating = this.hoveredRating > 0 ? this.hoveredRating : this.selectedRating;
     
@@ -447,7 +435,7 @@ export class RatingDialogComponent implements OnInit {
       comment: this.comment.trim() || undefined
     };
 
-    console.log('Envoi du rating:', request); // Debug
+    console.log('Envoi du rating:', request);
 
     const ratingObservable = this.data.existingRating
       ? this.ratingService.updateRating(this.data.exchangeId, request)
@@ -455,14 +443,14 @@ export class RatingDialogComponent implements OnInit {
 
     ratingObservable.subscribe({
       next: (response) => {
-        console.log('Rating envoyé avec succès:', response); // Debug
+        console.log('Rating envoyé avec succès:', response);
         this.snackBar.open(
           this.data.existingRating ? 'Évaluation mise à jour !' : 'Merci pour votre évaluation !',
           'Fermer',
           { duration: 3000 }
         );
+        
         this.dialogRef.close({ rated: true, rating: this.selectedRating });
-        this.router.navigate(['/receiver/accepted-skills']);
       },
       error: (error) => {
         console.error('Erreur lors de la soumission:', error);
@@ -474,6 +462,5 @@ export class RatingDialogComponent implements OnInit {
 
   skipRating(): void {
     this.dialogRef.close({ rated: false });
-    this.router.navigate(['/receiver/accepted-skills']);
   }
 }
