@@ -1118,7 +1118,7 @@ body {
 }
 
 .demo-stream-header {
-background: linear-gradient(135deg, #6c5ce7 0%, #6c5ce7 100%) !important;
+background: linear-gradient(135deg, #6c5ce7 0%, #764ba2 100%) !important;
   color: white !important;
   padding: 1.5rem 2rem;
   display: flex;
@@ -1626,7 +1626,7 @@ background: linear-gradient(135deg, #6c5ce7 0%, #6c5ce7 100%) !important;
 
 /* Panel de contrôles (similaire à control-panel) */
 .demo-control-panel {
-  background: linear-gradient(135deg, #2d3436 0%, #636e72 100%) !important;
+  background: linear-gradient(135deg, #a29bfe 0%, #764ba2 100%) !important;
   border-top: 1px solid rgba(255,255,255,0.1);
   padding: 1.5rem 2rem;
   box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
