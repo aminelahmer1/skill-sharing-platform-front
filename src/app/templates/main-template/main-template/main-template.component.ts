@@ -35,7 +35,11 @@ interface ChatMessage {
 })
 export class MainTemplateComponent implements OnInit {
   @ViewChild('calendarSection') calendarSection!: ElementRef;
-
+ @ViewChild('homeSection') homeSection!: ElementRef;
+  @ViewChild('howItWorksSection') howItWorksSection!: ElementRef;
+  @ViewChild('competencesSection') competencesSection!: ElementRef;
+  @ViewChild('livestreamSection') livestreamSection!: ElementRef;
+  
   private keycloakService = inject(KeycloakService);
   private router = inject(Router);
 
@@ -236,4 +240,38 @@ export class MainTemplateComponent implements OnInit {
     event.preventDefault();
     this.activeInfoText = this.activeInfoText === id ? null : id;
   }
+
+  scrollToSection(event: MouseEvent, sectionId: string): void {
+    event.preventDefault();
+    
+    let targetElement: HTMLElement | null = null;
+    
+    switch(sectionId) {
+      case 'home':
+        targetElement = document.getElementById('home');
+        break;
+      case 'how-it-works':
+        targetElement = document.getElementById('how-it-works');
+        break;
+      case 'competences':
+        targetElement = document.getElementById('competences');
+        break;
+      case 'calendar':
+        targetElement = document.getElementById('calendar');
+        break;
+      case 'livestream':
+        targetElement = document.getElementById('livestream');
+        break;
+    }
+    
+    if (targetElement) {
+      targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    // Fermer le menu mobile si ouvert
+    this.isMenuActive = false;
+  }
+
+ 
+
 }

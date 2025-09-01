@@ -11,13 +11,13 @@
         <span class="logo-icon">💡</span>
         SkillShare<span>Live</span>
       </div>
-      <div class="nav-links" [class.active]="isMenuActive">
-        <a href="#" class="active">Accueil</a>
-        <a href="#">Comment ça marche</a>
-        <a href="#">Compétences</a>
-        <a href="#" (click)="scrollToCalendar($event)">Calendrier</a>
-        <a href="#">Tarifs</a>
-      </div>
+       <div class="nav-links" [class.active]="isMenuActive">
+      <a href="#" (click)="scrollToSection($event, 'home')">Accueil</a>
+      <a href="#" (click)="scrollToSection($event, 'how-it-works')">Comment ça marche</a>
+      <a href="#" (click)="scrollToSection($event, 'competences')">Compétences</a>
+      <a href="#" (click)="scrollToSection($event, 'calendar')">Calendrier</a>
+      <a href="#" (click)="scrollToSection($event, 'livestream')">Livestream</a>
+    </div>
       <div class="auth-buttons">
         <button
           class="btn btn-outline"
@@ -38,7 +38,7 @@
       </div>
     </nav>
   
-    <section class="hero">
+    <section id="home" class="hero">
       <div class="hero-content">
         <h1 class="hero-title">Échangez vos <span>compétences</span> en temps réel</h1>
         <p class="hero-subtitle">
@@ -112,7 +112,7 @@
       </div>
     </section>
   
-    <section class="section features-section">
+    <section id="how-it-works" class="section features-section">
       <h2 class="section-title">Comment fonctionne SkillShare Live</h2>
       <p class="section-subtitle">
         Une plateforme simple et intuitive pour connecter les apprenants et les experts en temps réel
@@ -149,129 +149,551 @@
       </div>
     </section>
   
-    <section class="section calendar-section" #calendarSection>
-      <h2 class="section-title">Planifiez vos sessions d'échange</h2>
-      <p class="section-subtitle">
-        Trouvez des créneaux disponibles et réservez vos sessions d'apprentissage en quelques clics
-      </p>
-      <div class="calendar-container calendar-visible">
-        <div class="calendar-header">
-          <h3 class="calendar-title">{{ calendarTitle }}</h3>
-          <div class="calendar-nav">
-            <button (click)="prevMonth()">❮</button>
-            <button (click)="nextMonth()">❯</button>
-          </div>
-        </div>
-        <div class="calendar-grid">
-          <div class="calendar-weekdays">
-            <div class="calendar-weekday">Lun</div>
-            <div class="calendar-weekday">Mar</div>
-            <div class="calendar-weekday">Mer</div>
-            <div class="calendar-weekday">Jeu</div>
-            <div class="calendar-weekday">Ven</div>
-            <div class="calendar-weekday">Sam</div>
-            <div class="calendar-weekday">Dim</div>
-          </div>
-          <div class="calendar-days">
-            <div
-              *ngFor="let day of calendarDays"
-              class="calendar-day"
-              [class.empty]="day.isEmpty"
-              [class.today]="day.isToday"
-            >
-              <div *ngIf="!day.isEmpty">
-                <div class="calendar-day-number">{{ day.number }}</div>
-                <div class="calendar-day-events">
-                  <div
-                    *ngFor="let event of day.events"
-                    class="calendar-event"
-                    [class.producer]="event.type === 'producer'"
-                    [class.receiver]="event.type === 'receiver'"
-                    [title]="event.title + ' à ' + event.time + ' (' + event.duration + ' min)'"
-                  >
-                    {{ event.title }}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div *ngIf="showCalendarError" class="calendar-message" style="color: var(--danger);">
-          Erreur lors du chargement du calendrier. Veuillez réessayer.
-        </div>
-      </div>
-    </section>
+
+
+
+
+<section id="competences" class="section competences-section">
+  <h2 class="section-title">Compétences disponibles</h2>
+  <p class="section-subtitle">
+    Découvrez les expertises proposées par nos producteurs et réservez vos sessions d'apprentissage
+  </p>
   
-    <section class="section" style="background-color: #f9f9f9;">
-      <h2 class="section-title">Expérience d'apprentissage immersive</h2>
-      <p class="section-subtitle">
-        Découvrez comment se déroule une session live entre un producteur et un receveur
-      </p>
-      <div class="live-preview">
-        <div class="live-header">
-          <div class="live-title">Introduction au Développement Web</div>
-          <div class="live-badge">EN DIRECT</div>
+  <div class="competences-container">
+    <div class="competences-grid">
+      
+      <!-- Compétence 1: Développement Web -->
+      <div class="competence-card">
+        <div class="competence-image">
+          <svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="250" fill="#1a1a2e"/>
+            <rect x="20" y="40" width="360" height="180" rx="8" fill="#16213e"/>
+            <rect x="30" y="50" width="340" height="20" fill="#0f3460"/>
+            <circle cx="45" cy="60" r="4" fill="#e94560"/>
+            <circle cx="60" cy="60" r="4" fill="#f39c12"/>
+            <circle cx="75" cy="60" r="4" fill="#27ae60"/>
+            
+            <!-- Code lines -->
+            <rect x="40" y="90" width="120" fill="#74b9ff" height="3"/>
+            <rect x="40" y="105" width="200" fill="#fd79a8" height="3"/>
+            <rect x="40" y="120" width="80" fill="#00b894" height="3"/>
+            <rect x="40" y="135" width="160" fill="#a29bfe" height="3"/>
+            <rect x="40" y="150" width="240" fill="#6c5ce7" height="3"/>
+            
+            <!-- Browser elements -->
+            <rect x="220" y="90" width="140" height="80" rx="4" fill="#2d3436" stroke="#74b9ff" stroke-width="2"/>
+            <text x="290" y="135" font-family="Arial" font-size="12" fill="#74b9ff" text-anchor="middle">React.js</text>
+          </svg>
         </div>
-        <div class="live-content">
-          <div class="live-stream">
-            <div>STREAM VIDEO EN DIRECT</div>
+        
+        <div class="competence-content">
+          <div class="competence-header">
+            <h3 class="competence-title">Développement Web Moderne</h3>
+            <span class="competence-category">DÉVELOPPEMENT WEB</span>
           </div>
-          <div class="live-chat">
-            <div class="chat-messages">
-              <div
-                *ngFor="let message of chatMessages"
-                class="message"
-                [class.producer]="message.isProducer"
-                [class.receiver]="!message.isProducer"
-              >
-                <div class="message-sender">
-                  {{ message.sender }} {{ message.isProducer ? '(Producteur)' : '(Receveur)' }}
-                </div>
-                <div class="message-content">{{ message.content }}</div>
-              </div>
+          
+          <p class="competence-description">
+            Maîtrisez React, Node.js et les technologies web modernes. Créez des applications performantes et responsive.
+          </p>
+          
+          <div class="competence-stats">
+            <div class="stat-item">
+              <span class="stat-icon">👥</span>
+              <span>12/20</span>
             </div>
-            <div class="static-messages">
-              <div class="static-message">
-                <div class="static-message-header">
-                  <span>Jean (Producteur)</span>
-                  <span>10:15</span>
-                </div>
-                <div class="static-message-content">
-                  Bienvenue à tous dans cette session sur les bases du développement web ! N'hésitez pas à poser vos questions dans le chat.
-                </div>
-              </div>
-              <div class="static-message">
-                <div class="static-message-header">
-                  <span>Marie (Receveur)</span>
-                  <span>10:20</span>
-                </div>
-                <div class="static-message-content">
-                  Merci pour cette session. Pour commencer, quelle est la différence entre HTML et CSS ?
-                </div>
-              </div>
-              <div class="static-message">
-                <div class="static-message-header">
-                  <span>Jean (Producteur)</span>
-                  <span>10:22</span>
-                </div>
-                <div class="static-message-content">
-                  Excellente question ! HTML est comme la structure d'une maison (murs, portes), alors que CSS c'est la décoration (peinture, meubles).
-                </div>
-              </div>
+            <div class="stat-item">
+              <span class="stat-icon">📅</span>
+              <span>15/01/25</span>
             </div>
-            <div class="chat-input">
-              <input
-                type="text"
-                [(ngModel)]="chatInput"
-                placeholder="Envoyer un message..."
-                (keypress)="onChatKeypress($event)"
-              />
-              <button (click)="sendMessage()">➤</button>
+            <div class="stat-item">
+              <span class="stat-icon">⏱️</span>
+              <span>2h30</span>
+            </div>
+            <div class="stat-item price">
+              <span class="stat-icon">💰</span>
+              <span>TND 45.00</span>
+            </div>
+          </div>
+          
+          <div class="competence-producer">
+            <div class="producer-avatar">
+              <span class="producer-initial">AL</span>
+            </div>
+            <div class="producer-info">
+              <span class="producer-name">Proposé par : Alexandre Martin</span>
+            </div>
+          </div>
+          
+          <button class="btn-reserve">
+            📱 Réserver
+          </button>
+        </div>
+      </div>
+
+      <!-- Compétence 2: Design UI/UX -->
+      <div class="competence-card">
+        <div class="competence-image">
+          <svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="250" fill="#ffeaa7"/>
+            
+            <!-- Design tools -->
+            <rect x="50" y="50" width="300" height="150" rx="12" fill="#ffffff" stroke="#fd79a8" stroke-width="3"/>
+            <rect x="70" y="70" width="80" height="50" rx="8" fill="#74b9ff"/>
+            <rect x="160" y="70" width="80" height="50" rx="8" fill="#fd79a8"/>
+            <rect x="250" y="70" width="80" height="50" rx="8" fill="#00b894"/>
+            
+            <!-- Design elements -->
+            <circle cx="110" cy="150" r="25" fill="#a29bfe" opacity="0.8"/>
+            <circle cx="200" cy="150" r="20" fill="#6c5ce7" opacity="0.8"/>
+            <circle cx="290" cy="150" r="15" fill="#e17055" opacity="0.8"/>
+            
+            <!-- Palette -->
+            <rect x="320" y="180" width="15" height="15" fill="#fd79a8"/>
+            <rect x="340" y="180" width="15" height="15" fill="#74b9ff"/>
+            <rect x="360" y="180" width="15" height="15" fill="#00b894"/>
+            
+            <text x="200" y="230" font-family="Arial" font-size="14" fill="#2d3436" text-anchor="middle" font-weight="bold">Figma • Adobe XD</text>
+          </svg>
+        </div>
+        
+        <div class="competence-content">
+          <div class="competence-header">
+            <h3 class="competence-title">Design UI/UX Créatif</h3>
+            <span class="competence-category">DESIGN GRAPHIQUE</span>
+          </div>
+          
+          <p class="competence-description">
+            Créez des interfaces utilisateur intuitives et esthétiques. Apprenez les principes UX et les outils de design.
+          </p>
+          
+          <div class="competence-stats">
+            <div class="stat-item">
+              <span class="stat-icon">👥</span>
+              <span>8/15</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-icon">📅</span>
+              <span>18/01/25</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-icon">⏱️</span>
+              <span>3h00</span>
+            </div>
+            <div class="stat-item price">
+              <span class="stat-icon">💰</span>
+              <span>TND 65.00</span>
+            </div>
+          </div>
+          
+          <div class="competence-producer">
+            <div class="producer-avatar">
+              <span class="producer-initial">SC</span>
+            </div>
+            <div class="producer-info">
+              <span class="producer-name">Proposé par : Sophie Chen</span>
+            </div>
+          </div>
+          
+          <button class="btn-reserve">
+            🎨 Réserver 
+          </button>
+        </div>
+      </div>
+
+      <!-- Compétence 3: Marketing Digital -->
+      <div class="competence-card">
+        <div class="competence-image">
+          <svg viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="250" fill="#00b894"/>
+            
+            <!-- Charts and graphs -->
+            <rect x="50" y="80" width="300" height="120" fill="#ffffff" rx="8"/>
+            
+            <!-- Bar chart -->
+            <rect x="70" y="160" width="20" height="20" fill="#fd79a8"/>
+            <rect x="95" y="140" width="20" height="40" fill="#74b9ff"/>
+            <rect x="120" y="120" width="20" height="60" fill="#6c5ce7"/>
+            <rect x="145" y="100" width="20" height="80" fill="#00b894"/>
+            
+            <!-- Line graph -->
+            <polyline points="200,160 230,140 260,120 290,100 320,90" 
+                     stroke="#e17055" stroke-width="3" fill="none"/>
+            <circle cx="200" cy="160" r="4" fill="#e17055"/>
+            <circle cx="230" cy="140" r="4" fill="#e17055"/>
+            <circle cx="260" cy="120" r="4" fill="#e17055"/>
+            <circle cx="290" cy="100" r="4" fill="#e17055"/>
+            <circle cx="320" cy="90" r="4" fill="#e17055"/>
+            
+            <!-- Icons -->
+            <text x="200" y="40" font-family="Arial" font-size="24" text-anchor="middle">📊📈💼</text>
+          </svg>
+        </div>
+        
+        <div class="competence-content">
+          <div class="competence-header">
+            <h3 class="competence-title">Marketing Digital Stratégique</h3>
+            <span class="competence-category">BUSINESS</span>
+          </div>
+          
+          <p class="competence-description">
+            Développez votre stratégie marketing digital complète : SEO, gestion des réseaux sociaux, suivi analytics et optimisation de la conversion.
+          </p>
+          
+          <div class="competence-stats">
+            <div class="stat-item">
+              <span class="stat-icon">👥</span>
+              <span>15/25</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-icon">📅</span>
+              <span>20/01/25</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-icon">⏱️</span>
+              <span>2h00</span>
+            </div>
+            <div class="stat-item price">
+              <span class="stat-icon">💰</span>
+              <span>TND 55.00</span>
+            </div>
+          </div>
+          
+          <div class="competence-producer">
+            <div class="producer-avatar">
+              <span class="producer-initial">MR</span>
+            </div>
+            <div class="producer-info">
+              <span class="producer-name">Proposé par : Marc Rodriguez</span>
+            </div>
+          </div>
+          
+          <button class="btn-reserve">
+            📊 Réserver 
+          </button>
+        </div>
+      </div>
+      
+    </div>
+    
+    
+  </div>
+</section>
+
+
+
+
+
+
+
+    
+   <section id="calendar" class="section calendar-section" #calendarSection>
+  <h2 class="section-title">Planifiez vos sessions d'échange</h2>
+  <p class="section-subtitle">
+    Trouvez des créneaux disponibles et réservez vos sessions d'apprentissage en quelques clics
+  </p>
+  
+  <!-- Nouveau container avec le style moderne -->
+  <div class="modern-calendar-container">
+    
+    <!-- Header moderne du calendrier -->
+    <div class="modern-calendar-header">
+      <div class="modern-calendar-title">
+        <h3>{{ calendarTitle }}</h3>
+      </div>
+      
+      <div class="modern-calendar-controls">
+        <!-- Sélecteur de vue -->
+        <div class="modern-view-selector">
+          <button class="modern-btn-view active">
+            <span class="view-icon">📅</span>
+            Mois
+          </button>
+          <button class="modern-btn-view">
+            <span class="view-icon">📋</span>
+            Liste
+          </button>
+        </div>
+
+        <!-- Navigation -->
+        <div class="modern-calendar-nav">
+          <button class="modern-nav-btn" (click)="prevMonth()" title="Mois précédent">
+            ◀
+          </button>
+          <button class="modern-nav-btn today-btn">
+            Aujourd'hui
+          </button>
+          <button class="modern-nav-btn" (click)="nextMonth()" title="Mois suivant">
+            ▶
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grille du calendrier moderne -->
+    <div class="modern-calendar-grid">
+      <!-- En-têtes des jours -->
+      <div class="modern-calendar-weekdays">
+        <div class="modern-calendar-weekday">Lun</div>
+        <div class="modern-calendar-weekday">Mar</div>
+        <div class="modern-calendar-weekday">Mer</div>
+        <div class="modern-calendar-weekday">Jeu</div>
+        <div class="modern-calendar-weekday">Ven</div>
+        <div class="modern-calendar-weekday">Sam</div>
+        <div class="modern-calendar-weekday">Dim</div>
+      </div>
+
+      <!-- Grille des jours -->
+      <div class="modern-calendar-days">
+        <div 
+          *ngFor="let day of calendarDays" 
+          class="modern-calendar-day"
+          [class.empty]="day.isEmpty"
+          [class.today]="day.isToday"
+          [class.has-events]="day.events && day.events.length > 0">
+          
+          <div *ngIf="!day.isEmpty" class="modern-day-content">
+            <div class="modern-day-header">
+              <span class="modern-day-number" [class.today-number]="day.isToday">
+                {{ day.number }}
+              </span>
+            </div>
+
+            <div class="modern-day-events" *ngIf="day.events && day.events.length > 0">
+              <div 
+                *ngFor="let event of day.events" 
+                class="modern-calendar-event"
+                [class.producer]="event.type === 'producer'"
+                [class.receiver]="event.type === 'receiver'"
+                [title]="event.title + ' à ' + event.time + ' (' + event.duration + ' min)'">
+                
+                <span class="modern-event-time">{{ event.time }}</span>
+                <span class="modern-event-name">{{ event.title }}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </section>
+    </div>
+
+    <!-- Légende des événements -->
+    <div class="modern-status-legend">
+      <div class="modern-legend-item">
+        <span class="modern-legend-dot producer"></span>
+        <span>Sessions que vous animez</span>
+      </div>
+      <div class="modern-legend-item">
+        <span class="modern-legend-dot receiver"></span>
+        <span>Sessions auxquelles vous participez</span>
+      </div>
+      <div class="modern-legend-item">
+        <span class="modern-legend-dot available"></span>
+        <span>Créneaux disponibles</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Message d'erreur (si nécessaire) -->
+  <div *ngIf="showCalendarError" class="modern-calendar-message error">
+    Erreur lors du chargement du calendrier. Veuillez réessayer.
+  </div>
+</section>
+  
+    <section id="livestream"  class="section livestream-preview-section">
+  <h2 class="section-title">Expérience d'apprentissage immersive</h2>
+  <p class="section-subtitle">
+    Découvrez comment se déroule une session live entre un producteur et un receveur
+  </p>
+  
+  <!-- Container principal similaire à votre livestream -->
+  <div class="livestream-demo-container">
+    
+    <!-- Header avec titre et stats (similaire à stream-header) -->
+    <div class="demo-stream-header">
+      <div class="demo-stream-info">
+        <div class="demo-stream-title-section">
+          <h3 class="demo-stream-title">Introduction au Développement Web</h3>
+          <div class="demo-status-badge live">
+            <span class="pulse-dot"></span>
+            EN DIRECT
+          </div>
+        </div>
+        <div class="demo-stream-stats">
+          <div class="demo-stat-item">
+            <span class="demo-stat-icon">⏱️</span>
+            <span>45:32</span>
+          </div>
+          <div class="demo-stat-item">
+            <span class="demo-stat-icon">👥</span>
+            <span>3 participants</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="demo-controls">
+        <button class="demo-control-btn active" title="Chat activé">💬</button>
+        <button class="demo-control-btn" title="Partage d'écran">📺</button>
+        <button class="demo-control-btn recording" title="Enregistrement">🔴</button>
+      </div>
+    </div>
+
+    <!-- Barre de participants (similaire à top-thumbnails-section) -->
+    <div class="demo-participants-bar">
+      <div class="demo-participants-header">
+        <span class="demo-participants-icon">👥</span>
+        <span class="demo-participants-title">Participants</span>
+        <span class="demo-participants-count">3</span>
+      </div>
+      
+      <div class="demo-thumbnails-container">
+        <div class="demo-thumbnail producer" title="Jean (Producteur)">
+          <div class="demo-thumbnail-video">JP</div>
+          <div class="demo-thumbnail-label">Jean</div>
+        </div>
+        <div class="demo-thumbnail receiver" title="Marie (Receveur)">
+          <div class="demo-thumbnail-video">MR</div>
+          <div class="demo-thumbnail-label">Marie</div>
+        </div>
+        <div class="demo-thumbnail receiver local" title="Vous">
+          <div class="demo-thumbnail-video">VS</div>
+          <div class="demo-thumbnail-label">Vous</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenu principal video + chat -->
+    <div class="demo-main-layout">
+      
+      <!-- Section vidéo principale -->
+      <div class="demo-video-section">
+        <div class="demo-main-video">
+          
+          <!-- Badges de statut vidéo -->
+          <div class="demo-video-badges">
+            <div class="demo-video-badge live">
+              <span class="demo-badge-icon">📡</span>
+              LIVE STREAM
+            </div>
+            <div class="demo-video-badge hd">
+              <span class="demo-badge-icon">🎬</span>
+              HD
+            </div>
+          </div>
+          
+          <!-- Placeholder vidéo -->
+          <div class="demo-video-placeholder">
+            <div class="demo-video-content">
+              <div class="demo-video-icon">🎥</div>
+              &nbsp;
+
+              <h4>Diffusion en direct</h4>
+              <p>Session interactive de développement web</p>
+            </div>
+          </div>
+
+          <!-- Picture-in-Picture simulé -->
+          <div class="demo-pip">
+            <div class="demo-pip-video">JL</div>
+            <div class="demo-pip-label">
+              <span class="demo-pip-icon">📹</span>
+              Jean (Host)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section chat -->
+      <div class="demo-chat-section">
+        <div class="demo-chat-header">
+          <h4 class="demo-chat-title">
+            <span class="demo-chat-icon">💬</span>
+            Chat en direct
+            <span class="demo-chat-count">3</span>
+          </h4>
+          <div class="demo-chat-status connected">
+            <span class="demo-status-dot"></span>
+            Connecté
+          </div>
+        </div>
+
+        <div class="demo-chat-messages">
+          <!-- Messages statiques pour la démo -->
+          <div class="demo-message producer">
+            <div class="demo-message-header">
+              <span class="demo-message-sender">Jean (Producteur)</span>
+              <span class="demo-message-time">10:15</span>
+            </div>
+            <div class="demo-message-content">
+              Bienvenue à tous dans cette session sur les bases du développement web ! N'hésitez pas à poser vos questions dans le chat.
+            </div>
+          </div>
+
+          <div class="demo-message receiver">
+            <div class="demo-message-header">
+              <span class="demo-message-sender">Marie (Receveur)</span>
+              <span class="demo-message-time">10:20</span>
+            </div>
+            <div class="demo-message-content">
+              Merci pour cette session. Pour commencer, quelle est la différence entre HTML et CSS ?
+            </div>
+          </div>
+
+          <div class="demo-message producer">
+            <div class="demo-message-header">
+              <span class="demo-message-sender">Jean (Producteur)</span>
+              <span class="demo-message-time">10:22</span>
+            </div>
+            <div class="demo-message-content">
+              Excellente question ! HTML est comme la structure d'une maison (murs, portes), alors que CSS c'est la décoration (peinture, meubles).
+            </div>
+          </div>
+
+          <!-- Indicateur de frappe -->
+          <div class="demo-typing-indicator">
+            <div class="demo-typing-dots">
+              <span class="demo-dot"></span>
+              <span class="demo-dot"></span>
+              <span class="demo-dot"></span>
+            </div>
+            <span class="demo-typing-text">Marie écrit...</span>
+          </div>
+        </div>
+
+        <div class="demo-chat-input">
+          <div class="demo-input-field">
+            <input type="text" placeholder="Tapez votre message..." disabled>
+            <button class="demo-send-btn" disabled>➤</button>
+          </div>
+          <div class="demo-chat-status-bar">
+            <span class="demo-connection-indicator connected"></span>
+            <span class="demo-status-text">Chat connecté (12 messages)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel de contrôles media -->
+    <div class="demo-control-panel">
+      <div class="demo-media-controls">
+        <div class="demo-control-group">
+          <button class="demo-media-btn" title="Micro activé">🎤</button>
+          <button class="demo-media-btn" title="Caméra activée">📹</button>
+          <button class="demo-media-btn danger" title="Quitter">📞</button>
+        </div>
+        
+        <div class="demo-status-indicators">
+          <div class="demo-connection-quality excellent">
+            <span class="demo-signal-icon">📶</span>
+            <span>Excellente</span>
+          </div>
+          <div class="demo-recording-status active">
+            <span class="demo-record-icon pulse">🔴</span>
+            <span>ENREG. 45:32</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
   
     <footer class="footer">
       <div class="footer-grid">
