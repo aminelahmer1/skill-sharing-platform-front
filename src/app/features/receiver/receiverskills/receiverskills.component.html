@@ -1,5 +1,198 @@
+<!-- receiverskills.component.html -->
 <div class="skills-container">
-  <h2>Compétences disponibles</h2>
+  
+  <!-- Section de recherche et filtrage -->
+  <div class="search-filter-section">
+    <!-- Barre de recherche principale -->
+    <div class="search-bar-container">
+      <mat-icon class="search-icon">search</mat-icon>
+      <input 
+        type="text" 
+        class="search-input"
+        placeholder="Rechercher une compétence, catégorie ou producteur..."
+        [(ngModel)]="searchQuery"
+        (input)="onSearchChange()"
+        #searchInput>
+      <button 
+        *ngIf="searchQuery" 
+        class="clear-search-btn"
+        (click)="clearSearch()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <!-- Bouton pour afficher/masquer les filtres -->
+    <button 
+      class="toggle-filters-btn"
+      [class.active]="showFilters"
+      (click)="toggleFilters()">
+      <mat-icon>{{ showFilters ? 'filter_list_off' : 'filter_list' }}</mat-icon>
+      <span>{{ showFilters ? 'Masquer' : 'Afficher' }} les filtres</span>
+      <span class="filter-badge" *ngIf="activeFiltersCount > 0">
+        {{ activeFiltersCount }}
+      </span>
+    </button>
+
+    <!-- Panel de filtres -->
+    <div class="filters-panel" [class.expanded]="showFilters">
+      <div class="filters-grid">
+        <!-- Filtre par catégorie -->
+        <div class="filter-group">
+          <label class="filter-label">
+            <mat-icon>category</mat-icon>
+            Catégorie
+          </label>
+          <mat-select 
+            [(value)]="selectedCategory"
+            (selectionChange)="applyFilters()"
+            placeholder="Toutes les catégories">
+            <mat-option value="">Toutes les catégories</mat-option>
+            <mat-option *ngFor="let category of categories" [value]="category.id">
+              {{ category.name }}
+            </mat-option>
+          </mat-select>
+        </div>
+
+        <!-- Filtre par prix -->
+        <div class="filter-group">
+          <label class="filter-label">
+            <mat-icon>monetization_on</mat-icon>
+            Fourchette de prix (TND)
+          </label>
+          <div class="price-range-inputs">
+            <input 
+              type="number" 
+              class="price-input"
+              placeholder="Min"
+              [(ngModel)]="priceRange.min"
+              (change)="applyFilters()">
+            <span class="price-separator">-</span>
+            <input 
+              type="number" 
+              class="price-input"
+              placeholder="Max"
+              [(ngModel)]="priceRange.max"
+              (change)="applyFilters()">
+          </div>
+        </div>
+
+        <!-- Filtre par date -->
+        <div class="filter-group">
+          <label class="filter-label">
+            <mat-icon>date_range</mat-icon>
+            Période
+          </label>
+          <mat-select 
+            [(value)]="selectedDateRange"
+            (selectionChange)="applyFilters()">
+            <mat-option value="">Toutes les dates</mat-option>
+            <mat-option value="today">Aujourd'hui</mat-option>
+            <mat-option value="week">Cette semaine</mat-option>
+            <mat-option value="month">Ce mois</mat-option>
+           
+          </mat-select>
+        </div>
+<!-- Filtre par statut de réservation -->
+<div class="filter-group">
+  <label class="filter-label">
+    <mat-icon>assignment_turned_in</mat-icon>
+    Statut de réservation
+  </label>
+  <mat-select 
+    [(value)]="selectedStatus"
+    (selectionChange)="applyFilters()">
+    <mat-option value="">Tous les statuts</mat-option>
+    <mat-option value="notReserved">Non réservé</mat-option>
+    <mat-option value="pending">En attente</mat-option>
+    <mat-option value="rejected">Rejeté</mat-option>
+  </mat-select>
+</div>
+
+        <!-- Tri -->
+        <div class="filter-group">
+          <label class="filter-label">
+            <mat-icon>sort</mat-icon>
+            Trier par
+          </label>
+          <mat-select 
+            [(value)]="sortBy"
+            (selectionChange)="applySort()">
+            <mat-option value="dateAsc">Date (plus proche)</mat-option>
+            <mat-option value="dateDesc">Date (plus lointaine)</mat-option>
+            <mat-option value="priceAsc">Prix (croissant)</mat-option>
+            <mat-option value="priceDesc">Prix (décroissant)</mat-option>
+            <mat-option value="availabilityAsc">Places (moins disponible)</mat-option>
+            <mat-option value="availabilityDesc">Places (plus disponible)</mat-option>
+            <mat-option value="nameAsc">Nom (A-Z)</mat-option>
+            <mat-option value="nameDesc">Nom (Z-A)</mat-option>
+          </mat-select>
+        </div>
+      </div>
+
+      <!-- Actions des filtres -->
+      <div class="filter-actions">
+        <button 
+          class="reset-filters-btn"
+          (click)="resetFilters()"
+          [disabled]="activeFiltersCount === 0">
+          <mat-icon>refresh</mat-icon>
+          Réinitialiser les filtres
+        </button>
+        <div class="results-count">
+          <span *ngIf="!isLoading">
+            {{ filteredSkills.length }} résultat{{ filteredSkills.length > 1 ? 's' : '' }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tags des filtres actifs -->
+    <div class="active-filters-tags" *ngIf="activeFiltersCount > 0">
+      <span class="filter-tag" *ngIf="searchQuery">
+        <mat-icon>search</mat-icon>
+        "{{ searchQuery }}"
+        <button (click)="clearSearch()">×</button>
+      </span>
+     <span class="filter-tag" *ngIf="selectedCategory !== null">
+  <mat-icon>category</mat-icon>
+  {{ getCategoryName(selectedCategory) }}
+  <button (click)="selectedCategory = null; applyFilters()">×</button>
+</span>
+      <span class="filter-tag" *ngIf="priceRange.min || priceRange.max">
+        <mat-icon>monetization_on</mat-icon>
+        {{ priceRange.min || 0 }} - {{ priceRange.max || '∞' }} TND
+        <button (click)="priceRange = {min: null, max: null}; applyFilters()">×</button>
+      </span>
+      <span class="filter-tag" *ngIf="selectedDateRange">
+        <mat-icon>date_range</mat-icon>
+        {{ getDateRangeLabel(selectedDateRange) }}
+        <button (click)="selectedDateRange = ''; applyFilters()">×</button>
+      </span>
+      <span class="filter-tag" *ngIf="selectedAvailability">
+        <mat-icon>event_available</mat-icon>
+        {{ getAvailabilityLabel(selectedAvailability) }}
+        <button (click)="selectedAvailability = ''; applyFilters()">×</button>
+      </span>
+      <span class="filter-tag" *ngIf="selectedStatus">
+        <mat-icon>assignment_turned_in</mat-icon>
+        {{ getStatusLabel(selectedStatus) }}
+        <button (click)="selectedStatus = ''; applyFilters()">×</button>
+      </span>
+    </div>
+  </div>
+
+  <!-- Suggestions de recherche -->
+  <div class="search-suggestions" *ngIf="showSuggestions && searchSuggestions.length > 0">
+    <div class="suggestion-item" 
+         *ngFor="let suggestion of searchSuggestions"
+         (click)="selectSuggestion(suggestion)">
+      <mat-icon>{{ suggestion.type === 'skill' ? 'school' : suggestion.type === 'category' ? 'category' : 'person' }}</mat-icon>
+      <div class="suggestion-content">
+        <span class="suggestion-title">{{ suggestion.title }}</span>
+        <span class="suggestion-type">{{ suggestion.typeLabel }}</span>
+      </div>
+    </div>
+  </div>
   
   <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
   
@@ -8,13 +201,28 @@
   </div>
   
   <div *ngIf="!isLoading && !error">
-    <div *ngIf="skills.length === 0" class="no-skills">
-      <img src="assets/images/default-skills.png" alt="Aucune compétence" class="empty-state-img">
-      <p>Aucune compétence disponible pour le moment.</p>
+    <!-- Message si aucun résultat -->
+    <div *ngIf="filteredSkills.length === 0" class="no-results">
+      <img src="assets/images/no-results.png" alt="Aucun résultat" class="no-results-img">
+      <h3>Aucun résultat trouvé</h3>
+      <p *ngIf="activeFiltersCount > 0">
+        Essayez de modifier vos critères de recherche ou 
+        <a (click)="resetFilters()" class="reset-link">réinitialiser les filtres</a>
+      </p>
+      <p *ngIf="activeFiltersCount === 0">
+        Aucune compétence disponible pour le moment.
+      </p>
     </div>
     
+    <!-- Grille des compétences filtrées -->
     <div class="skills-grid">
-      <mat-card *ngFor="let skill of skills" class="skill-card">
+      <mat-card *ngFor="let skill of paginatedSkills" class="skill-card">
+        <!-- Indicateur de correspondance de recherche -->
+        <div class="search-match-indicator" *ngIf="skill.searchMatchScore && skill.searchMatchScore > 0.7">
+          <mat-icon>star</mat-icon>
+          Meilleure correspondance
+        </div>
+
         <div class="skill-image-container">
           <img [src]="skill.pictureUrl || 'assets/images/default-skills.png'" 
                alt="{{ skill.name }}" 
@@ -26,6 +234,18 @@
               {{ getStatusLabel(skill.exchangeStatus) }}
             </mat-chip>
           </div>
+
+          <!-- Indicateur de places restantes -->
+          <div class="availability-indicator" 
+               [class.low]="skill.nbInscrits >= skill.availableQuantity * 0.8"
+               [class.full]="skill.nbInscrits >= skill.availableQuantity">
+            <span *ngIf="skill.nbInscrits < skill.availableQuantity">
+              {{ skill.availableQuantity - skill.nbInscrits }} place(s) restante(s)
+            </span>
+            <span *ngIf="skill.nbInscrits >= skill.availableQuantity">
+              Complet
+            </span>
+          </div>
         </div>
         
         <mat-card-content>
@@ -35,36 +255,28 @@
             {{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}
           </p>
           
-         <!-- REMPLACER la section skill-meta dans receiver-skills.component.html -->
-<div class="skill-meta">
-  <div class="single-meta-row">
-    <!-- Participants -->
-    <div class="meta-item">
-      <mat-icon>people</mat-icon>
-      <span>{{ skill.nbInscrits }}/{{ skill.availableQuantity }}</span>
-    </div>
-
-    <!-- Date -->
-    <div class="meta-item">
-      <mat-icon>calendar_today</mat-icon>
-      <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
-    </div>
-
-    <!-- Heure -->
-    <div class="meta-item">
-      <mat-icon>access_time</mat-icon>
-      <span>{{ skill.streamingTime }}</span>
-    </div>
-
-    <!-- Prix -->
-    <div class="meta-item price">
-      <span>TND {{ skill.price | number:'1.2-2' }}</span>
-    </div>
-  </div>
-</div>
+          <div class="skill-meta">
+            <div class="single-meta-row">
+              <div class="meta-item">
+                <mat-icon>people</mat-icon>
+                <span>{{ skill.nbInscrits }}/{{ skill.availableQuantity }}</span>
+              </div>
+              <div class="meta-item">
+                <mat-icon>calendar_today</mat-icon>
+                <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
+              </div>
+              <div class="meta-item">
+                <mat-icon>access_time</mat-icon>
+                <span>{{ skill.streamingTime }}</span>
+              </div>
+              <div class="meta-item price">
+                <span>TND {{ skill.price | number:'1.2-2' }}</span>
+              </div>
+            </div>
+          </div>
           
           <!-- Exchange Status Display -->
-          <div class="exchange-status" *ngIf="showExchangeMessage(skill)">
+        <div class="exchange-status" *ngIf="showExchangeMessage(skill)">
             <div class="status-info">
               <mat-icon>swap_horiz</mat-icon>
               <span>{{ skill.exchangeMessage }}</span>
@@ -76,7 +288,7 @@
           </div>
           
           <!-- Session Status Display -->
-          <div class="session-status" *ngIf="hasLivestreamSession(skill)">
+         <div class="session-status" *ngIf="hasLivestreamSession(skill)">
             <div class="session-info">
               <mat-icon>live_tv</mat-icon>
               <span>Session: </span>
@@ -96,7 +308,7 @@
         
         <mat-card-actions>
           <!-- Reserve Button for Available Skills -->
-          <button mat-raised-button 
+         <button mat-raised-button 
                   color="primary"
                   *ngIf="canReserve(skill)"
                   (click)="reserveSkill(skill)"
@@ -107,56 +319,83 @@
           </button>
           
           <!-- Status-based action messages -->
-          <div class="action-status" *ngIf="!canReserve(skill)">
-            <ng-container [ngSwitch]="skill.exchangeStatus">
-              
-              <!-- Pending Status -->
-              <div *ngSwitchCase="'pending'" class="pending-status">
-                <mat-icon color="accent">hourglass_empty</mat-icon>
-                <span>Demande envoyée - En attente de validation</span>
-              </div>
-              
-              <!-- Accepted Status -->
-              <div *ngSwitchCase="'accepted'" class="accepted-status">
-                <mat-icon color="primary">check_circle</mat-icon>
-                <span>Réservation confirmée</span>
-                <small>Vous recevrez une notification pour la session</small>
-              </div>
-              
-              <!-- In Progress Status -->
-              <div *ngSwitchCase="'in_progress'" class="in-progress-status">
-                <mat-icon color="primary">play_arrow</mat-icon>
-                <span>Session en cours</span>
-              </div>
-              
-              <!-- Completed Status -->
-              <div *ngSwitchCase="'completed'" class="completed-status">
-                <mat-icon color="primary">done_all</mat-icon>
-                <span>Session terminée</span>
-                <small>Vous pouvez maintenant laisser un avis</small>
-              </div>
-              
-              <!-- Rejected Status -->
-              <div *ngSwitchCase="'rejected'" class="rejected-status">
-                <mat-icon color="warn">cancel</mat-icon>
-                <div class="rejected-content">
-                  <span>Demande rejetée</span>
-                  <small *ngIf="skill.rejectionReason">{{ skill.rejectionReason }}</small>
-                  <small class="rejection-note">Cette compétence n'est plus disponible pour vous</small>
-                </div>
-              </div>
-              
-              <!-- Full Capacity -->
-              <div *ngSwitchDefault class="full-capacity" 
-                   [style.display]="skill.nbInscrits >= skill.availableQuantity ? 'flex' : 'none'">
-                <mat-icon color="warn">people</mat-icon>
-                <span>Complet - Plus de places disponibles</span>
-              </div>
-              
-            </ng-container>
-          </div>
+   <div class="action-status" *ngIf="!canReserve(skill)">
+  <ng-container [ngSwitch]="skill.exchangeStatus">
+    
+    <!-- Pending Status -->
+    <div *ngSwitchCase="'pending'" class="pending-status">
+      <mat-icon color="accent">hourglass_empty</mat-icon>
+      <span>Demande envoyée - En attente de validation</span>
+    </div>
+    
+    <!-- Rejected Status - MAINTENANT CORRECTEMENT AFFICHÉ -->
+    <div *ngSwitchCase="'rejected'" class="rejected-status">
+      <mat-icon color="warn">cancel</mat-icon>
+      <div class="rejected-content">
+        <span>Demande rejetée</span>
+        <small *ngIf="skill.rejectionReason" class="rejection-reason">
+          Raison: {{ skill.rejectionReason }}
+        </small>
+        <small class="rejection-note">Cette compétence n'est plus disponible pour vous</small>
+      </div>
+    </div>
+    
+    <!-- Full Capacity - seulement si pas rejeté -->
+    <div *ngSwitchDefault class="full-capacity" 
+         [style.display]="skill.nbInscrits >= skill.availableQuantity && skill.exchangeStatus !== 'rejected' ? 'flex' : 'none'">
+      <mat-icon color="warn">people</mat-icon>
+      <span>Complet - Plus de places disponibles</span>
+    </div>
+    
+  </ng-container>
+</div>
         </mat-card-actions>
       </mat-card>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-container" *ngIf="filteredSkills.length > itemsPerPage">
+      <div class="pagination-info">
+        Affichage de {{ ((currentPage - 1) * itemsPerPage) + 1 }} à 
+        {{ Math.min(currentPage * itemsPerPage, filteredSkills.length) }} sur 
+        {{ filteredSkills.length }} résultats
+      </div>
+      
+      <div class="pagination-controls">
+        <button 
+          class="pagination-btn"
+          (click)="previousPage()"
+          [disabled]="currentPage === 1">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        
+        <div class="page-numbers">
+          <button 
+            *ngFor="let page of getPageNumbers()"
+            class="page-number"
+            [class.active]="page === currentPage"
+            (click)="goToPage(page)">
+            {{ page }}
+          </button>
+        </div>
+        
+        <button 
+          class="pagination-btn"
+          (click)="nextPage()"
+          [disabled]="currentPage === totalPages">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+
+      <div class="items-per-page">
+        <label>Afficher:</label>
+        <mat-select [(value)]="itemsPerPage" (selectionChange)="onItemsPerPageChange()">
+          <mat-option value="6">6</mat-option>
+          <mat-option value="12">12</mat-option>
+          <mat-option value="24">24</mat-option>
+          <mat-option value="48">48</mat-option>
+        </mat-select>
+      </div>
     </div>
   </div>
 </div>

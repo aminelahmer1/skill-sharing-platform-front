@@ -588,4 +588,872 @@ mat-progress-bar {
 /* Garde l'ancien meta-row pour compatibility au cas où */
 .meta-row {
   display: none; /* Cache les anciennes lignes multiples */
+}/* receiverskills.component.css - Version avec Recherche et Filtrage */
+
+/* ============================================================================
+   🔍 SECTION RECHERCHE ET FILTRAGE
+   ============================================================================ */
+
+/* Container principal de recherche et filtrage */
+.search-filter-section {
+  background: white;
+  border-radius: 16px;
+  padding: 28px;
+  margin-bottom: 32px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  animation: slideDown 0.4s ease-out;
+  /* Ajout pour éviter le débordement */
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Responsive amélioré pour les très petits écrans */
+@media (max-width: 480px) {
+  .search-filter-section {
+    padding: 20px;
+  }
+  
+  .filters-panel.expanded {
+    padding: 20px 0;
+  }
+  
+  .price-range-inputs {
+    gap: 8px;
+  }
+  
+  .price-input {
+    padding: 8px;
+    font-size: 13px;
+  }
+  
+  .filter-label {
+    font-size: 12px;
+  }
+}* Fix spécifique pour éviter le chevauchement du texte */
+.filter-group:nth-child(3) { /* Filtre PÉRIODE */
+  margin-left: 0;
+  padding-left: 0;
+}
+
+/* Assurer que tous les éléments ont un z-index correct */
+.filter-group {
+  position: relative;
+  z-index: 1;
+}
+
+.filter-group mat-select {
+  position: relative;
+  z-index: 2;
+}
+/* Barre de recherche */
+.search-bar-container {
+  position: relative;
+  margin-bottom: 20px;
+  animation: fadeIn 0.5s ease-out;
+  /* Correction principale : s'assurer que le container ne dépasse pas */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+  font-size: 24px;
+  pointer-events: none;
+  z-index: 2;
+}
+.search-input {
+  width: 100%;
+  padding: 16px 50px 16px 50px;
+  font-size: 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  outline: none;
+  transition: all 0.3s ease;
+  background: #f8f9fa;
+  /* Correction principale */
+  box-sizing: border-box;
+  display: block; /* Force le display block */
+}
+
+.search-input:focus {
+  border-color: #1976d2;
+  background: white;
+  box-shadow: 0 0 0 4px rgba(25, 118, 210, 0.1);
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  color: #666;
+  transition: all 0.2s ease;
+  border-radius: 50%;
+}
+
+.clear-search-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+/* Bouton toggle filtres */
+.toggle-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.toggle-filters-btn:hover {
+  border-color: #1976d2;
+  color: #1976d2;
+  background: #f0f7ff;
+}
+
+.toggle-filters-btn.active {
+  background: #1976d2;
+  color: white;
+  border-color: #1976d2;
+}
+
+.filter-badge {
+  background: #ff4444;
+  color: white;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 4px;
+  animation: pulse 2s infinite;
+}
+
+/* Panel de filtres */
+.filters-panel {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: all 0.4s ease;
+  margin-top: 0;
+}
+
+.filters-panel.expanded {
+  max-height: 800px;
+  opacity: 1;
+  margin-top: 24px;
+  padding: 24px 0; /* Augmenté le padding vertical */
+  border-top: 1px solid #e0e0e0;
+}
+/* Grille de filtres */
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Augmenté de 200px à 250px */
+  gap: 24px; /* Augmenté l'espacement entre les colonnes */
+  margin-bottom: 20px;
+}
+@media (min-width: 1200px) {
+  .filters-grid {
+    grid-template-columns: 1fr 1fr 1fr 1fr; /* 4 colonnes égales */
+    gap: 30px; /* Plus d'espace sur les grands écrans */
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1199px) {
+  .filters-grid {
+    grid-template-columns: 1fr 1fr 1fr; /* 3 colonnes sur tablettes */
+    gap: 24px;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 899px) {
+  .filters-grid {
+    grid-template-columns: 1fr 1fr; /* 2 colonnes sur petites tablettes */
+    gap: 20px;
+  }
+}
+
+@media (max-width: 599px) {
+  .filters-grid {
+    grid-template-columns: 1fr; /* 1 colonne sur mobile */
+    gap: 16px;
+  }
+}
+
+/* Groupe de filtre */
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0; /* Permet la compression si nécessaire */
+  animation: fadeIn 0.5s ease-out;
+}
+
+.filter-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap; /* Empêche le retour à la ligne */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.filter-label mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #1976d2;
+}
+
+/* Mat-select - largeur complète et hauteur cohérente */
+.filter-group mat-select {
+  width: 100%;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 10px;
+  min-height: 42px;
+  font-size: 14px;
+}
+
+
+/* Inputs de prix */
+.price-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* Augmenté de 10px à 12px */
+  width: 100%;
+}
+.price-input {
+  flex: 1;
+  min-width: 0; /* Permet la compression égale */
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+/* Séparateur de prix plus visible */
+.price-separator {
+  color: #999;
+  font-weight: 500;
+  flex-shrink: 0; /* Empêche la compression du tiret */
+  min-width: 20px;
+  text-align: center;
+}
+
+
+.price-input:focus {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+
+
+/* Actions des filtres */
+.filter-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.reset-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #666;
+  transition: all 0.3s ease;
+}
+
+.reset-filters-btn:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #999;
+  color: #333;
+}
+
+.reset-filters-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.results-count {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+/* Tags de filtres actifs */
+.active-filters-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid #1976d2;
+  border-radius: 20px;
+  font-size: 13px;
+  color: #1976d2;
+  animation: scaleIn 0.3s ease-out;
+}
+
+.filter-tag mat-icon {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.filter-tag button {
+  background: none;
+  border: none;
+  color: #1976d2;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+  transition: color 0.2s ease;
+}
+
+.filter-tag button:hover {
+  color: #ff4444;
+}
+
+/* Suggestions de recherche */
+.search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  margin-top: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  animation: slideDown 0.3s ease-out;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-item:hover {
+  background: #f8f9fa;
+}
+
+.suggestion-item mat-icon {
+  color: #1976d2;
+  font-size: 20px;
+}
+
+.suggestion-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.suggestion-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.suggestion-type {
+  font-size: 12px;
+  color: #999;
+}
+
+/* Message aucun résultat */
+.no-results {
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 12px;
+  margin: 20px 0;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.no-results-img {
+  width: 200px;
+  height: 150px;
+  object-fit: contain;
+  margin-bottom: 20px;
+  opacity: 0.7;
+}
+
+.no-results h3 {
+  font-size: 1.4rem;
+  color: #333;
+  margin-bottom: 12px;
+}
+
+.no-results p {
+  color: #666;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.reset-link {
+  color: #1976d2;
+  cursor: pointer;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.reset-link:hover {
+  color: #1565c0;
+}
+
+/* Indicateurs sur les cartes */
+.search-match-indicator {
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  color: #333;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+  animation: pulse 2s infinite;
+}
+
+.search-match-indicator mat-icon {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+}
+
+.availability-indicator {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4caf50;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.availability-indicator.low {
+  color: #ff9800;
+  background: rgba(255, 244, 229, 0.95);
+}
+
+.availability-indicator.full {
+  color: #f44336;
+  background: rgba(255, 235, 238, 0.95);
+}
+
+/* ============================================================================
+   📄 PAGINATION
+   ============================================================================ */
+
+
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+  margin-top: 32px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Information de pagination */
+.pagination-info {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+  gap: 4px;
+}
+
+.pagination-info::before {
+  content: "📊";
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+/* Contrôles de pagination */
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+}
+
+/* Boutons de navigation (précédent/suivant) */
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #666;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  border-color: #1976d2;
+  background: #f0f7ff;
+  color: #1976d2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.2);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #f5f5f5;
+  border-color: #e0e0e0;
+}
+
+.pagination-btn:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.pagination-btn mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+/* Numéros de pages */
+.page-numbers {
+  display: flex;
+  gap: 4px;
+  margin: 0 16px;
+}
+
+.page-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.page-number:hover:not(.active) {
+  background: #f0f7ff;
+  border-color: #1976d2;
+  color: #1976d2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.15);
+}
+
+.page-number.active {
+  background: linear-gradient(135deg, #1976d2, #1565c0);
+  border-color: #1976d2;
+  color: white;
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+  transform: translateY(-1px);
+  font-weight: 600;
+}
+
+.page-number.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transition: left 0.6s ease;
+}
+
+.page-number.active:hover::before {
+  left: 100%;
+}
+
+/* Sélecteur d'éléments par page */
+.items-per-page {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.items-per-page label {
+  white-space: nowrap;
+  margin: 0;
+}
+
+.items-per-page mat-select {
+  min-width: 80px;
+  font-size: 14px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  transition: all 0.3s ease;
+}
+
+.items-per-page mat-select:focus {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+/* Ellipsis pour les pages cachées */
+.page-number.ellipsis {
+  background: transparent;
+  border: none;
+  cursor: default;
+  color: #999;
+  font-weight: normal;
+}
+
+.page-number.ellipsis:hover {
+  background: transparent;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Version responsive */
+@media (max-width: 768px) {
+  .pagination-container {
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .pagination-info {
+    order: -1;
+    text-align: center;
+    font-size: 13px;
+  }
+
+  .pagination-controls {
+    order: 1;
+    justify-content: center;
+  }
+
+  .page-numbers {
+    margin: 0 12px;
+    gap: 2px;
+  }
+
+  .page-number {
+    min-width: 36px;
+    height: 36px;
+    font-size: 13px;
+  }
+
+  .pagination-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .items-per-page {
+    order: 2;
+    justify-content: center;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pagination-container {
+    padding: 16px;
+  }
+
+  .page-numbers {
+    max-width: 200px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .page-numbers::-webkit-scrollbar {
+    display: none;
+  }
+
+  .page-number {
+    min-width: 32px;
+    height: 32px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .pagination-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .pagination-info {
+    font-size: 12px;
+  }
+
+  .items-per-page {
+    font-size: 12px;
+  }
+}
+
+/* Animation d'entrée pour les éléments de pagination */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pagination-container > * {
+  animation: slideIn 0.4s ease-out;
+}
+
+.pagination-info {
+  animation-delay: 0.1s;
+}
+
+.pagination-controls {
+  animation-delay: 0.2s;
+}
+
+.items-per-page {
+  animation-delay: 0.3s;
+}
+
+/* Effet de chargement pour le changement de page */
+.pagination-container.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.pagination-container.loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* États d'accessibilité */
+.pagination-btn:focus,
+.page-number:focus {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}
+
+.items-per-page mat-select:focus {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}
+
+/* Message de pagination vide */
+.pagination-empty {
+  text-align: center;
+  color: #999;
+  font-style: italic;
+  padding: 20px;
+}
+
+/* Indicateur de page actuelle pour l'accessibilité */
+.page-number.active[aria-current="page"]::after {
+  content: ' (page actuelle)';
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
 }

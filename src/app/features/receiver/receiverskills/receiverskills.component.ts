@@ -1,26 +1,52 @@
-import { Component, OnInit, Inject } from '@angular/core';
+// receiverskills.component.ts
+import { Component, OnInit, ViewChild, ElementRef, OnDestroy, Inject } from '@angular/core';
 import { SkillService } from '../../../core/services/Skill/skill.service';
 import { UserService } from '../../../core/services/User/user.service';
 import { ExchangeService, ExchangeResponse } from '../../../core/services/Exchange/exchange.service';
+import { CategoryService } from '../../../core/services/category/category.service';
 import { KeycloakService } from '../../../core/services/keycloak.service';
-import { Skill } from '../../../models/skill/skill.model';
-import { MatDialog, MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
+import { Skill, Category } from '../../../models/skill/skill.model';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { UserProfileDialogComponent } from '../user-profile-dialog/user-profile-dialog.component';
+
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatChipsModule } from '@angular/material/chips';
-import { firstValueFrom } from 'rxjs';
+import { MatSelectModule } from '@angular/material/select';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { firstValueFrom, Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import { LivestreamService } from '../../../core/services/LiveStream/livestream.service';
 
-// Interface pour les données de confirmation
+interface SkillWithExchangeStatus extends Skill {
+  exchangeStatus?: 'available' | 'pending' | 'accepted' | 'completed' | 'in_progress' | 'rejected';
+  exchangeMessage?: string;
+  isUserReserved?: boolean;
+  rejectionReason?: string;
+  searchMatchScore?: number;
+}
+
+interface SearchSuggestion {
+  type: 'skill' | 'category' | 'producer';
+  title: string;
+  typeLabel: string;
+  value: any;
+}
+
+interface PriceRange {
+  min: number | null;
+  max: number | null;
+}
+
+// Interface pour les données de confirmation - AJOUTÉE
 interface ConfirmationData {
   title: string;
-  message: string;
   skillName: string;
   producerName: string;
   price: number;
@@ -30,7 +56,6 @@ interface ConfirmationData {
   cancelText?: string;
 }
 
-// Composant de confirmation intégré
 @Component({
   selector: 'app-reservation-confirmation',
   standalone: true,
@@ -205,51 +230,82 @@ export class ReservationConfirmationComponent {
     this.dialogRef.close(false);
   }
 }
-import { Router } from '@angular/router';
-
-interface SkillWithExchangeStatus extends Skill {
-  exchangeStatus?: 'available' | 'pending' | 'accepted' | 'completed' | 'in_progress' | 'rejected';
-  exchangeMessage?: string;
-  isUserReserved?: boolean;
-  rejectionReason?: string;
-}
 
 @Component({
   selector: 'app-receiverskills',
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     MatProgressBarModule,
     MatIconModule,
     MatCardModule,
     MatButtonModule,
-    MatDialogModule,
     MatSnackBarModule,
-    MatChipsModule
+    MatChipsModule,
+    MatSelectModule,
+    MatInputModule,
+    MatFormFieldModule
   ],
   templateUrl: './receiverskills.component.html',
   styleUrls: ['./receiverskills.component.css']
 })
-export class ReceiverskillsComponent implements OnInit {
+export class ReceiverskillsComponent implements OnInit, OnDestroy {
+  @ViewChild('searchInput') searchInput!: ElementRef;
+
+  // Data
   skills: SkillWithExchangeStatus[] = [];
+  filteredSkills: SkillWithExchangeStatus[] = [];
+  paginatedSkills: SkillWithExchangeStatus[] = [];
   exchanges: ExchangeResponse[] = [];
-  isLoading = true;
-  error: string | null = null;
+  categories: Category[] = [];
   producerNames: { [key: number]: string } = {};
   receiverId: number | null = null;
   livestreamSessions: { [skillId: number]: any } = {};
+
+  // Search & Filter
+  searchQuery: string = '';
+  searchSuggestions: SearchSuggestion[] = [];
+  showSuggestions: boolean = false;
+  showFilters: boolean = false;
+  selectedCategory: number | null = null;
+  priceRange: PriceRange = { min: null, max: null };
+  selectedDateRange: string = '';
+  selectedAvailability: string = '';
+  selectedStatus: string = '';
+  sortBy: string = 'dateAsc';
+  activeFiltersCount: number = 0;
+
+  // Pagination
+  currentPage: number = 1;
+  itemsPerPage: number = 12;
+  totalPages: number = 1;
+
+  // UI State
+  isLoading: boolean = true;
+  error: string | null = null;
+
+  // RxJS
+  private destroy$ = new Subject<void>();
+  private searchSubject = new Subject<string>();
+
+  // Math for template
+  Math = Math;
 
   constructor(
     private skillService: SkillService,
     private userService: UserService,
     private exchangeService: ExchangeService,
+    private categoryService: CategoryService,
     private keycloakService: KeycloakService,
     private livestreamService: LivestreamService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) {}
+async ngOnInit(): Promise<void> {
 
-  async ngOnInit(): Promise<void> {
+  this.setupSearchDebounce();
+    await this.initializeComponent();
     this.isLoading = true;
     try {
       // Fetch receiver's ID
@@ -277,95 +333,185 @@ export class ReceiverskillsComponent implements OnInit {
       this.isLoading = false;
     }
   }
+ 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 
-  private async loadSkills(): Promise<void> {
+  private setupSearchDebounce(): void {
+    this.searchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      takeUntil(this.destroy$)
+    ).subscribe(query => {
+      this.performSearch(query);
+    });
+  }
+
+  private async initializeComponent(): Promise<void> {
+    this.isLoading = true;
     try {
-      const rawSkills = await firstValueFrom(this.skillService.getAllSkills());
-      
-      // Filtrer les compétences pour exclure celles déjà présentes dans accepted-skills
-      // Les compétences ACCEPTED, IN_PROGRESS, et COMPLETED sont visibles dans accepted-skills
-      // On ne montre ici que les compétences disponibles, en attente, ou rejetées
-      const availableSkills = rawSkills.filter(skill => {
-        const userExchange = this.exchanges.find(ex => ex.skillId === skill.id && ex.receiverId === this.receiverId);
-        
-        if (userExchange) {
-          // Exclure les compétences avec ces statuts (elles sont dans accepted-skills)
-          const excludedStatuses = ['ACCEPTED', 'IN_PROGRESS', 'COMPLETED'];
-          return !excludedStatuses.includes(userExchange.status);
-        }
-        
-        // Inclure toutes les compétences sans échange (disponibles pour réservation)
-        return true;
-      });
-      
-      this.skills = this.mapSkillsWithExchangeStatus(availableSkills);
-      this.loadProducerNames();
+      // Get user ID
+      const userProfile = await this.keycloakService.getUserProfile();
+      if (!userProfile || !userProfile.id) {
+        throw new Error('Profil utilisateur non disponible');
+      }
+      const keycloakId = userProfile.id;
+      const user = await firstValueFrom(this.userService.getUserByKeycloakId(keycloakId));
+      this.receiverId = user.id;
+
+      // Load data in parallel
+      await Promise.all([
+        this.loadCategories(),
+        this.loadExchanges(),
+        this.loadSkills()
+      ]);
+
+      // Check livestream sessions
+      await this.checkLivestreamSessions();
+
+      // Apply initial filters
+      this.applyFilters();
     } catch (error: any) {
-      this.error = 'Erreur lors du chargement des compétences';
+      this.error = 'Erreur lors de l\'initialisation';
       this.snackBar.open(this.error, 'Fermer', { duration: 3000 });
-      console.error('Erreur chargement compétences :', error);
-      throw error;
+      console.error('Erreur lors de l\'initialisation :', error);
+    } finally {
+      this.isLoading = false;
     }
   }
 
-  private mapSkillsWithExchangeStatus(rawSkills: Skill[]): SkillWithExchangeStatus[] {
-    return rawSkills.map(skill => {
-      const userExchange = this.exchanges.find(ex => ex.skillId === skill.id && ex.receiverId === this.receiverId);
-      const skillWithStatus: SkillWithExchangeStatus = {
-        ...skill,
-        exchangeStatus: 'available',
-        isUserReserved: false
-      };
-
-      if (userExchange) {
-        switch (userExchange.status) {
-          case 'PENDING':
-            skillWithStatus.exchangeStatus = 'pending';
-            skillWithStatus.exchangeMessage = 'Demande en attente de validation';
-            skillWithStatus.isUserReserved = true;
-            break;
-          case 'ACCEPTED':
-            skillWithStatus.exchangeStatus = 'accepted';
-            skillWithStatus.exchangeMessage = 'Réservation acceptée';
-            skillWithStatus.isUserReserved = true;
-            break;
-          case 'IN_PROGRESS':
-            skillWithStatus.exchangeStatus = 'in_progress';
-            skillWithStatus.exchangeMessage = 'Session en cours';
-            skillWithStatus.isUserReserved = true;
-            break;
-          case 'COMPLETED':
-            skillWithStatus.exchangeStatus = 'completed';
-            skillWithStatus.exchangeMessage = 'Session terminée';
-            skillWithStatus.isUserReserved = true;
-            break;
-          case 'REJECTED':
-            skillWithStatus.exchangeStatus = 'rejected';
-            skillWithStatus.exchangeMessage = 'Demande rejetée - Non disponible';
-            skillWithStatus.rejectionReason = userExchange.rejectionReason;
-            skillWithStatus.isUserReserved = true; // Marquer comme "réservé" pour empêcher nouvelle réservation
-            break;
-          default:
-            skillWithStatus.exchangeStatus = 'available';
-            skillWithStatus.isUserReserved = false;
-        }
-      }
-
-      return skillWithStatus;
-    });
+  private async loadCategories(): Promise<void> {
+    try {
+      this.categories = await firstValueFrom(this.categoryService.getAllCategories());
+    } catch (error) {
+      console.error('Erreur chargement catégories:', error);
+      this.categories = [];
+    }
   }
+
+private async loadSkills(): Promise<void> {
+  try {
+    const rawSkills = await firstValueFrom(this.skillService.getAllSkills());
+    console.log('Raw skills loaded:', rawSkills.length);
+    
+    // NOUVEAU: Filtrer d'abord par date (exclure les dates dépassées)
+    const currentDateTime = new Date();
+    const futureSkills = rawSkills.filter(skill => {
+      const streamingDateTime = this.createStreamingDateTime(skill.streamingDate, skill.streamingTime);
+      return streamingDateTime > currentDateTime;
+    });
+    console.log('Future skills after date filter:', futureSkills.length);
+    
+    // Filtrer les compétences pour exclure celles déjà présentes dans accepted-skills
+    const availableSkills = futureSkills.filter(skill => {
+      const userExchange = this.exchanges.find(ex => ex.skillId === skill.id && ex.receiverId === this.receiverId);
+      
+      if (userExchange) {
+        // Exclure les compétences avec ces statuts (elles sont dans accepted-skills)
+        const excludedStatuses = ['ACCEPTED', 'IN_PROGRESS', 'COMPLETED'];
+        const shouldExclude = excludedStatuses.includes(userExchange.status);
+        
+        if (shouldExclude) {
+          console.log(`Excluding skill ${skill.name} with status ${userExchange.status}`);
+        }
+        
+        return !shouldExclude;
+      }
+      
+      // Inclure toutes les compétences sans échange (disponibles pour réservation)
+      return true;
+    });
+    
+    console.log('Available skills after exchange filter:', availableSkills.length);
+    
+    // Mapper les compétences avec leur statut d'échange
+    this.skills = this.mapSkillsWithExchangeStatus(availableSkills);
+    console.log('Final skills array:', this.skills.length);
+    
+    // Log skills with their statuses for debugging
+    this.skills.forEach(skill => {
+      console.log(`Skill: ${skill.name}, Status: ${skill.exchangeStatus}`);
+    });
+    
+    // Appliquer les filtres après avoir chargé les compétences
+    this.applyFilters();
+    
+    this.loadProducerNames();
+  } catch (error: any) {
+    this.error = 'Erreur lors du chargement des compétences';
+    this.snackBar.open(this.error, 'Fermer', { duration: 3000 });
+    console.error('Erreur chargement compétences :', error);
+    throw error;
+  }
+}
+
+ private mapSkillsWithExchangeStatus(rawSkills: Skill[]): SkillWithExchangeStatus[] {
+  return rawSkills.map(skill => {
+    const userExchange = this.exchanges.find(
+      ex => ex.skillId === skill.id && ex.receiverId === this.receiverId
+    );
+
+    const category = this.categories.find(c => c.id === skill.categoryId);
+
+    const skillWithStatus: SkillWithExchangeStatus = {
+      ...skill,
+      categoryName: category?.name || 'Catégorie inconnue',
+      exchangeStatus: 'available',
+      isUserReserved: false,
+      searchMatchScore: 0
+    };
+
+    if (userExchange) {
+      switch (userExchange.status) {
+        case 'PENDING':
+          skillWithStatus.exchangeStatus = 'pending';
+          skillWithStatus.exchangeMessage = 'Demande en attente de validation';
+          skillWithStatus.isUserReserved = true;
+          break;
+        case 'ACCEPTED':
+          skillWithStatus.exchangeStatus = 'accepted';
+          skillWithStatus.exchangeMessage = 'Réservation confirmée';
+          skillWithStatus.isUserReserved = true;
+          break;
+        case 'IN_PROGRESS':
+          skillWithStatus.exchangeStatus = 'in_progress';
+          skillWithStatus.exchangeMessage = 'Formation en cours';
+          skillWithStatus.isUserReserved = true;
+          break;
+        case 'COMPLETED':
+          skillWithStatus.exchangeStatus = 'completed';
+          skillWithStatus.exchangeMessage = 'Formation terminée';
+          skillWithStatus.isUserReserved = true;
+          break;
+        case 'REJECTED':
+  skillWithStatus.exchangeStatus = 'rejected';
+  skillWithStatus.exchangeMessage = 'Demande rejetée';
+  skillWithStatus.rejectionReason = userExchange.rejectionReason;
+  skillWithStatus.isUserReserved = true; // L'utilisateur peut refaire une demande
+  break;
+        default:
+          skillWithStatus.exchangeStatus = 'available';
+          skillWithStatus.isUserReserved = false;
+      }
+    }
+
+    return skillWithStatus;
+  });
+}
+
 
   private async loadExchanges(): Promise<void> {
     try {
       this.exchanges = await firstValueFrom(this.exchangeService.getUserExchanges());
-      this.loadProducerNamesForExchanges();
     } catch (error: any) {
-      console.warn('Erreur lors du chargement des échanges - continuons sans:', error);
-      this.exchanges = []; // Continue without exchanges
+      console.warn('Erreur lors du chargement des échanges:', error);
+      this.exchanges = [];
     }
   }
 
-  private async checkLivestreamSessions(): Promise<void> {
+   private async checkLivestreamSessions(): Promise<void> {
     try {
       // Only for accepted skills
       const acceptedSkills = this.skills.filter(skill => 
@@ -390,6 +536,7 @@ export class ReceiverskillsComponent implements OnInit {
     }
   }
 
+
   private loadProducerNames(): void {
     this.skills.forEach(skill => {
       if (!this.producerNames[skill.userId]) {
@@ -405,21 +552,406 @@ export class ReceiverskillsComponent implements OnInit {
     });
   }
 
-  private loadProducerNamesForExchanges(): void {
-    this.exchanges.forEach(exchange => {
-      if (!this.producerNames[exchange.producerId]) {
-        this.userService.getUserById(exchange.producerId).subscribe({
-          next: (user) => {
-            this.producerNames[exchange.producerId] = `${user.firstName} ${user.lastName}`;
-          },
-          error: () => {
-            this.producerNames[exchange.producerId] = 'Utilisateur inconnu';
-          }
-        });
+  // Search & Filter Methods
+  onSearchChange(): void {
+    this.searchSubject.next(this.searchQuery);
+  }
+
+  private performSearch(query: string): void {
+    if (!query) {
+      this.showSuggestions = false;
+      this.applyFilters();
+      return;
+    }
+
+    // Generate suggestions
+    this.generateSearchSuggestions(query);
+    
+    // Apply search filter
+    this.applyFilters();
+  }
+
+  private generateSearchSuggestions(query: string): void {
+    const lowerQuery = query.toLowerCase();
+    this.searchSuggestions = [];
+
+    // Search in skills
+    const matchingSkills = this.skills
+      .filter(skill => 
+        skill.name.toLowerCase().includes(lowerQuery) ||
+        skill.description.toLowerCase().includes(lowerQuery)
+      )
+      .slice(0, 3)
+      .map(skill => ({
+        type: 'skill' as const,
+        title: skill.name,
+        typeLabel: 'Compétence',
+        value: skill
+      }));
+
+    // Search in categories
+    const matchingCategories = this.categories
+      .filter(cat => cat.name.toLowerCase().includes(lowerQuery))
+      .slice(0, 2)
+      .map(cat => ({
+        type: 'category' as const,
+        title: cat.name,
+        typeLabel: 'Catégorie',
+        value: cat
+      }));
+
+    // Search in producers
+    const matchingProducers = Object.entries(this.producerNames)
+      .filter(([_, name]) => name.toLowerCase().includes(lowerQuery))
+      .slice(0, 2)
+      .map(([id, name]) => ({
+        type: 'producer' as const,
+        title: name,
+        typeLabel: 'Producteur',
+        value: { id: parseInt(id), name }
+      }));
+
+    this.searchSuggestions = [
+      ...matchingSkills,
+      ...matchingCategories,
+      ...matchingProducers
+    ];
+
+    this.showSuggestions = this.searchSuggestions.length > 0;
+  }
+
+selectSuggestion(suggestion: SearchSuggestion): void {
+  this.showSuggestions = false;
+  
+  switch (suggestion.type) {
+    case 'skill':
+      this.searchQuery = suggestion.title;
+      break;
+    case 'category':
+      // CORRECTION: Assurer la cohérence avec le type utilisé dans les filtres
+      this.selectedCategory = suggestion.value.id; // Garder comme number
+      this.searchQuery = '';
+      break;
+    case 'producer':
+      this.searchQuery = suggestion.title;
+      break;
+  }
+  
+  this.applyFilters();
+}
+  clearSearch(): void {
+    this.searchQuery = '';
+    this.showSuggestions = false;
+    this.applyFilters();
+  }
+
+  toggleFilters(): void {
+    this.showFilters = !this.showFilters;
+  }
+
+ applyFilters(): void {
+  let filtered = [...this.skills];
+
+  // Text search with scoring
+  if (this.searchQuery) {
+    const query = this.searchQuery.toLowerCase();
+    filtered = filtered.map(skill => {
+      let score = 0;
+      
+      // Check skill name (highest weight)
+      if (skill.name.toLowerCase().includes(query)) {
+        score += skill.name.toLowerCase() === query ? 3 : 2;
+      }
+      
+      // Check description
+      if (skill.description.toLowerCase().includes(query)) {
+        score += 1;
+      }
+      
+      // Check category name
+      if (skill.categoryName?.toLowerCase().includes(query)) {
+        score += 1.5;
+      }
+      
+      // Check producer name
+      const producerName = this.producerNames[skill.userId]?.toLowerCase() || '';
+      if (producerName.includes(query)) {
+        score += 1.5;
+      }
+      
+      return { ...skill, searchMatchScore: score / 3 }; // Normalize score
+    }).filter(skill => skill.searchMatchScore > 0);
+  }
+
+  // Category filter
+  if (this.selectedCategory !== null) {
+    filtered = filtered.filter(skill => 
+      skill.categoryId === this.selectedCategory
+    );
+  }
+
+  // Price filter
+  if (this.priceRange.min !== null) {
+    filtered = filtered.filter(skill => 
+      skill.price >= this.priceRange.min!
+    );
+  }
+  if (this.priceRange.max !== null) {
+    filtered = filtered.filter(skill => 
+      skill.price <= this.priceRange.max!
+    );
+  }
+
+  // Date filter
+  if (this.selectedDateRange) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    filtered = filtered.filter(skill => {
+      const skillDate = new Date(skill.streamingDate);
+      
+      switch (this.selectedDateRange) {
+        case 'today':
+          return skillDate.toDateString() === today.toDateString();
+        case 'week':
+          const weekEnd = new Date(today);
+          weekEnd.setDate(weekEnd.getDate() + 7);
+          return skillDate >= today && skillDate <= weekEnd;
+        case 'month':
+          const monthEnd = new Date(today);
+          monthEnd.setMonth(monthEnd.getMonth() + 1);
+          return skillDate >= today && skillDate <= monthEnd;
+        default:
+          return true;
+      }
+    });
+  }
+  if (this.selectedCategory !== null  && this.selectedCategory !== undefined) {
+    const categoryId = typeof this.selectedCategory === 'string' ? 
+      parseInt(this.selectedCategory) : this.selectedCategory;
+    
+    filtered = filtered.filter(skill => 
+      skill.categoryId === categoryId
+    );
+  }
+
+  // Availability filter
+  if (this.selectedAvailability) {
+    filtered = filtered.filter(skill => {
+      const remainingSeats = skill.availableQuantity - skill.nbInscrits;
+      const percentageFull = skill.nbInscrits / skill.availableQuantity;
+      
+      switch (this.selectedAvailability) {
+        case 'available':
+          return remainingSeats > 0;
+        case 'lastSeats':
+          return remainingSeats > 0 && percentageFull >= 0.7;
+        case 'full':
+          return remainingSeats === 0;
+        default:
+          return true;
       }
     });
   }
 
+  // Status filter - REMOVED DUPLICATE AND FIXED
+  if (this.selectedStatus) {
+    filtered = filtered.filter(skill => {
+      switch (this.selectedStatus) {
+        case 'notReserved':
+          return skill.exchangeStatus === 'available' && !skill.isUserReserved;
+        case 'pending':
+          return skill.exchangeStatus === 'pending';
+        case 'rejected':
+          return skill.exchangeStatus === 'rejected';
+        default:
+          return true;
+      }
+    });
+  }
+
+  // Apply sorting
+  this.filteredSkills = this.sortSkills(filtered);
+  
+  // Update pagination
+  this.totalPages = Math.ceil(this.filteredSkills.length / this.itemsPerPage);
+  this.currentPage = 1;
+  this.updatePagination();
+  
+  // Update active filters count
+  this.updateActiveFiltersCount();
+}
+
+  private sortSkills(skills: SkillWithExchangeStatus[]): SkillWithExchangeStatus[] {
+    const sorted = [...skills];
+    
+    switch (this.sortBy) {
+      case 'dateAsc':
+        return sorted.sort((a, b) => 
+          new Date(a.streamingDate).getTime() - new Date(b.streamingDate).getTime()
+        );
+      case 'dateDesc':
+        return sorted.sort((a, b) => 
+          new Date(b.streamingDate).getTime() - new Date(a.streamingDate).getTime()
+        );
+      case 'priceAsc':
+        return sorted.sort((a, b) => a.price - b.price);
+      case 'priceDesc':
+        return sorted.sort((a, b) => b.price - a.price);
+      case 'availabilityAsc':
+        return sorted.sort((a, b) => 
+          (a.availableQuantity - a.nbInscrits) - (b.availableQuantity - b.nbInscrits)
+        );
+      case 'availabilityDesc':
+        return sorted.sort((a, b) => 
+          (b.availableQuantity - b.nbInscrits) - (a.availableQuantity - a.nbInscrits)
+        );
+      case 'nameAsc':
+        return sorted.sort((a, b) => a.name.localeCompare(b.name));
+      case 'nameDesc':
+        return sorted.sort((a, b) => b.name.localeCompare(a.name));
+      default:
+        // If search query exists, sort by search relevance
+        if (this.searchQuery && sorted.some(s => s.searchMatchScore)) {
+          return sorted.sort((a, b) => 
+            (b.searchMatchScore || 0) - (a.searchMatchScore || 0)
+          );
+        }
+        return sorted;
+    }
+  }
+
+  applySort(): void {
+    this.applyFilters();
+  }
+
+  resetFilters(): void {
+    this.searchQuery = '';
+    this.selectedCategory = null;
+    this.priceRange = { min: null, max: null };
+    this.selectedDateRange = '';
+    this.selectedAvailability = '';
+    this.selectedStatus = '';
+    this.sortBy = 'dateAsc';
+    this.showSuggestions = false;
+    this.applyFilters();
+  }
+
+  private updateActiveFiltersCount(): void {
+    let count = 0;
+    if (this.searchQuery) count++;
+    if (this.selectedCategory) count++;
+    if (this.priceRange.min !== null || this.priceRange.max !== null) count++;
+    if (this.selectedDateRange) count++;
+    if (this.selectedAvailability) count++;
+    if (this.selectedStatus) count++;
+    this.activeFiltersCount = count;
+  }
+
+  // Pagination Methods
+  updatePagination(): void {
+    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+    const endIndex = startIndex + this.itemsPerPage;
+    this.paginatedSkills = this.filteredSkills.slice(startIndex, endIndex);
+  }
+
+  goToPage(page: number): void {
+    this.currentPage = page;
+    this.updatePagination();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  previousPage(): void {
+    if (this.currentPage > 1) {
+      this.goToPage(this.currentPage - 1);
+    }
+  }
+
+  nextPage(): void {
+    if (this.currentPage < this.totalPages) {
+      this.goToPage(this.currentPage + 1);
+    }
+  }
+
+  onItemsPerPageChange(): void {
+    this.totalPages = Math.ceil(this.filteredSkills.length / this.itemsPerPage);
+    this.currentPage = 1;
+    this.updatePagination();
+  }
+
+  getPageNumbers(): number[] {
+    const pages: number[] = [];
+    const maxPages = 5;
+    
+    if (this.totalPages <= maxPages) {
+      for (let i = 1; i <= this.totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (this.currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i);
+        pages.push(this.totalPages);
+      } else if (this.currentPage >= this.totalPages - 2) {
+        pages.push(1);
+        for (let i = this.totalPages - 3; i <= this.totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push(this.currentPage - 1);
+        pages.push(this.currentPage);
+        pages.push(this.currentPage + 1);
+        pages.push(this.totalPages);
+      }
+    }
+    
+    return pages;
+  }
+
+  // Helper Methods
+  getCategoryName(categoryId: number | null): string {
+  if (categoryId === null) return '';
+  const category = this.categories.find(c => c.id === categoryId);
+  return category?.name || 'Catégorie inconnue';
+}
+
+  getDateRangeLabel(range: string): string {
+    switch (range) {
+      case 'today': return "Aujourd'hui";
+      case 'week': return 'Cette semaine';
+      case 'month': return 'Ce mois';
+      case 'custom': return 'Personnalisé';
+      default: return '';
+    }
+  }
+
+  getAvailabilityLabel(availability: string): string {
+    switch (availability) {
+      case 'available': return 'Places disponibles';
+      case 'lastSeats': return 'Dernières places';
+      case 'full': return 'Complet';
+      default: return '';
+    }
+  }
+
+  getStatusLabel(status?: string): string {
+    switch (status) {
+      case 'pending': return 'En attente';
+      case 'accepted': return 'Accepté';
+      case 'in_progress': return 'En cours';
+      case 'completed': return 'Terminé';
+      case 'rejected': return 'Rejeté';
+      case 'notReserved': return 'Non réservé';
+      case 'available': return 'Disponible';
+      default: return '';
+    }
+  }
+
+  getProducerName(userId: number): string {
+    return this.producerNames[userId] || 'Chargement...';
+  }
+
+  // Existing methods from original component
   openProducerProfile(userId: number): void {
     this.userService.getUserById(userId).subscribe({
       next: (user) => {
@@ -435,10 +967,6 @@ export class ReceiverskillsComponent implements OnInit {
         console.error('Erreur récupération utilisateur :', err);
       }
     });
-  }
-
-  getProducerName(userId: number): string {
-    return this.producerNames[userId] || 'Chargement...';
   }
 
   reserveSkill(skill: SkillWithExchangeStatus): void {
@@ -464,6 +992,9 @@ export class ReceiverskillsComponent implements OnInit {
       }
     });
   }
+
+  
+
 
   private async performReservation(skill: SkillWithExchangeStatus): Promise<void> {
     if (!this.receiverId) {
@@ -505,6 +1036,7 @@ export class ReceiverskillsComponent implements OnInit {
     }
   }
 
+
   getStatusColor(status?: string): string {
     switch (status) {
       case 'pending': return 'accent';
@@ -517,38 +1049,58 @@ export class ReceiverskillsComponent implements OnInit {
     }
   }
 
-  getStatusLabel(status?: string): string {
-    switch (status) {
-      case 'pending': return 'En attente';
-      case 'accepted': return 'Accepté';
-      case 'in_progress': return 'En cours';
-      case 'completed': return 'Terminé';
-      case 'rejected': return 'Rejeté';
-      case 'available': return 'Disponible';
-      default: return '';
-    }
-  }
-
 canReserve(skill: SkillWithExchangeStatus): boolean {
-    // Une compétence peut être réservée si :
-    // 1. Elle est disponible (pas d'échange en cours)
-    // 2. Il reste des places disponibles
-    // 3. L'utilisateur ne l'a pas déjà réservée
-    // 4. Elle n'a pas été rejetée
-    return skill.exchangeStatus === 'available' && 
-           skill.nbInscrits < skill.availableQuantity && 
-           !skill.isUserReserved;
-  }
-
+  // L'utilisateur ne peut réserver que si:
+  // 1. La compétence n'a pas de statut bloquant (pending, accepted, in_progress, completed, rejected)
+  // 2. Il y a encore des places disponibles
+  
+  const hasBlockingStatus = ['pending', 'accepted', 'in_progress', 'completed', 'rejected'].includes(skill.exchangeStatus || '');
+  
+  return !hasBlockingStatus && 
+         skill.nbInscrits < skill.availableQuantity;
+}
 
 showExchangeMessage(skill: SkillWithExchangeStatus): boolean {
-  // Exclure le statut 'rejected' de l'affichage du message d'échange
+  // Afficher le message pour tous les statuts sauf 'available' ET 'rejected'
   return !!(skill.exchangeMessage && 
-           skill.exchangeStatus !== 'available' && 
+           skill.exchangeStatus && 
+           skill.exchangeStatus !== 'available' &&
            skill.exchangeStatus !== 'rejected');
 }
 
   hasLivestreamSession(skill: SkillWithExchangeStatus): boolean {
     return !!this.livestreamSessions[skill.id];
   }
+
+/**
+ * Crée un objet Date en combinant la date et l'heure de streaming
+ * @param streamingDate - Date au format string (ex: "2024-12-25")
+ * @param streamingTime - Heure au format string (ex: "14:30:00" ou "14:30")
+ * @returns Date - Objet Date combiné
+ */
+private createStreamingDateTime(streamingDate: string, streamingTime: string): Date {
+  // Créer la date de base
+  const date = new Date(streamingDate);
+  
+  // Parser l'heure (format attendu: "HH:mm:ss" ou "HH:mm")
+  const timeParts = streamingTime.split(':');
+  const hours = parseInt(timeParts[0], 10) || 0;
+  const minutes = parseInt(timeParts[1], 10) || 0;
+  const seconds = parseInt(timeParts[2], 10) || 0;
+  
+  // Définir l'heure sur la date
+  date.setHours(hours, minutes, seconds, 0);
+  
+  return date;
+}
+/**
+ * Vérifie si une compétence a une date/heure de streaming future
+ * @param skill - La compétence à vérifier
+ * @returns boolean - true si la date est future, false sinon
+ */
+private isSkillStreamingDateFuture(skill: Skill): boolean {
+  const currentDateTime = new Date();
+  const streamingDateTime = this.createStreamingDateTime(skill.streamingDate, skill.streamingTime);
+  return streamingDateTime > currentDateTime;
+}
 }
