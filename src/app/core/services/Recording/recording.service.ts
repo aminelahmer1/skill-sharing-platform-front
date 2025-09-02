@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, BehaviorSubject } from 'rxjs';
+import { Observable, BehaviorSubject, firstValueFrom } from 'rxjs';
 import { KeycloakService } from '../keycloak.service';
 
 export interface RecordingStatus {
@@ -13,10 +13,21 @@ export interface RecordingStatus {
 export interface RecordingResponse {
   recordingId: string;
   sessionId: number;
+  fileName: string;
+  skillName: string;
+  recordingNumber: number;
   status: string;
   startTime: Date;
   endTime?: Date;
+  duration?: number;
+  fileSize?: number;
   downloadUrl?: string;
+}
+
+export interface RecordingRequest {
+  format: string;
+  quality: string;
+  includeChat: boolean;
 }
 
 @Injectable({
@@ -34,82 +45,127 @@ export class RecordingService {
     private keycloakService: KeycloakService
   ) {}
 
-   async startRecording(sessionId: number): Promise<Observable<RecordingResponse>> {
+  private async getHeaders(): Promise<HttpHeaders> {
     const token = await this.keycloakService.getToken();
-    const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
+    return new HttpHeaders().set('Authorization', `Bearer ${token}`);
+  }
+
+  async startRecording(sessionId: number): Promise<RecordingResponse> {
+    const headers = await this.getHeaders();
     
-    const request = {
+    const request: RecordingRequest = {
       format: 'mp4',
       quality: 'high',
       includeChat: true
     };
 
-    return new Observable(observer => {
-      this.http.post<RecordingResponse>(
-        `${this.API_URL}/${sessionId}/recording/start`,
-        request,
-        { headers }
-      ).subscribe({
-        next: (response) => {
-          this.startRecordingTimer();
-          this.recordingStatusSubject.next({
-            isRecording: true,
-            startTime: new Date(response.startTime),
-            recordingId: response.recordingId
-          });
-          observer.next(response);
-          observer.complete();
-        },
-        error: (error) => {
-          observer.error(error);
-        }
+    try {
+      const response = await firstValueFrom(
+        this.http.post<RecordingResponse>(
+          `${this.API_URL}/${sessionId}/recording/start`,
+          request,
+          { headers }
+        )
+      );
+
+      this.startRecordingTimer();
+      this.recordingStatusSubject.next({
+        isRecording: true,
+        startTime: new Date(response.startTime),
+        recordingId: response.recordingId
       });
-    });
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
   }
 
-   async stopRecording(sessionId: number): Promise<Observable<void>> {
-    const token = await this.keycloakService.getToken();
-    const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
+  async stopRecording(sessionId: number): Promise<void> {
+    const headers = await this.getHeaders();
 
-    return new Observable(observer => {
-      this.http.post<void>(
-        `${this.API_URL}/${sessionId}/recording/stop`,
-        {},
-        { headers }
-      ).subscribe({
-        next: () => {
-          this.stopRecordingTimer();
-          this.recordingStatusSubject.next({ isRecording: false });
-          observer.next();
-          observer.complete();
-        },
-        error: (error) => {
-          observer.error(error);
-        }
-      });
-    });
+    try {
+      await firstValueFrom(
+        this.http.post<void>(
+          `${this.API_URL}/${sessionId}/recording/stop`,
+          {},
+          { headers }
+        )
+      );
+
+      this.stopRecordingTimer();
+      this.recordingStatusSubject.next({ isRecording: false });
+    } catch (error) {
+      throw error;
+    }
   }
 
-   async getRecordingStatus(sessionId: number): Promise<Observable<RecordingResponse>> {
-    const token = await this.keycloakService.getToken();
-    const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
+  async getRecordingStatus(sessionId: number): Promise<RecordingResponse> {
+    const headers = await this.getHeaders();
 
-    return this.http.get<RecordingResponse>(
-      `${this.API_URL}/${sessionId}/recording/status`,
-      { headers }
+    return firstValueFrom(
+      this.http.get<RecordingResponse>(
+        `${this.API_URL}/${sessionId}/recording/status`,
+        { headers }
+      )
     );
   }
 
-   async downloadRecording(sessionId: number): Promise<Observable<Blob>> {
-    const token = await this.keycloakService.getToken();
-    const headers = new HttpHeaders().set('Authorization', `Bearer ${token}`);
+  async getSessionRecordings(sessionId: number): Promise<RecordingResponse[]> {
+    const headers = await this.getHeaders();
 
-    return this.http.get(
-      `${this.API_URL}/recordings/${sessionId}`,
-      { 
-        headers,
-        responseType: 'blob'
-      }
+    return firstValueFrom(
+      this.http.get<RecordingResponse[]>(
+        `${this.API_URL}/${sessionId}/recordings`,
+        { headers }
+      )
+    );
+  }
+
+  async getUserRecordings(): Promise<RecordingResponse[]> {
+    const headers = await this.getHeaders();
+
+    return firstValueFrom(
+      this.http.get<RecordingResponse[]>(
+        `${this.API_URL}/recordings/user`,
+        { headers }
+      )
+    );
+  }
+
+  async getRecordingById(recordingId: number): Promise<RecordingResponse> {
+    const headers = await this.getHeaders();
+
+    return firstValueFrom(
+      this.http.get<RecordingResponse>(
+        `${this.API_URL}/recordings/${recordingId}`,
+        { headers }
+      )
+    );
+  }
+
+  async downloadRecording(recordingId: number): Promise<Blob> {
+    const headers = await this.getHeaders();
+
+    return firstValueFrom(
+      this.http.get(
+        `${this.API_URL}/recordings/download/${recordingId}`,
+        { 
+          headers,
+          responseType: 'blob'
+        }
+      )
+    );
+  }
+
+  async deleteRecording(recordingId: number): Promise<void> {
+    const headers = await this.getHeaders();
+
+    return firstValueFrom(
+      this.http.delete<void>(
+        `${this.API_URL}/recordings/${recordingId}`,
+        { headers }
+      )
     );
   }
 

@@ -6,7 +6,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RecordingService, RecordingStatus } from '../../../core/services/Recording/recording.service';
-import { Subject, takeUntil, firstValueFrom } from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-recording-controls',
@@ -51,12 +51,12 @@ export class RecordingControlsComponent implements OnInit, OnDestroy {
     
     try {
       if (this.recordingStatus?.isRecording) {
-        await firstValueFrom(await this.recordingService.stopRecording(this.sessionId));
+        // Remove firstValueFrom since stopRecording now returns Promise<void>
+        await this.recordingService.stopRecording(this.sessionId);
         this.showNotification('Enregistrement arrêté', 'success');
       } else {
-        const response = await firstValueFrom(
-          await this.recordingService.startRecording(this.sessionId)
-        );
+        // Remove firstValueFrom since startRecording now returns Promise<RecordingResponse>
+        const response = await this.recordingService.startRecording(this.sessionId);
         this.showNotification('Enregistrement démarré', 'success');
       }
     } catch (error) {

@@ -22,6 +22,7 @@ import { FinishedSkillsComponent } from './features/receiver/finished-skills/fin
 import { ProducerCalendarComponent } from './features/producer/producer-calendar/producer-calendar.component';
 import { ReceiverCalendarComponent } from './features/receiver/receiver-calendar/receiver-calendar.component';
 import { MessengerComponent } from './features/messaging/messenger/messenger.component';
+import { MesEnregistrementsComponent } from './features/mes-enregistrements/mes-enregistrements.component';
 
 export const routes: Routes = [
   { path: '', component: MainTemplateComponent },
@@ -39,7 +40,7 @@ export const routes: Routes = [
        { path: 'calendarP', component: ProducerCalendarComponent },
        { path: 'messenger', component: MessengerComponent },
       { path: 'livestream/:sessionId', component: LivestreamComponent },
-      
+      { path: 'enregistrements', component: MesEnregistrementsComponent },
       { path: '', redirectTo: '', pathMatch: 'full' }
     ],
   },
@@ -56,6 +57,7 @@ export const routes: Routes = [
        { path: 'finished-skills', component: FinishedSkillsComponent },
        { path: 'calendarR', component: ReceiverCalendarComponent },
        { path: 'messenger', component: MessengerComponent },
+       { path: 'enregistrements', component: MesEnregistrementsComponent },
       { path: '', redirectTo: '', pathMatch: 'full' },
       { path: 'livestream/:sessionId', component: LivestreamComponent },
     ],

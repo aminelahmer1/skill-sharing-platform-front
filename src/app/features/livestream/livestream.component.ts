@@ -4940,27 +4940,28 @@ private participantHasScreenShare(participantInfo: ParticipantInfo): boolean {
   }
 
   // Recording methods
-  async toggleRecording(): Promise<void> {
-    if (!this.isHost || this.isRecordingProcessing) return;
-    
-    this.isRecordingProcessing = true;
-    
-    try {
-      if (this.recordingStatus.isRecording) {
-        await firstValueFrom(await this.recordingService.stopRecording(this.sessionId));
-        this.showNotification('Enregistrement arrêté', 'success');
-      } else {
-        await firstValueFrom(await this.recordingService.startRecording(this.sessionId));
-        this.showNotification('Enregistrement démarré', 'success');
-      }
-    } catch (error) {
-      console.error('Recording toggle failed:', error);
-      this.showNotification('Erreur lors de l\'enregistrement', 'error');
-    } finally {
-      this.isRecordingProcessing = false;
+ async toggleRecording(): Promise<void> {
+  if (!this.isHost || this.isRecordingProcessing) return;
+  
+  this.isRecordingProcessing = true;
+  
+  try {
+    if (this.recordingStatus.isRecording) {
+      // Remove firstValueFrom since stopRecording now returns Promise<void>
+      await this.recordingService.stopRecording(this.sessionId);
+      this.showNotification('Enregistrement arrêté', 'success');
+    } else {
+      // Remove firstValueFrom since startRecording now returns Promise<RecordingResponse>
+      await this.recordingService.startRecording(this.sessionId);
+      this.showNotification('Enregistrement démarré', 'success');
     }
+  } catch (error) {
+    console.error('Recording toggle failed:', error);
+    this.showNotification('Erreur lors de l\'enregistrement', 'error');
+  } finally {
+    this.isRecordingProcessing = false;
   }
-
+}
  async endSession(): Promise<void> {
   if (!this.isHost) {
     console.warn('Only producer can end session');
