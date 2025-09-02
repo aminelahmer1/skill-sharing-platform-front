@@ -375,6 +375,11 @@
   border-radius: 8px; /* Moins arrondi comme receiver skills */
   font-weight: 500;
   text-align: center;
+  
+  /* AJOUTS POUR LE CENTRAGE */
+  margin: 0 auto; /* Centrage horizontal */
+  width: 100%; /* Prend toute la largeur disponible */
+  max-width: 300px; /* Largeur maximale pour éviter qu'il soit trop large */
 }
 
 .no-participants mat-icon {
@@ -382,6 +387,7 @@
   width: 18px;
   height: 18px;
   color: #f57c00;
+  flex-shrink: 0; /* Empêche l'icône de rétrécir */
 }
 
 /* Skill Rating Section */
