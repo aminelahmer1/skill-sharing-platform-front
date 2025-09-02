@@ -33,7 +33,7 @@ interface SkillWithExchangeStatus extends Skill {
 }
 
 interface SearchSuggestion {
-  type: 'skill' | 'category' | 'producer';
+  type: 'skill' | 'category' | 'producer' | 'filter';
   title: string;
   typeLabel: string;
   value: any;
@@ -554,8 +554,10 @@ private async loadSkills(): Promise<void> {
 
   // Search & Filter Methods
   onSearchChange(): void {
-    this.searchSubject.next(this.searchQuery);
-  }
+  this.selectedSuggestionIndex = -1; // Ajouter cette ligne
+  this.searchSubject.next(this.searchQuery);
+}
+
 
   private performSearch(query: string): void {
     if (!query) {
@@ -570,75 +572,212 @@ private async loadSkills(): Promise<void> {
     // Apply search filter
     this.applyFilters();
   }
-
   private generateSearchSuggestions(query: string): void {
-    const lowerQuery = query.toLowerCase();
-    this.searchSuggestions = [];
+  const lowerQuery = query.toLowerCase();
+  this.searchSuggestions = [];
 
-    // Search in skills
-    const matchingSkills = this.skills
-      .filter(skill => 
-        skill.name.toLowerCase().includes(lowerQuery) ||
-        skill.description.toLowerCase().includes(lowerQuery)
-      )
-      .slice(0, 3)
-      .map(skill => ({
-        type: 'skill' as const,
-        title: skill.name,
-        typeLabel: 'Compétence',
-        value: skill
-      }));
+  // Search in skills - AUGMENTÉ DE 3 À 8
+  const matchingSkills = this.skills
+    .filter(skill => 
+      skill.name.toLowerCase().includes(lowerQuery) ||
+      skill.description.toLowerCase().includes(lowerQuery)
+    )
+    .slice(0, 8) // Augmenté de 3 à 8
+    .map(skill => ({
+      type: 'skill' as const,
+      title: skill.name,
+      typeLabel: 'Compétence',
+      value: skill
+    }));
 
-    // Search in categories
-    const matchingCategories = this.categories
-      .filter(cat => cat.name.toLowerCase().includes(lowerQuery))
-      .slice(0, 2)
-      .map(cat => ({
-        type: 'category' as const,
-        title: cat.name,
-        typeLabel: 'Catégorie',
-        value: cat
-      }));
+  // Search in categories - AUGMENTÉ DE 2 À 5
+  const matchingCategories = this.categories
+    .filter(cat => cat.name.toLowerCase().includes(lowerQuery))
+    .slice(0, 5) // Augmenté de 2 à 5
+    .map(cat => ({
+      type: 'category' as const,
+      title: cat.name,
+      typeLabel: 'Catégorie',
+      value: cat
+    }));
 
-    // Search in producers
-    const matchingProducers = Object.entries(this.producerNames)
-      .filter(([_, name]) => name.toLowerCase().includes(lowerQuery))
-      .slice(0, 2)
-      .map(([id, name]) => ({
-        type: 'producer' as const,
-        title: name,
-        typeLabel: 'Producteur',
-        value: { id: parseInt(id), name }
-      }));
+  // Search in producers - AUGMENTÉ DE 2 À 6
+  const matchingProducers = Object.entries(this.producerNames)
+    .filter(([_, name]) => name.toLowerCase().includes(lowerQuery))
+    .slice(0, 6) // Augmenté de 2 à 6
+    .map(([id, name]) => ({
+      type: 'producer' as const,
+      title: name,
+      typeLabel: 'Producteur',
+      value: { id: parseInt(id), name }
+    }));
 
-    this.searchSuggestions = [
-      ...matchingSkills,
-      ...matchingCategories,
-      ...matchingProducers
-    ];
+  // NOUVELLE SECTION - Recherche dans les descriptions détaillées
+  const matchingDescriptions = this.skills
+    .filter(skill => {
+      const descMatch = skill.description.toLowerCase().includes(lowerQuery);
+      const notAlreadyInSkills = !matchingSkills.some(s => s.value.id === skill.id);
+      return descMatch && notAlreadyInSkills;
+    })
+    .slice(0, 4)
+    .map(skill => ({
+      type: 'skill' as const,
+      title: `${skill.name} (description)`,
+      typeLabel: 'Compétence - Description',
+      value: skill
+    }));
 
-    this.showSuggestions = this.searchSuggestions.length > 0;
-  }
+  // NOUVELLE SECTION - Recherche par prix approximatif
+  const queryAsNumber = parseFloat(query);
+  const priceMatches = !isNaN(queryAsNumber) ? this.skills
+    .filter(skill => {
+      const priceDiff = Math.abs(skill.price - queryAsNumber);
+      return priceDiff <= 50; // Tolérance de ±50 TND
+    })
+    .slice(0, 3)
+    .map(skill => ({
+      type: 'skill' as const,
+      title: `${skill.name} (${skill.price} TND)`,
+      typeLabel: 'Prix similaire',
+      value: skill
+    })) : [];
 
+  // NOUVELLE SECTION - Suggestions de dates si applicable
+  const dateKeywords = ['aujourd', 'demain', 'semaine', 'mois'];
+  const dateMatches = dateKeywords.filter(keyword => 
+    keyword.includes(lowerQuery) || lowerQuery.includes(keyword)
+  ).map(keyword => ({
+    type: 'filter' as any,
+    title: `Filtrer par ${keyword}`,
+    typeLabel: 'Filtre rapide',
+    value: keyword
+  }));
+
+  // Combiner toutes les suggestions avec limite globale
+  this.searchSuggestions = [
+    ...matchingSkills,
+    ...matchingCategories,
+    ...matchingProducers,
+    ...matchingDescriptions,
+    ...priceMatches,
+    ...dateMatches
+  ].slice(0, 15); // Limite globale augmentée à 15
+
+  this.showSuggestions = this.searchSuggestions.length > 0;
+}
 selectSuggestion(suggestion: SearchSuggestion): void {
   this.showSuggestions = false;
   
   switch (suggestion.type) {
     case 'skill':
-      this.searchQuery = suggestion.title;
+      // Nettoyer le titre des annotations ajoutées
+      this.searchQuery = suggestion.title
+        .replace(' (description)', '')
+        .replace(/ \(\d+.*TND\)$/, '');
       break;
+      
     case 'category':
-      // CORRECTION: Assurer la cohérence avec le type utilisé dans les filtres
-      this.selectedCategory = suggestion.value.id; // Garder comme number
+      this.selectedCategory = suggestion.value.id;
       this.searchQuery = '';
       break;
+      
     case 'producer':
       this.searchQuery = suggestion.title;
       break;
+      
+    case 'filter':
+      this.searchQuery = '';
+      this.handleQuickFilter(suggestion.value);
+      break;
+      
+    default:
+      this.searchQuery = suggestion.title;
   }
   
   this.applyFilters();
 }
+
+refineSearch(): void {
+  this.showSuggestions = false;
+  this.showFilters = true;
+  
+  // Scroll vers les filtres après un court délai
+  setTimeout(() => {
+    const filtersElement = document.querySelector('.filters-panel');
+    if (filtersElement) {
+      filtersElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 100);
+}
+
+/**
+ * Gère les filtres rapides basés sur les suggestions de date
+ */
+private handleQuickFilter(filterType: string): void {
+  switch (filterType) {
+    case 'aujourd':
+      this.selectedDateRange = 'today';
+      break;
+    case 'semaine':
+      this.selectedDateRange = 'week';
+      break;
+    case 'mois':
+      this.selectedDateRange = 'month';
+      break;
+    default:
+      // Pour d'autres filtres rapides futurs
+      console.log('Filtre rapide non géré:', filterType);
+      break;
+  }
+}
+
+// Ajouter cette méthode dans votre classe ReceiverskillsComponent
+onSearchInputKeyDown(event: KeyboardEvent): void {
+  if (!this.showSuggestions || this.searchSuggestions.length === 0) return;
+  
+  switch (event.key) {
+    case 'ArrowDown':
+      event.preventDefault();
+      this.navigateSuggestions(1);
+      break;
+    case 'ArrowUp':
+      event.preventDefault();
+      this.navigateSuggestions(-1);
+      break;
+    case 'Enter':
+      event.preventDefault();
+      if (this.selectedSuggestionIndex >= 0) {
+        this.selectSuggestion(this.searchSuggestions[this.selectedSuggestionIndex]);
+      }
+      break;
+    case 'Escape':
+      this.showSuggestions = false;
+      break;
+  }
+}
+
+// Aussi ajouter ces propriétés dans votre classe :
+private selectedSuggestionIndex: number = -1;
+
+// Et ces méthodes :
+private navigateSuggestions(direction: number): void {
+  const maxIndex = this.searchSuggestions.length - 1;
+  
+  if (direction > 0) {
+    this.selectedSuggestionIndex = Math.min(this.selectedSuggestionIndex + 1, maxIndex);
+  } else {
+    this.selectedSuggestionIndex = Math.max(this.selectedSuggestionIndex - 1, -1);
+  }
+}
+
+// Modifier votre méthode onSearchChange existante :
+
+
+
+
+
+
+
   clearSearch(): void {
     this.searchQuery = '';
     this.showSuggestions = false;
@@ -653,8 +792,8 @@ selectSuggestion(suggestion: SearchSuggestion): void {
   let filtered = [...this.skills];
 
   // Text search with scoring
-  if (this.searchQuery) {
-    const query = this.searchQuery.toLowerCase();
+  if (this.searchQuery && this.searchQuery.trim() !== '') {
+    const query = this.searchQuery.toLowerCase().trim();
     filtered = filtered.map(skill => {
       let score = 0;
       
@@ -683,36 +822,46 @@ selectSuggestion(suggestion: SearchSuggestion): void {
     }).filter(skill => skill.searchMatchScore > 0);
   }
 
-  // Category filter
-  if (this.selectedCategory !== null) {
-    filtered = filtered.filter(skill => 
-      skill.categoryId === this.selectedCategory
-    );
+  // Category filter - CORRECTION PRINCIPALE
+  if (this.selectedCategory !== null && 
+      this.selectedCategory !== undefined &&
+      String(this.selectedCategory) !== '') {
+    
+    const categoryId = typeof this.selectedCategory === 'string' ? 
+      parseInt(this.selectedCategory) : this.selectedCategory;
+    
+    // Vérifier que categoryId est un nombre valide
+    if (!isNaN(categoryId) && categoryId > 0) {
+      filtered = filtered.filter(skill => 
+        skill.categoryId === categoryId
+      );
+    }
   }
 
   // Price filter
-  if (this.priceRange.min !== null) {
+  if (this.priceRange.min !== null && !isNaN(this.priceRange.min)) {
     filtered = filtered.filter(skill => 
       skill.price >= this.priceRange.min!
     );
   }
-  if (this.priceRange.max !== null) {
+  if (this.priceRange.max !== null && !isNaN(this.priceRange.max)) {
     filtered = filtered.filter(skill => 
       skill.price <= this.priceRange.max!
     );
   }
 
   // Date filter
-  if (this.selectedDateRange) {
+  if (this.selectedDateRange && this.selectedDateRange.trim() !== '') {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
     filtered = filtered.filter(skill => {
       const skillDate = new Date(skill.streamingDate);
+      skillDate.setHours(0, 0, 0, 0);
       
       switch (this.selectedDateRange) {
         case 'today':
-          return skillDate.toDateString() === today.toDateString();
+          return skillDate.getTime() === today.getTime();
         case 'week':
           const weekEnd = new Date(today);
           weekEnd.setDate(weekEnd.getDate() + 7);
@@ -726,17 +875,9 @@ selectSuggestion(suggestion: SearchSuggestion): void {
       }
     });
   }
-  if (this.selectedCategory !== null  && this.selectedCategory !== undefined) {
-    const categoryId = typeof this.selectedCategory === 'string' ? 
-      parseInt(this.selectedCategory) : this.selectedCategory;
-    
-    filtered = filtered.filter(skill => 
-      skill.categoryId === categoryId
-    );
-  }
 
   // Availability filter
-  if (this.selectedAvailability) {
+  if (this.selectedAvailability && this.selectedAvailability.trim() !== '') {
     filtered = filtered.filter(skill => {
       const remainingSeats = skill.availableQuantity - skill.nbInscrits;
       const percentageFull = skill.nbInscrits / skill.availableQuantity;
@@ -754,8 +895,8 @@ selectSuggestion(suggestion: SearchSuggestion): void {
     });
   }
 
-  // Status filter - REMOVED DUPLICATE AND FIXED
-  if (this.selectedStatus) {
+  // Status filter
+  if (this.selectedStatus && this.selectedStatus.trim() !== '') {
     filtered = filtered.filter(skill => {
       switch (this.selectedStatus) {
         case 'notReserved':

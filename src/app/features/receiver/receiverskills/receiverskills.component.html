@@ -1,24 +1,77 @@
-<!-- receiverskills.component.html -->
+<!-- receiverskills.component.html - VERSION CORRIGÉE -->
 <div class="skills-container">
   
   <!-- Section de recherche et filtrage -->
   <div class="search-filter-section">
-    <!-- Barre de recherche principale -->
-    <div class="search-bar-container">
-      <mat-icon class="search-icon">search</mat-icon>
-      <input 
-        type="text" 
-        class="search-input"
-        placeholder="Rechercher une compétence, catégorie ou producteur..."
-        [(ngModel)]="searchQuery"
-        (input)="onSearchChange()"
-        #searchInput>
-      <button 
-        *ngIf="searchQuery" 
-        class="clear-search-btn"
-        (click)="clearSearch()">
-        <mat-icon>close</mat-icon>
-      </button>
+    
+    <!-- CORRECTION: Container de recherche avec position relative -->
+    <div class="search-container">
+      <!-- Barre de recherche principale -->
+      <div class="search-bar-container">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input 
+          type="text" 
+          class="search-input"
+          placeholder="Rechercher une compétence, catégorie ou producteur..."
+          [(ngModel)]="searchQuery"
+          (input)="onSearchChange()"
+          (keydown)="onSearchInputKeyDown($event)"
+          #searchInput>
+        <button 
+          *ngIf="searchQuery" 
+          class="clear-search-btn"
+          (click)="clearSearch()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <!-- CORRECTION: Suggestions améliorées avec plus d'options -->
+      <div class="search-suggestions" *ngIf="showSuggestions && searchSuggestions.length > 0">
+        
+        <!-- Compteur de suggestions -->
+        <div class="suggestions-count" *ngIf="searchSuggestions.length > 10">
+          {{ searchSuggestions.length }} suggestions trouvées
+        </div>
+        
+        <!-- Liste des suggestions avec attributs data-type -->
+        <div class="suggestion-item" 
+             *ngFor="let suggestion of searchSuggestions"
+             [attr.data-type]="suggestion.type"
+             (click)="selectSuggestion(suggestion)">
+          
+          <!-- Icônes dynamiques selon le type -->
+          <mat-icon>
+            <ng-container [ngSwitch]="suggestion.type">
+              <span *ngSwitchCase="'skill'">school</span>
+              <span *ngSwitchCase="'category'">category</span>
+              <span *ngSwitchCase="'producer'">person</span>
+              <span *ngSwitchCase="'filter'">filter_alt</span>
+              <span *ngSwitchDefault>search</span>
+            </ng-container>
+          </mat-icon>
+          
+          <div class="suggestion-content">
+            <span class="suggestion-title">{{ suggestion.title }}</span>
+            <span class="suggestion-type">{{ suggestion.typeLabel }}</span>
+          </div>
+          
+          <!-- Badge pour les nouveaux types -->
+          <span class="suggestion-badge" 
+                *ngIf="suggestion.type === 'filter'" 
+                style="background: #9c27b0; color: white; padding: 2px 6px; border-radius: 8px; font-size: 10px;">
+            RAPIDE
+          </span>
+        </div>
+        
+        <!-- Message "Affiner la recherche" si beaucoup de résultats -->
+        <div class="suggestions-more" 
+             *ngIf="searchSuggestions.length >= 15"
+             (click)="refineSearch()">
+          <mat-icon style="font-size: 14px; vertical-align: middle;">tune</mat-icon>
+          Affiner la recherche pour plus de précision
+        </div>
+        
+      </div>
     </div>
 
     <!-- Bouton pour afficher/masquer les filtres -->
@@ -89,24 +142,24 @@
             <mat-option value="today">Aujourd'hui</mat-option>
             <mat-option value="week">Cette semaine</mat-option>
             <mat-option value="month">Ce mois</mat-option>
-           
           </mat-select>
         </div>
-<!-- Filtre par statut de réservation -->
-<div class="filter-group">
-  <label class="filter-label">
-    <mat-icon>assignment_turned_in</mat-icon>
-    Statut de réservation
-  </label>
-  <mat-select 
-    [(value)]="selectedStatus"
-    (selectionChange)="applyFilters()">
-    <mat-option value="">Tous les statuts</mat-option>
-    <mat-option value="notReserved">Non réservé</mat-option>
-    <mat-option value="pending">En attente</mat-option>
-    <mat-option value="rejected">Rejeté</mat-option>
-  </mat-select>
-</div>
+
+        <!-- Filtre par statut de réservation -->
+        <div class="filter-group">
+          <label class="filter-label">
+            <mat-icon>assignment_turned_in</mat-icon>
+            Statut de réservation
+          </label>
+          <mat-select 
+            [(value)]="selectedStatus"
+            (selectionChange)="applyFilters()">
+            <mat-option value="">Tous les statuts</mat-option>
+            <mat-option value="notReserved">Non réservé</mat-option>
+            <mat-option value="pending">En attente</mat-option>
+            <mat-option value="rejected">Rejeté</mat-option>
+          </mat-select>
+        </div>
 
         <!-- Tri -->
         <div class="filter-group">
@@ -153,11 +206,11 @@
         "{{ searchQuery }}"
         <button (click)="clearSearch()">×</button>
       </span>
-     <span class="filter-tag" *ngIf="selectedCategory !== null">
-  <mat-icon>category</mat-icon>
-  {{ getCategoryName(selectedCategory) }}
-  <button (click)="selectedCategory = null; applyFilters()">×</button>
-</span>
+      <span class="filter-tag" *ngIf="selectedCategory !== null">
+        <mat-icon>category</mat-icon>
+        {{ getCategoryName(selectedCategory) }}
+        <button (click)="selectedCategory = null; applyFilters()">×</button>
+      </span>
       <span class="filter-tag" *ngIf="priceRange.min || priceRange.max">
         <mat-icon>monetization_on</mat-icon>
         {{ priceRange.min || 0 }} - {{ priceRange.max || '∞' }} TND
@@ -178,19 +231,6 @@
         {{ getStatusLabel(selectedStatus) }}
         <button (click)="selectedStatus = ''; applyFilters()">×</button>
       </span>
-    </div>
-  </div>
-
-  <!-- Suggestions de recherche -->
-  <div class="search-suggestions" *ngIf="showSuggestions && searchSuggestions.length > 0">
-    <div class="suggestion-item" 
-         *ngFor="let suggestion of searchSuggestions"
-         (click)="selectSuggestion(suggestion)">
-      <mat-icon>{{ suggestion.type === 'skill' ? 'school' : suggestion.type === 'category' ? 'category' : 'person' }}</mat-icon>
-      <div class="suggestion-content">
-        <span class="suggestion-title">{{ suggestion.title }}</span>
-        <span class="suggestion-type">{{ suggestion.typeLabel }}</span>
-      </div>
     </div>
   </div>
   
@@ -276,7 +316,7 @@
           </div>
           
           <!-- Exchange Status Display -->
-        <div class="exchange-status" *ngIf="showExchangeMessage(skill)">
+          <div class="exchange-status" *ngIf="showExchangeMessage(skill)">
             <div class="status-info">
               <mat-icon>swap_horiz</mat-icon>
               <span>{{ skill.exchangeMessage }}</span>
@@ -288,7 +328,7 @@
           </div>
           
           <!-- Session Status Display -->
-         <div class="session-status" *ngIf="hasLivestreamSession(skill)">
+          <div class="session-status" *ngIf="hasLivestreamSession(skill)">
             <div class="session-info">
               <mat-icon>live_tv</mat-icon>
               <span>Session: </span>
@@ -308,7 +348,7 @@
         
         <mat-card-actions>
           <!-- Reserve Button for Available Skills -->
-         <button mat-raised-button 
+          <button mat-raised-button 
                   color="primary"
                   *ngIf="canReserve(skill)"
                   (click)="reserveSkill(skill)"
@@ -319,36 +359,36 @@
           </button>
           
           <!-- Status-based action messages -->
-   <div class="action-status" *ngIf="!canReserve(skill)">
-  <ng-container [ngSwitch]="skill.exchangeStatus">
-    
-    <!-- Pending Status -->
-    <div *ngSwitchCase="'pending'" class="pending-status">
-      <mat-icon color="accent">hourglass_empty</mat-icon>
-      <span>Demande envoyée - En attente de validation</span>
-    </div>
-    
-    <!-- Rejected Status - MAINTENANT CORRECTEMENT AFFICHÉ -->
-    <div *ngSwitchCase="'rejected'" class="rejected-status">
-      <mat-icon color="warn">cancel</mat-icon>
-      <div class="rejected-content">
-        <span>Demande rejetée</span>
-        <small *ngIf="skill.rejectionReason" class="rejection-reason">
-          Raison: {{ skill.rejectionReason }}
-        </small>
-        <small class="rejection-note">Cette compétence n'est plus disponible pour vous</small>
-      </div>
-    </div>
-    
-    <!-- Full Capacity - seulement si pas rejeté -->
-    <div *ngSwitchDefault class="full-capacity" 
-         [style.display]="skill.nbInscrits >= skill.availableQuantity && skill.exchangeStatus !== 'rejected' ? 'flex' : 'none'">
-      <mat-icon color="warn">people</mat-icon>
-      <span>Complet - Plus de places disponibles</span>
-    </div>
-    
-  </ng-container>
-</div>
+          <div class="action-status" *ngIf="!canReserve(skill)">
+            <ng-container [ngSwitch]="skill.exchangeStatus">
+              
+              <!-- Pending Status -->
+              <div *ngSwitchCase="'pending'" class="pending-status">
+                <mat-icon color="accent">hourglass_empty</mat-icon>
+                <span>Demande envoyée - En attente de validation</span>
+              </div>
+              
+              <!-- Rejected Status -->
+              <div *ngSwitchCase="'rejected'" class="rejected-status">
+                <mat-icon color="warn">cancel</mat-icon>
+                <div class="rejected-content">
+                  <span>Demande rejetée</span>
+                  <small *ngIf="skill.rejectionReason" class="rejection-reason">
+                    Raison: {{ skill.rejectionReason }}
+                  </small>
+                  <small class="rejection-note">Cette compétence n'est plus disponible pour vous</small>
+                </div>
+              </div>
+              
+              <!-- Full Capacity -->
+              <div *ngSwitchDefault class="full-capacity" 
+                   [style.display]="skill.nbInscrits >= skill.availableQuantity && skill.exchangeStatus !== 'rejected' ? 'flex' : 'none'">
+                <mat-icon color="warn">people</mat-icon>
+                <span>Complet - Plus de places disponibles</span>
+              </div>
+              
+            </ng-container>
+          </div>
         </mat-card-actions>
       </mat-card>
     </div>
