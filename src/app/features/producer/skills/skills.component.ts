@@ -106,7 +106,8 @@ export class SkillsComponent implements OnInit {
 
   deleteSkill(id: number): void {
     const dialogRef = this.dialog.open(ConfirmationDialogComponent, {
-      width: '350px',
+      width: '450px',
+      panelClass: 'centered-confirmation-dialog',
       data: {
         title: 'Confirmer la suppression',
         message: 'Êtes-vous sûr de vouloir supprimer cette compétence ?',

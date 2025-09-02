@@ -623,3 +623,11 @@ mat-progress-bar .mat-progress-bar-fill::after {
 .disabled-edit-btn mat-icon[aria-hidden="true"] {
   opacity: 0.6;
 }
+.centered-confirmation-dialog .mat-mdc-dialog-title {
+  text-align: center !important;
+}
+
+.centered-confirmation-dialog .mat-mdc-dialog-actions {
+  justify-content: center !important;
+  gap: 16px !important;
+}
