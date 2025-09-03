@@ -1,3 +1,4 @@
+// producer-calendar.component.ts
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
@@ -6,6 +7,8 @@ import { CalendarService } from '../../../core/services/calendar/calendar.servic
 import { CalendarEvent, CalendarView } from '../../../models/calendar/calendar-event';
 import { Subject, takeUntil, finalize } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
+import { ProducerLivestreamConfirmationDialogComponent } from './producer-livestream-confirmation-dialog/producer-livestream-confirmation-dialog.component';
 
 @Component({
   selector: 'app-producer-calendar',
@@ -32,8 +35,9 @@ export class ProducerCalendarComponent implements OnInit, OnDestroy {
 
   constructor(
     private calendarService: CalendarService,
-    private router: Router,    private snackBar: MatSnackBar
-
+    private router: Router,
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog
   ) {}
 
   ngOnInit(): void {
@@ -48,11 +52,8 @@ export class ProducerCalendarComponent implements OnInit, OnDestroy {
   }
 
   private loadInitialData(): void {
-    // Charger les données de manière séquentielle pour éviter les conflits
     this.loading = true;
     this.error = null;
-    
-    // D'abord charger les événements principaux
     this.loadEvents();
   }
 
@@ -76,7 +77,6 @@ export class ProducerCalendarComponent implements OnInit, OnDestroy {
           console.log('Events loaded:', events.length);
           this.events = events || [];
           this.calculateStats();
-          // Charger les événements à venir après les événements principaux
           this.loadUpcomingEvents();
         },
         error: (error) => {
@@ -111,7 +111,6 @@ export class ProducerCalendarComponent implements OnInit, OnDestroy {
   private calculateStats(): void {
     const now = new Date();
     
-    // Calcul sécurisé des statistiques
     this.stats = {
       totalSessions: this.events?.length || 0,
       upcomingSessions: (this.events || []).filter(e => {
@@ -130,37 +129,122 @@ export class ProducerCalendarComponent implements OnInit, OnDestroy {
     console.log('Stats calculated:', this.stats);
   }
 
- onEventClick(event: CalendarEvent): void {
-  if (!event) return;
-  
-  console.log('Event clicked:', event);
-  
-  // Vérifier d'abord s'il y a une session active pour cette compétence
-  this.calendarService.getSessionBySkillId(event.skillId).subscribe({
-    next: (session) => {
-      if (session && session.status === 'LIVE') {
-        // Session en cours - rejoindre directement
-        console.log('Active session found, joining:', session.id);
-        this.router.navigate(['/producer/livestream', session.id]);
-      } else if (event.status === 'ACCEPTED' || event.status === 'SCHEDULED') {
-        // Pas de session active mais événement accepté - créer et démarrer
-        this.startLiveSession(event);
-      } else if (event.status === 'PENDING') {
-        // Événement en attente - aller aux demandes
-        this.router.navigate(['/producer/requests']);
-      } else {
-        console.log('Event details:', event);
+  /**
+   * Gestion du clic sur un événement
+   * - Si session LIVE existante : rejoindre directement (SANS popup)
+   * - Si pas de session : créer avec popup de confirmation
+   */
+  onEventClick(event: CalendarEvent): void {
+    if (!event) return;
+    
+    console.log('Event clicked:', event);
+    
+    // Vérifier d'abord s'il y a une session active pour cette compétence
+    this.calendarService.getSessionBySkillId(event.skillId).subscribe({
+      next: (session) => {
+        if (session && session.status === 'LIVE') {
+          // Session en cours - rejoindre directement SANS confirmation
+          console.log('Active session found, joining immediately:', session.id);
+          this.joinExistingSession(session.id);
+        } else if (event.status === 'ACCEPTED' || event.status === 'SCHEDULED') {
+          // Pas de session active mais événement accepté - créer AVEC confirmation
+          this.showCreateSessionConfirmation(event);
+        } else if (event.status === 'PENDING') {
+          // Événement en attente - aller aux demandes
+          this.router.navigate(['/producer/requests']);
+        } else {
+          console.log('Event details:', event);
+        }
+      },
+      error: (error) => {
+        console.error('Error checking session status:', error);
+        // En cas d'erreur, essayer de créer si l'événement le permet
+        if (event.status === 'ACCEPTED' || event.status === 'SCHEDULED') {
+          this.showCreateSessionConfirmation(event);
+        }
       }
-    },
-    error: (error) => {
-      console.error('Error checking session status:', error);
-      // En cas d'erreur, essayer de démarrer si l'événement le permet
-      if (event.status === 'ACCEPTED' || event.status === 'SCHEDULED') {
-        this.startLiveSession(event);
-      }
+    });
+  }
+
+  /**
+   * Rejoindre une session existante (SANS popup de confirmation)
+   */
+  private joinExistingSession(sessionId: number): void {
+    console.log('Joining existing session:', sessionId);
+    this.showNotification('Connexion à votre livestream en cours...');
+    
+    setTimeout(() => {
+      this.router.navigate(['/producer/livestream', sessionId]);
+    }, 500);
+  }
+
+  /**
+   * Afficher le popup de confirmation pour créer une nouvelle session
+   */
+  // Dans producer-calendar.component.ts - méthode showCreateSessionConfirmation
+private showCreateSessionConfirmation(event: CalendarEvent): void {
+  const dialogRef = this.dialog.open(ProducerLivestreamConfirmationDialogComponent, {
+    width: '420px',
+    maxWidth: '90vw',
+    maxHeight: '90vh',
+    disableClose: false,
+    hasBackdrop: true,
+    backdropClass: 'custom-backdrop',
+    panelClass: 'custom-dialog-panel',
+    data: {
+      skillName: event.skillName,
+      skillId: event.skillId
+    }
+  });
+
+  dialogRef.afterClosed().subscribe(confirmed => {
+    if (confirmed) {
+      this.createAndStartSession(event);
     }
   });
 }
+
+  /**
+   * Créer et démarrer une nouvelle session
+   */
+  private createAndStartSession(event: CalendarEvent): void {
+    console.log('Creating and starting new session for skill:', event.skillId);
+    this.loading = true;
+    
+    this.calendarService.createSession(event.skillId, true).subscribe({
+      next: (session) => {
+        console.log('Session created successfully:', session.id);
+        this.loading = false;
+        this.showNotification('Session créée avec succès ! Redirection...');
+        
+        // Naviguer vers la session après un court délai
+        setTimeout(() => {
+          this.router.navigate(['/producer/livestream', session.id]);
+        }, 1000);
+      },
+      error: (error) => {
+        console.error('Error creating session:', error);
+        this.loading = false;
+        this.showNotification('Erreur lors de la création de la session');
+      }
+    });
+  }
+
+  /**
+   * Méthode publique pour démarrer une session depuis le template (boutons)
+   */
+  startLiveSession(event: CalendarEvent): void {
+    if (!event) return;
+    this.showCreateSessionConfirmation(event);
+  }
+
+  private showNotification(message: string): void {
+    this.snackBar.open(message, 'Fermer', {
+      duration: 3000,
+      horizontalPosition: 'center',
+      verticalPosition: 'bottom'
+    });
+  }
 
   onDateClick(date: Date): void {
     console.log('Date clicked:', date);
@@ -171,38 +255,8 @@ export class ProducerCalendarComponent implements OnInit, OnDestroy {
     this.calendarService.updateView(view);
   }
 
-  startLiveSession(event: CalendarEvent): void {
-  if (!event) return;
-  
-  console.log('Starting live session for skill:', event.skillId);
-  
-  // Créer et démarrer la session immédiatement
-  this.calendarService.createSession(event.skillId, true).subscribe({
-    next: (session) => {
-      console.log('Session created successfully:', session.id);
-      this.showNotification('Session créée, redirection...', 'success');
-      
-      // Naviguer vers la session
-      setTimeout(() => {
-        this.router.navigate(['/producer/livestream', session.id]);
-      }, 1000);
-    },
-    error: (error) => {
-      console.error('Error creating session:', error);
-      this.showNotification('Erreur lors de la création de la session', 'error');
-    }
-  });
-}
-private showNotification(message: string, action: string = 'Fermer'): void {
-    this.snackBar.open(message, action, {
-      duration: 3000,
-      horizontalPosition: 'center',
-      verticalPosition: 'bottom'
-    });
-  }
   viewExchangeDetails(event: CalendarEvent): void {
     if (!event) return;
-    
     this.router.navigate(['/producer/requests'], {
       queryParams: { exchangeId: event.id }
     });
