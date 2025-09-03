@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Observable, BehaviorSubject, map, catchError, of, throwError, forkJoin } from 'rxjs';
 import { CalendarEvent, CalendarView, CalendarDay, CalendarWeek, CalendarMonth, CalendarFilter } from '../../../models/calendar/calendar-event';
+import { LivestreamSession } from '../../../models/LivestreamSession/livestream-session';
+import { LivestreamService } from '../LiveStream/livestream.service';
 
 // Interface étendue pour les skills sans échanges
 interface ExtendedCalendarEvent extends CalendarEvent {
@@ -30,7 +32,7 @@ export class CalendarService {
   currentView$ = this.currentViewSubject.asObservable();
   events$ = this.eventsSubject.asObservable();
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient,private livestreamService: LivestreamService) {
     console.log('CalendarService initialized');
     this.initializeCalendar();
   }
@@ -432,4 +434,12 @@ export class CalendarService {
     }
     return '';
   }
+
+  getSessionBySkillId(skillId: number): Observable<LivestreamSession | null> {
+  return this.livestreamService.getSessionBySkillId(skillId);
+}
+
+createSession(skillId: number, immediate: boolean): Observable<LivestreamSession> {
+  return this.livestreamService.createSession(skillId, immediate);
+}
 }

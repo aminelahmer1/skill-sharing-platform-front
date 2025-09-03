@@ -5,6 +5,7 @@ import { CalendarBaseComponent } from '../../shared/calendar-base/calendar-base.
 import { CalendarService } from '../../../core/services/calendar/calendar.service';
 import { CalendarEvent, CalendarView } from '../../../models/calendar/calendar-event';
 import { Subject, takeUntil, finalize } from 'rxjs';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-producer-calendar',
@@ -31,7 +32,8 @@ export class ProducerCalendarComponent implements OnInit, OnDestroy {
 
   constructor(
     private calendarService: CalendarService,
-    private router: Router
+    private router: Router,    private snackBar: MatSnackBar
+
   ) {}
 
   ngOnInit(): void {
@@ -128,19 +130,37 @@ export class ProducerCalendarComponent implements OnInit, OnDestroy {
     console.log('Stats calculated:', this.stats);
   }
 
-  onEventClick(event: CalendarEvent): void {
-    if (!event) return;
-    
-    console.log('Event clicked:', event);
-    
-    if (event.status === 'IN_PROGRESS') {
-      this.router.navigate(['/producer/livestream', event.id]);
-    } else if (event.status === 'PENDING') {
-      this.router.navigate(['/producer/requests']);
-    } else {
-      console.log('Event details:', event);
+ onEventClick(event: CalendarEvent): void {
+  if (!event) return;
+  
+  console.log('Event clicked:', event);
+  
+  // Vérifier d'abord s'il y a une session active pour cette compétence
+  this.calendarService.getSessionBySkillId(event.skillId).subscribe({
+    next: (session) => {
+      if (session && session.status === 'LIVE') {
+        // Session en cours - rejoindre directement
+        console.log('Active session found, joining:', session.id);
+        this.router.navigate(['/producer/livestream', session.id]);
+      } else if (event.status === 'ACCEPTED' || event.status === 'SCHEDULED') {
+        // Pas de session active mais événement accepté - créer et démarrer
+        this.startLiveSession(event);
+      } else if (event.status === 'PENDING') {
+        // Événement en attente - aller aux demandes
+        this.router.navigate(['/producer/requests']);
+      } else {
+        console.log('Event details:', event);
+      }
+    },
+    error: (error) => {
+      console.error('Error checking session status:', error);
+      // En cas d'erreur, essayer de démarrer si l'événement le permet
+      if (event.status === 'ACCEPTED' || event.status === 'SCHEDULED') {
+        this.startLiveSession(event);
+      }
     }
-  }
+  });
+}
 
   onDateClick(date: Date): void {
     console.log('Date clicked:', date);
@@ -152,16 +172,34 @@ export class ProducerCalendarComponent implements OnInit, OnDestroy {
   }
 
   startLiveSession(event: CalendarEvent): void {
-    if (!event) return;
-    
-    if (event.status === 'SCHEDULED' || event.status === 'ACCEPTED') {
-      console.log('Starting live session for skill:', event.skillId);
-      this.router.navigate(['/producer/livestream', event.skillId], {
-        queryParams: { immediate: true }
-      });
+  if (!event) return;
+  
+  console.log('Starting live session for skill:', event.skillId);
+  
+  // Créer et démarrer la session immédiatement
+  this.calendarService.createSession(event.skillId, true).subscribe({
+    next: (session) => {
+      console.log('Session created successfully:', session.id);
+      this.showNotification('Session créée, redirection...', 'success');
+      
+      // Naviguer vers la session
+      setTimeout(() => {
+        this.router.navigate(['/producer/livestream', session.id]);
+      }, 1000);
+    },
+    error: (error) => {
+      console.error('Error creating session:', error);
+      this.showNotification('Erreur lors de la création de la session', 'error');
     }
+  });
+}
+private showNotification(message: string, action: string = 'Fermer'): void {
+    this.snackBar.open(message, action, {
+      duration: 3000,
+      horizontalPosition: 'center',
+      verticalPosition: 'bottom'
+    });
   }
-
   viewExchangeDetails(event: CalendarEvent): void {
     if (!event) return;
     

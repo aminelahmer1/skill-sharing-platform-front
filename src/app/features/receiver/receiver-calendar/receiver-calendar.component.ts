@@ -5,6 +5,8 @@ import { CalendarBaseComponent } from '../../shared/calendar-base/calendar-base.
 import { CalendarService } from '../../../core/services/calendar/calendar.service';
 import { CalendarEvent, CalendarView } from '../../../models/calendar/calendar-event';
 import { Subject, takeUntil, finalize } from 'rxjs';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { LivestreamSession } from '../../../models/LivestreamSession/livestream-session';
 
 @Component({
   selector: 'app-receiver-calendar',
@@ -33,7 +35,9 @@ export class ReceiverCalendarComponent implements OnInit, OnDestroy {
 
   constructor(
     private calendarService: CalendarService,
-    private router: Router
+    private router: Router,
+    private snackBar: MatSnackBar
+
   ) {}
 
   ngOnInit(): void {
@@ -162,13 +166,27 @@ export class ReceiverCalendarComponent implements OnInit, OnDestroy {
     
     console.log('Event clicked:', event);
     
-    if (event.status === 'IN_PROGRESS') {
-      this.joinLiveSession(event);
-    } else if (event.status === 'SCHEDULED' || event.status === 'ACCEPTED') {
-      this.viewSessionDetails(event);
-    } else if (event.status === 'COMPLETED') {
-      this.viewCompletedSession(event);
-    }
+    // Chercher une session active pour cette compétence
+    this.calendarService.getSessionBySkillId(event.skillId).subscribe({
+      next: (session) => {
+        if (session && session.status === 'LIVE') {
+          // Session en cours - rejoindre
+          console.log('Active session found, joining:', session.id);
+          this.joinLiveSession(session);
+        } else if (event.status === 'COMPLETED') {
+          // Session terminée - voir les détails
+          this.viewCompletedSession(event);
+        } else {
+          // Pas de session active
+          this.showNotification('Aucune session active pour cette compétence');
+          console.log('No active session for skill:', event.skillId);
+        }
+      },
+      error: (error) => {
+        console.error('Error checking session status:', error);
+        this.showNotification('Erreur lors de la vérification de la session');
+      }
+    });
   }
 
   onDateClick(date: Date): void {
@@ -180,11 +198,45 @@ export class ReceiverCalendarComponent implements OnInit, OnDestroy {
     this.calendarService.updateView(view);
   }
 
-  joinLiveSession(event: CalendarEvent): void {
-    if (!event) return;
-    console.log('Joining live session:', event.id);
-    this.router.navigate(['/receiver/livestream', event.id]);
+   joinLiveSession(eventOrSession: CalendarEvent | LivestreamSession): void {
+    if (!eventOrSession) return;
+
+    // Vérifier si c'est une LivestreamSession ou un CalendarEvent
+    if ('roomName' in eventOrSession) {
+      // C'est une LivestreamSession
+      const session = eventOrSession as LivestreamSession;
+      console.log('Joining live session:', session.id);
+      this.router.navigate(['/receiver/livestream', session.id]);
+    } else {
+      // C'est un CalendarEvent - chercher la session correspondante
+      const event = eventOrSession as CalendarEvent;
+      console.log('Looking for session for skill:', event.skillId);
+      
+      this.calendarService.getSessionBySkillId(event.skillId).subscribe({
+        next: (session) => {
+          if (session && session.status === 'LIVE') {
+            this.joinLiveSession(session);
+          } else {
+            this.showNotification('Aucune session active');
+          }
+        },
+        error: (error) => {
+          console.error('Error finding session:', error);
+          this.showNotification('Erreur lors de la recherche de session');
+        }
+      });
+    }
   }
+
+  // ✅ AJOUT: Méthode showNotification
+  private showNotification(message: string): void {
+    this.snackBar.open(message, 'Fermer', {
+      duration: 3000,
+      horizontalPosition: 'center',
+      verticalPosition: 'bottom'
+    });
+  }
+
 
   viewSessionDetails(event: CalendarEvent): void {
     console.log('Viewing session details:', event);
