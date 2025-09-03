@@ -57,13 +57,16 @@ export class ProducerCalendarComponent implements OnInit, OnDestroy {
     this.loadEvents();
   }
 
-  private loadEvents(): void {
+  // Dans producer-calendar.component.ts - Remplacer loadEvents()
+
+private loadEvents(): void {
     const now = new Date();
     const startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endDate = new Date(now.getFullYear(), now.getMonth() + 2, 0);
 
-    console.log('Loading events from', startDate, 'to', endDate);
+    console.log('Loading grouped events from', startDate, 'to', endDate);
 
+    // Utiliser le nouvel endpoint si disponible, sinon l'ancien
     this.calendarService.getProducerEvents(startDate, endDate)
       .pipe(
         takeUntil(this.destroy$),
@@ -74,7 +77,7 @@ export class ProducerCalendarComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (events) => {
-          console.log('Events loaded:', events.length);
+          console.log('Grouped events loaded:', events.length);
           this.events = events || [];
           this.calculateStats();
           this.loadUpcomingEvents();
@@ -86,7 +89,7 @@ export class ProducerCalendarComponent implements OnInit, OnDestroy {
           this.loading = false;
         }
       });
-  }
+}
 
   private loadUpcomingEvents(): void {
     this.calendarService.getUpcomingEvents(7)
