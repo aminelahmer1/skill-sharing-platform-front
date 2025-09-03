@@ -1,5 +1,3 @@
-<!-- Fichier : src/app/templates/producer-template/producer-template/producer-template.component.html (navbar mise à jour) -->
-
 <nav class="navbar">
   <div class="logo">
     <span class="logo-icon">💡</span>
@@ -12,26 +10,35 @@
     <a routerLink="/producer/livestreams" [routerLinkActive]="['active']">🎥 Mes Livestreams</a>
     <a routerLink="requests" [routerLinkActive]="['active']">Demandes</a>
     <a routerLink="calendarP" [routerLinkActive]="['active']">Calendrier</a>
-    <!-- NOUVEAU: Lien vers Messenger -->
     <a routerLink="/producer/messenger" [routerLinkActive]="['active']" class="messenger-link">
       💬 Messages
     </a>
   </div>
   <div class="auth-buttons">
-    <!-- NOUVEAU: Badge de notification pour les messages -->
+    <!-- Badge de notification pour les messages -->
     <app-message-notification-badge></app-message-notification-badge>
-    
-    <!-- Notification normale (existante) -->
-    <div class="notification-icon" 
-         [class.disabled]="!userId" 
-         (click)="toggleNotifications()" 
-         role="button" 
-         aria-label="Notifications" 
-         tabindex="0">
-      🔔
-      <span *ngIf="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
+        
+    <!-- AMÉLIORÉ: Structure similaire à receiver pour plus de fluidité -->
+    <div class="notification-container">
+      <div class="notification-icon"
+           [class.disabled]="!userId"
+           (click)="toggleNotifications($event)"
+           role="button"
+           aria-label="Notifications"
+           tabindex="0">
+        🔔
+        <span *ngIf="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
+      </div>
+      
+      <!-- NOUVEAU: Wrapper pour le dropdown comme receiver -->
+      <div class="notifications-wrapper">
+        <app-notification-dropdown
+          *ngIf="showNotifications && userId"
+          [userId]="userId">
+        </app-notification-dropdown>
+      </div>
     </div>
-    
+        
     <button
       class="btn btn-primary"
       (mouseover)="onLogoutHover()"
@@ -41,11 +48,6 @@
       {{ logoutButtonText }}
     </button>
   </div>
-  
-  <app-notification-dropdown
-    *ngIf="showNotifications && userId"
-    [userId]="userId"
-  ></app-notification-dropdown>
 </nav>
 
 <app-global-quick-chat></app-global-quick-chat>

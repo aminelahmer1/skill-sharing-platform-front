@@ -1,6 +1,6 @@
-// Fichier : src/app/templates/producer-template/navbar-producer/navbar-producer.component.ts (corrigé)
+// Fichier : src/app/templates/producer-template/navbar-producer/navbar-producer.component.ts (amélioré)
 
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { NotificationDropdownComponent } from '../../../features/shared/notification-dropdown/notification-dropdown.component';
@@ -17,10 +17,10 @@ import { GlobalQuickChatComponent } from "../../../features/messaging/global-qui
     CommonModule,
     RouterModule,
     NotificationDropdownComponent,
-    MessageNotificationBadgeComponent, // AJOUT: Import du badge de notification messages
+    MessageNotificationBadgeComponent,
     QuickChatComponent,
     GlobalQuickChatComponent
-],
+  ],
   templateUrl: './navbar-producer.component.html',
   styleUrls: ['./navbar-producer.component.css'],
 })
@@ -33,21 +33,34 @@ export class NavbarProducerComponent implements OnInit, OnDestroy {
 
   showNotifications = false;
   unreadCount = 0;
-  userId: string | undefined;
+  
+  private subscriptions = new Subscription();
 
-  private unreadCountSub?: Subscription;
+  get userId(): string {
+    return this.userProfile?.sub || this.userProfile?.id || '';
+  }
 
   constructor(private notificationService: NotificationService) {}
 
   ngOnInit(): void {
-    // S'abonner directement au service pour les mises à jour
-    this.unreadCountSub = this.notificationService.unreadCount$.subscribe(count => {
-      this.unreadCount = count;
-    });
+    // Utilisation de subscriptions consolidées comme receiver
+    this.subscriptions.add(
+      this.notificationService.unreadCount$.subscribe(count => {
+        this.unreadCount = count;
+        console.log('Producer navbar unread count updated:', count); // Debug
+      })
+    );
   }
 
-  ngOnChanges(): void {
-    this.userId = this.userProfile?.id;
+  // AJOUT: Fermeture automatique comme receiver
+  @HostListener('document:click', ['$event'])
+  onClick(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.notification-container') &&
+        !target.closest('.notification-dropdown') &&
+        this.showNotifications) {
+      this.showNotifications = false;
+    }
   }
 
   onLogoutHover() {
@@ -66,11 +79,13 @@ export class NavbarProducerComponent implements OnInit, OnDestroy {
     this.menuToggled.emit();
   }
 
-  toggleNotifications() {
+  // AMÉLIORÉ: Même logique que receiver
+  toggleNotifications(event: Event) {
+    event.stopPropagation();
     this.showNotifications = !this.showNotifications;
   }
 
   ngOnDestroy(): void {
-    this.unreadCountSub?.unsubscribe();
+    this.subscriptions.unsubscribe();
   }
 }

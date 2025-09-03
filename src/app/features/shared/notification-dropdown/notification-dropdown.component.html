@@ -1,47 +1,101 @@
+<!DOCTYPE html>
 <div class="notification-dropdown">
   <div class="notification-header">
-    <h3>Notifications</h3>
+    <h3>
+      <span class="header-icon">🔔</span>
+      Notifications
+      <span class="badge" *ngIf="unreadNotificationsCount > 0">
+        {{ unreadNotificationsCount }}
+      </span>
+    </h3>
     <button class="mark-all-read" 
             *ngIf="unreadNotificationsCount > 0"
-           (click)="markAllAsRead($event)">
-      Tout marquer comme lu
+            (click)="markAllAsRead($event)"
+            [disabled]="loading">
+      <span class="icon">✓</span> Tout marquer comme lu
     </button>
   </div>
 
   <div class="notification-list-container">
+    <!-- État de chargement -->
     <div *ngIf="loading" class="loading-state">
       <div class="spinner"></div>
-      <span>Chargement...</span>
+      <span>Chargement des notifications...</span>
     </div>
 
-    <div *ngIf="error" class="error-state">
-      {{ error }}
-      <button (click)="loadNotifications()">Réessayer</button>
+    <!-- État d'erreur -->
+    <div *ngIf="error && !loading" class="error-state">
+      <span class="error-icon">⚠️</span>
+      <p>{{ error }}</p>
+      <button class="retry-btn" (click)="loadNotifications()">
+        🔄 Réessayer
+      </button>
     </div>
 
-    <ul class="notification-list">
+    <!-- Liste des notifications triées par date (plus récentes en premier) -->
+    <ul class="notification-list" *ngIf="!loading">
       <ng-container *ngFor="let notification of notifications; trackBy: trackById">
         <li class="notification-item"
             [class.unread]="!notification.read"
+            [class]="'type-' + getNotificationClass(notification.type)"
             (click)="markAsRead(notification, $event)">
+          
           <div class="notification-content">
-            <div class="notification-icon" [class]="notification.type.toLowerCase()">
-              {{ getNotificationIcon(notification.type) }}
+            <!-- Icône de notification -->
+            <div class="notification-icon" [class]="getNotificationClass(notification.type)">
+              <span>{{ getNotificationIcon(notification.type) }}</span>
             </div>
+            
+            <!-- Détails de la notification -->
             <div class="notification-details">
-              <p class="notification-message">{{ notification.message }}</p>
-              <small class="notification-time">
-                {{ notification.createdAt | date:'dd/MM/yyyy HH:mm' }}
-              </small>
+              <!-- Badge pour les notifications importantes -->
+              <div class="notification-header-info">
+                <span class="notification-type-badge" 
+                      [class]="'badge-' + getNotificationClass(notification.type)"
+                      *ngIf="notification.type === 'LIVESTREAM_STARTED' || 
+                             notification.type === '1_HOUR_REMINDER'">
+                  URGENT
+                </span>
+              </div>
+              
+              <!-- Message principal complet (sans troncature) -->
+              <p class="notification-message" [title]="notification.message">
+                {{ notification.message }}
+              </p>
+              
+              <!-- Timestamp -->
+              <div class="notification-footer">
+                <small class="notification-time">
+                  <span class="time-icon">🕒</span>
+                  {{ getTimeAgo(notification.createdAt) }}
+                </small>
+                
+                <!-- Date complète au survol -->
+                <small class="notification-date" [title]="notification.createdAt | date:'dd/MM/yyyy HH:mm:ss'">
+                  {{ notification.createdAt | date:'dd/MM HH:mm' }}
+                </small>
+              </div>
             </div>
-            <div *ngIf="!notification.read" class="unread-indicator"></div>
+            
+            <!-- Indicateur non lu -->
+            <div class="notification-status">
+              <div *ngIf="!notification.read" class="unread-indicator"></div>
+              <div *ngIf="notification.type === 'LIVESTREAM_STARTED'" class="live-indicator">
+                <span class="pulse"></span>
+              </div>
+            </div>
           </div>
         </li>
       </ng-container>
 
+      <!-- État vide -->
       <li *ngIf="!loading && notifications.length === 0" class="empty-state">
-        Aucune notification disponible
+        <div class="empty-icon">📭</div>
+        <p>Aucune notification</p>
+        <small>Vous êtes à jour !</small>
       </li>
     </ul>
   </div>
+
+  <!-- Footer supprimé (plus de bouton "Voir toutes les notifications") -->
 </div>

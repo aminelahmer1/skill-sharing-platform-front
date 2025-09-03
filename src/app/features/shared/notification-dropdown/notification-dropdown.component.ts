@@ -1,4 +1,4 @@
-import { Component, ChangeDetectorRef, OnDestroy, Input } from '@angular/core';
+import { Component, ChangeDetectorRef, OnDestroy, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NotificationService } from '../../../core/services/notification/notification.service';
 import { Notification } from '../../../models/Notification/notification.model';
@@ -11,35 +11,43 @@ import { Subscription } from 'rxjs';
   templateUrl: './notification-dropdown.component.html',
   styleUrls: ['./notification-dropdown.component.css']
 })
-export class NotificationDropdownComponent implements OnDestroy {
+export class NotificationDropdownComponent implements OnInit, OnDestroy {
   @Input() userId: string = '';
-
+  
   notifications: Notification[] = [];
   loading = true;
   error: string | null = null;
   private subscriptions = new Subscription();
-  private isDestroyed = false; // Nouveau flag pour gérer l'état de destruction
+  private isDestroyed = false;
 
   constructor(
     private notificationService: NotificationService,
     private cdr: ChangeDetectorRef
-  ) {
+  ) {}
+
+  ngOnInit(): void {
     this.loadNotifications();
   }
 
   loadNotifications(): void {
+    this.loading = true;
+    this.error = null;
+    
     this.subscriptions.add(
       this.notificationService.notifications$.subscribe({
         next: (notifications) => {
-          this.notifications = notifications;
+          // Trier les notifications par date de création (les plus récentes en premier)
+          this.notifications = notifications.sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
           this.loading = false;
           if (!this.isDestroyed) {
-            this.cdr.markForCheck(); // Changement à markForCheck
+            this.cdr.markForCheck();
           }
         },
         error: (err) => {
           console.error('Erreur de chargement des notifications:', err);
-          this.error = 'Échec du chargement';
+          this.error = 'Échec du chargement des notifications';
           this.loading = false;
           if (!this.isDestroyed) {
             this.cdr.markForCheck();
@@ -95,19 +103,63 @@ export class NotificationDropdownComponent implements OnDestroy {
     );
   }
 
-  // Méthode pour tester la réception
-
-
   get unreadNotificationsCount(): number {
     return this.notifications.filter(n => !n.read).length;
   }
 
   getNotificationIcon(type: string): string {
-    switch (type?.toUpperCase()) {
-      case 'EXCHANGE_REJECTED': return '❌';
+    const typeUpper = type?.toUpperCase();
+    switch (typeUpper) {
+      case 'EXCHANGE_CREATED': return '👤';
       case 'EXCHANGE_ACCEPTED': return '✅';
+      case 'EXCHANGE_REJECTED': return '❌';
+      case '24_HOUR_REMINDER': return '📅';
+      case '1_HOUR_REMINDER': return '⏰';
+      case 'LIVESTREAM_STARTED': return '🔴';
+      case 'SESSION_SCHEDULED': return '📌';
+      case 'SESSION_COMPLETED': return '✔️';
       default: return '🔔';
     }
+  }
+
+  getNotificationClass(type: string): string {
+    const typeUpper = type?.toUpperCase();
+    switch (typeUpper) {
+      case 'EXCHANGE_ACCEPTED': return 'success';
+      case 'EXCHANGE_REJECTED': return 'danger';
+      case '24_HOUR_REMINDER': return 'info';
+      case '1_HOUR_REMINDER': return 'warning';
+      case 'LIVESTREAM_STARTED': return 'live';
+      case 'SESSION_COMPLETED': return 'success';
+      default: return 'default';
+    }
+  }
+
+  // Suppression de formatMessage - affichage du message complet
+  // formatMessage(notification: Notification): string {
+  //   if (notification.message.length > 100) {
+  //     return notification.message.substring(0, 97) + '...';
+  //   }
+  //   return notification.message;
+  // }
+
+  getTimeAgo(dateString: string): string {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "À l'instant";
+    if (diffMins < 60) return `Il y a ${diffMins} min`;
+    if (diffHours < 24) return `Il y a ${diffHours}h`;
+    if (diffDays < 7) return `Il y a ${diffDays}j`;
+    
+    return date.toLocaleDateString('fr-FR', { 
+      day: 'numeric', 
+      month: 'short' 
+    });
   }
 
   trackById(index: number, notification: Notification): number {
@@ -115,7 +167,7 @@ export class NotificationDropdownComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.isDestroyed = true; // Marquer le composant comme détruit
+    this.isDestroyed = true;
     this.subscriptions.unsubscribe();
   }
 }
