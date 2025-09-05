@@ -1,3 +1,5 @@
+// Solution alternative: Gérer les états d'expansion séparément dans le composant
+
 import { Component, OnInit } from '@angular/core';
 import { SkillService } from '../../../core/services/Skill/skill.service';
 import { CategoryService } from '../../../core/services/category/category.service';
@@ -33,6 +35,9 @@ export class SkillsComponent implements OnInit {
   categories: Category[] = [];
   isLoading = true;
   error: string | null = null;
+  
+  // Gérer les états d'expansion séparément
+  expandedDescriptions: Set<number> = new Set();
 
   constructor(
     private skillService: SkillService,
@@ -89,6 +94,51 @@ export class SkillsComponent implements OnInit {
     });
   }
 
+  /**
+   * Basculer l'affichage complet/tronqué de la description
+   */
+  toggleDescription(skillId: number): void {
+    if (this.expandedDescriptions.has(skillId)) {
+      this.expandedDescriptions.delete(skillId);
+    } else {
+      this.expandedDescriptions.add(skillId);
+    }
+  }
+
+  /**
+   * Vérifie si une description est expandée
+   */
+  isDescriptionExpanded(skillId: number): boolean {
+    return this.expandedDescriptions.has(skillId);
+  }
+
+  /**
+   * Vérifie si une description doit être tronquée
+   */
+  shouldTruncateDescription(description: string): boolean {
+    return !!(description && description.length > 150);
+  }
+
+  /**
+   * Obtient le texte du bouton toggle selon l'état
+   */
+  getToggleText(skillId: number): string {
+    return this.isDescriptionExpanded(skillId) ? 'Voir moins' : 'Voir plus';
+  }
+
+  /**
+   * Obtient les classes CSS pour la description
+   */
+  getDescriptionClasses(skill: Skill): string {
+    const baseClass = 'skill-description';
+    if (!this.shouldTruncateDescription(skill.description)) {
+      return baseClass;
+    }
+    
+    const isExpanded = this.isDescriptionExpanded(skill.id);
+    return `${baseClass} ${isExpanded ? 'expanded' : 'collapsed'}`;
+  }
+
   openCreateDialog(): void {
     const dialogRef = this.dialog.open(SkillFormComponent, {
       width: '600px',
@@ -122,6 +172,8 @@ export class SkillsComponent implements OnInit {
           next: () => {
             this.snackBar.open('Compétence supprimée avec succès', 'Fermer', { duration: 3000 });
             this.loadSkills();
+            // Nettoyer l'état d'expansion pour cette skill supprimée
+            this.expandedDescriptions.delete(id);
           },
           error: () => {
             this.snackBar.open('Erreur lors de la suppression', 'Fermer', { duration: 3000 });
@@ -169,31 +221,27 @@ export class SkillsComponent implements OnInit {
 
   /**
    * Vérifie si une compétence peut être modifiée
-   * Une compétence ne peut être modifiée que si sa date/heure n'est pas encore passée
    */
   canEditSkill(skill: Skill): boolean {
     if (!skill.streamingDate || !skill.streamingTime) {
-      return true; // Si pas de date/heure, on autorise la modification
+      return true;
     }
 
     try {
-      // Créer un objet Date complet avec la date et l'heure
       const [hours, minutes] = skill.streamingTime.split(':').map(Number);
       const skillDateTime = new Date(skill.streamingDate);
       skillDateTime.setHours(hours, minutes, 0, 0);
 
       const now = new Date();
-      
-      // La compétence peut être modifiée si sa date/heure est dans le futur
       return skillDateTime > now;
     } catch (error) {
       console.error('Erreur lors de la vérification de la date:', error);
-      return true; // En cas d'erreur, on autorise par défaut
+      return true;
     }
   }
 
   /**
-   * Vérifie si une compétence est expirée (pour affichage visuel)
+   * Vérifie si une compétence est expirée
    */
   isSkillExpired(skill: Skill): boolean {
     return !this.canEditSkill(skill);

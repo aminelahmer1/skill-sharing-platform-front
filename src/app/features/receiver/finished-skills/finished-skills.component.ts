@@ -54,8 +54,6 @@ interface SkillWithExchange extends SkillResponse {
   ],
   template: `
     <div class="skills-container">
-      
-      
       <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
       
       <div *ngIf="error" class="error-message">
@@ -87,13 +85,26 @@ interface SkillWithExchange extends SkillResponse {
             </div>
             
             <mat-card-content>
-              <h3>{{ skill.name }}</h3>
-              <span class="skill-category">{{ skill.categoryName }}</span>
-              <p class="skill-description">
-                {{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}
-              </p>
+              <!-- Titre avec limitation à 3 lignes -->
+              <h3 class="skill-title" [title]="skill.name">{{ skill.name }}</h3>
               
-              <!-- Métadonnées sur une seule ligne comme my-livestreams -->
+              <span class="skill-category">{{ skill.categoryName }}</span>
+              
+              <!-- Description avec toggle pour voir plus/moins -->
+              <div class="skill-description-wrapper">
+                <p class="skill-description" 
+                   [class.expanded]="skill.showFullDescription">
+                  {{ skill.description }}
+                </p>
+                <button *ngIf="skill.description && skill.description.length > 200" 
+                        mat-button 
+                        class="toggle-description-btn"
+                        (click)="toggleDescription(skill)">
+                  {{ skill.showFullDescription ? 'Voir moins' : 'Voir plus' }}
+                </button>
+              </div>
+              
+              <!-- Métadonnées sur une seule ligne -->
               <div class="skill-meta">
                 <div class="single-meta-row">
                   <!-- Participants -->
@@ -118,17 +129,21 @@ interface SkillWithExchange extends SkillResponse {
                   <div class="meta-item price">
                     <span>TND {{ skill.price | number:'1.2-2' }}</span>
                   </div>
-                </div>
+                  
+                </div> 
+                <br>
+                <div>
+                <span>Proposé par : </span>
+                <a (click)="openProducerProfile(skill.userId)" class="producer-link">
+                  {{ getProducerName(skill.userId) }}
+                </a></div>
               </div>
               
               <!-- Producer info compacte -->
               <div class="producer-info">
-                <span>Proposé par : </span>
-                <a (click)="openProducerProfile(skill.userId)" class="producer-link">
-                  {{ getProducerName(skill.userId) }}
-                </a>
+              
                 
-                <!-- Section Rating compacte comme my-livestreams -->
+                <!-- Section Rating compacte -->
                 <div class="skill-rating-compact" *ngIf="skill.hasRated">
                   <div class="rating-summary">
                     <mat-icon>star</mat-icon>
@@ -186,7 +201,7 @@ interface SkillWithExchange extends SkillResponse {
     </div>
   `,
   styles: [`
-    /* Container principal - même style que my-livestreams */
+    /* Container principal */
     .skills-container {
       padding: 0px 20px 20px 20px;
       max-width: 1200px;
@@ -194,20 +209,6 @@ interface SkillWithExchange extends SkillResponse {
       background-color: #f5f6fa;
       min-height: 100vh;
       animation: fadeIn 0.8s ease-out;
-    }
-
-    .skills-container h2 {
-      margin-bottom: 24px;
-      margin-top: -69px;
-      color: #2d3436;
-      font-weight: 700;
-      font-size: 1.75rem;
-      text-align: center;
-      background: linear-gradient(45deg, #6c5ce7, #fd79a8);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      animation: slideInLeft 0.8s ease-out;
     }
 
     /* Error Message */
@@ -244,12 +245,13 @@ interface SkillWithExchange extends SkillResponse {
       animation: float 6s ease-in-out infinite;
     }
 
-    /* Skills Grid - même style que my-livestreams */
+    /* Skills Grid */
     .skills-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
       gap: 24px;
       margin-top: 0;
+      align-items: stretch; /* Force l'étirement des cartes */
     }
 
     .skill-card {
@@ -258,9 +260,12 @@ interface SkillWithExchange extends SkillResponse {
       transition: all 0.3s ease;
       border-radius: 15px;
       background: white;
-      border: 2px solid #a5d6a7; /* Bordure verte comme session terminée */
+      border: 2px solid #a5d6a7;
       box-shadow: 0 5px 20px rgba(0,0,0,0.05);
       animation: scaleIn 0.5s ease-out;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
 
     .skill-card:hover {
@@ -297,12 +302,13 @@ interface SkillWithExchange extends SkillResponse {
       z-index: 1;
     }
 
-    /* Skill Image - même style que my-livestreams */
+    /* Skill Image */
     .skill-image-container {
       position: relative;
       height: 200px;
       overflow: hidden;
       border-radius: 15px 15px 0 0;
+      flex-shrink: 0;
     }
 
     .skill-image {
@@ -338,47 +344,108 @@ interface SkillWithExchange extends SkillResponse {
       50% { opacity: 0.9; transform: scale(1.02); }
     }
 
-    /* Card Content - même style que my-livestreams */
+    /* Card Content */
     .skill-card mat-card-content {
       padding: 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+        min-height: 0; 
     }
 
-    .skill-card h3 {
+    /* Titre avec limitation à 3 lignes */
+    .skill-title {
       margin: 0 0 8px 0;
       font-size: 1.25rem;
       font-weight: 600;
       color: #2d3436;
       line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-height: calc(1.3em * 3);
+      word-wrap: break-word;
+      word-break: break-word;
+      min-height: 2.6em;
     }
 
-    /* Catégorie - style receiver accepted skills */
+    /* Catégorie */
     .skill-category {
-      display: inline-block;
-      background-color: #e3f2fd;
-      color: #1976d2;
-      padding: 4px 12px;
-      border-radius: 16px;
-      font-size: 0.75rem;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 12px;
-      animation: fadeIn 0.5s ease-out;
-    }
+  display: inline-block;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  align-self: flex-start;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+    /* Description avec toggle */
+    .skill-description-wrapper {
+  position: relative;
+  margin: 12px 0;
+  flex: 1; /* Prend l'espace disponible restant */
+  min-height: 0; /* Permet la réduction */
+  display: flex;
+  flex-direction: column;
+}
 
     .skill-description {
-      color: #636e72;
-      line-height: 1.5;
-      margin: 12px 0;
-      font-size: 0.9rem;
+  color: #636e72;
+  line-height: 1.5;
+  font-size: 0.9rem;
+  margin: 0;
+  flex: 1;
+  word-wrap: break-word;
+  word-break: break-word;
+  transition: all 0.3s ease;
+  
+  /* Mode collapsed par défaut */
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: calc(1.5em * 4); /* 4 lignes max en mode collapsed */
+}
+
+   .skill-description.expanded {
+  -webkit-line-clamp: 8; /* Limite à 8 lignes max même en expanded */
+  max-height: calc(1.5em * 8);
+  overflow: hidden; /* Garde le scroll caché */
+}
+
+    .toggle-description-btn {
+      font-size: 0.8rem;
+      color: #1976d2;
+      padding: 4px 8px;
+      margin-top: 4px;
+      min-height: 0;
+      line-height: 1.2;
     }
 
-    /* Skill Meta - une seule ligne comme my-livestreams */
-    .skill-meta {
-      margin: 16px 0;
-      border-top: 1px solid #e0e0e0;
-      padding-top: 16px;
+    .toggle-description-btn:hover {
+      background-color: rgba(25, 118, 210, 0.08);
     }
+
+    /* Skill Meta */
+   .skill-meta {
+  margin: 16px 0;
+  border-top: 1px solid #e0e0e0;
+  padding-top: 16px;
+  flex-shrink: 0; /* Ne se réduit pas */
+  min-height: 80px; /* Hauteur minimale constante */
+}
 
     .single-meta-row {
       display: flex;
@@ -414,13 +481,14 @@ interface SkillWithExchange extends SkillResponse {
     }
 
     /* Producer info avec rating compact */
-    .producer-info {
-      margin-top: 16px;
-      padding-top: 12px;
-      border-top: 1px solid #f0f0f0;
-      font-size: 0.85rem;
-      color: #636e72;
-    }
+   .producer-info {
+  margin-top: auto; /* Pousse vers le bas */
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 0.85rem;
+  color: #636e72;
+  flex-shrink: 0; /* Ne se réduit pas */
+}
 
     .producer-link {
       color: #1976d2;
@@ -438,7 +506,7 @@ interface SkillWithExchange extends SkillResponse {
       transform: translateY(-1px);
     }
 
-    /* Rating Section Compact - style my-livestreams */
+    /* Rating Section Compact */
     .skill-rating-compact {
       background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
       padding: 12px;
@@ -451,6 +519,7 @@ interface SkillWithExchange extends SkillResponse {
       display: flex;
       align-items: center;
       gap: 8px;
+      flex-wrap: wrap;
     }
 
     .rating-summary > mat-icon {
@@ -501,7 +570,7 @@ interface SkillWithExchange extends SkillResponse {
       color: #FFD700;
     }
 
-    /* Bouton voir détails rating - style my-livestreams */
+    /* Bouton voir détails rating */
     .view-rating-btn {
       font-size: 0.8rem;
       height: 32px;
@@ -556,14 +625,19 @@ interface SkillWithExchange extends SkillResponse {
       margin-right: 4px;
     }
 
-    /* Card Actions - même style que my-livestreams */
-    .skill-card mat-card-actions {
-      padding: 16px 20px;
-      background-color: #f5f6fa;
-      border-top: 1px solid #e0e0e0;
-    }
+    /* Card Actions */
+  .skill-card mat-card-actions {
+  padding: 16px 20px;
+  background-color: #f5f6fa;
+  border-top: 1px solid #e0e0e0;
+  flex-shrink: 0; /* Ne se réduit pas */
+  min-height: 70px; /* Hauteur constante */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-    /* Badge session terminée centré - style my-livestreams */
+    /* Badge session terminée centré */
     .session-completed-badge {
       display: flex;
       align-items: center;
@@ -587,16 +661,7 @@ interface SkillWithExchange extends SkillResponse {
       height: 16px;
     }
 
-    /* Fonctions helper pour les couleurs */
-    .getRatingColor(rating: number): string {
-      if (rating >= 4.5) return '#4CAF50';
-      if (rating >= 3.5) return '#8BC34A';
-      if (rating >= 2.5) return '#FFC107';
-      if (rating >= 1.5) return '#FF9800';
-      return '#F44336';
-    }
-
-    /* Animations - même que my-livestreams */
+    /* Animations */
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
@@ -631,7 +696,8 @@ interface SkillWithExchange extends SkillResponse {
     /* Focus states */
     .view-rating-btn:focus,
     .rate-compact-btn:focus,
-    .producer-link:focus {
+    .producer-link:focus,
+    .toggle-description-btn:focus {
       outline: 2px solid #6c5ce7;
       outline-offset: 2px;
     }
@@ -657,7 +723,7 @@ interface SkillWithExchange extends SkillResponse {
         margin: 0;
       }
       
-      .skill-card h3 {
+      .skill-title {
         font-size: 1.1rem;
       }
       
@@ -688,19 +754,21 @@ interface SkillWithExchange extends SkillResponse {
         width: 100%;
         justify-content: space-between;
       }
+      
+      .skill-description {
+        -webkit-line-clamp: 3;
+        max-height: calc(1.5em * 3);
+      }
     }
 
     @media (max-width: 480px) {
-      .skills-container h2 {
-        font-size: 1.5rem;
-      }
-      
       .skill-image-container {
         height: 160px;
       }
       
       .single-meta-row {
         gap: 6px;
+        flex-wrap: wrap;
       }
       
       .single-meta-row .meta-item {
@@ -708,11 +776,23 @@ interface SkillWithExchange extends SkillResponse {
       }
       
       .single-meta-row .meta-item.price {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
+        width: 100%;
+        justify-content: center;
+        margin-top: 4px;
       }
       
       .skill-description {
         font-size: 0.85rem;
+        -webkit-line-clamp: 3;
+        max-height: calc(1.5em * 3);
+      }
+      
+      .skill-title {
+        font-size: 1rem;
+        -webkit-line-clamp: 2;
+        max-height: calc(1.3em * 2);
+        min-height: 1.3em;
       }
     }
   `]
@@ -865,7 +945,7 @@ export class FinishedSkillsComponent implements OnInit {
     }
   }
 
-  // Méthodes pour le rating - style my-livestreams
+  // Méthodes pour le rating
   getRatingColor(rating: number): string {
     if (rating >= 4.5) return '#4CAF50';
     if (rating >= 3.5) return '#8BC34A';
@@ -919,13 +999,11 @@ export class FinishedSkillsComponent implements OnInit {
           'Fermer',
           { duration: 3000, panelClass: ['success-snackbar'] }
         );
-        
-        // Pas de redirection - reste sur finished-skills
       }
     });
   }
 
-  // Voir les détails du rating (popup comme my-livestreams)
+  // Voir les détails du rating
   viewMyRating(skill: SkillWithExchange): void {
     // Ouvrir le même dialogue de rating mais en mode visualisation/modification
     this.openRatingDialog(skill);
@@ -951,6 +1029,13 @@ export class FinishedSkillsComponent implements OnInit {
         console.error('Erreur lors du rechargement du rating:', error);
       }
     });
+  }
+
+  /**
+   * Toggle pour afficher/masquer la description complète
+   */
+  toggleDescription(skill: SkillWithExchange): void {
+    skill.showFullDescription = !skill.showFullDescription;
   }
 
   trackBySkillId(index: number, skill: SkillWithExchange): number {

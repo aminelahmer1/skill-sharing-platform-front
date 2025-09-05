@@ -292,9 +292,8 @@
           <h3>{{ skill.name }}</h3>
           <span class="skill-category">{{ skill.categoryName }}</span>
           <p class="skill-description">
-            {{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}
-          </p>
-          
+  {{ skill.description }}
+</p>
           <div class="skill-meta">
             <div class="single-meta-row">
               <div class="meta-item">

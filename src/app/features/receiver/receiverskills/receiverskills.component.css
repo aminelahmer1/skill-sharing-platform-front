@@ -1,5 +1,5 @@
 /* ============================================================================
-   🎓 RECEIVERSKILLS.COMPONENT.CSS - VERSION CORRIGÉE SUGGESTIONS RECHERCHE
+   🎓 RECEIVERSKILLS.COMPONENT.CSS - VERSION CORRIGÉE AVEC FIX LIGNES
    ============================================================================ */
 
 /* 🎯 Container principal */
@@ -25,10 +25,9 @@
 }
 
 /* ============================================================================
-   🔍 SECTION RECHERCHE ET FILTRAGE - CORRECTIONS PRINCIPALES
+   🔍 SECTION RECHERCHE ET FILTRAGE
    ============================================================================ */
 
-/* Container principal de recherche et filtrage */
 .search-filter-section {
   background: white;
   border-radius: 16px;
@@ -37,20 +36,18 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   animation: slideDown 0.4s ease-out;
   box-sizing: border-box;
-  overflow: visible; /* Permettre le débordement pour les suggestions */
+  overflow: visible;
   position: relative;
 }
 
-/* CORRECTION PRINCIPALE: Container de recherche avec position relative */
 .search-container {
   position: relative;
   margin-bottom: 20px;
   width: 100%;
-  z-index: 1000; /* Z-index élevé pour les suggestions */
+  z-index: 1000;
   animation: fadeIn 0.5s ease-out;
 }
 
-/* Barre de recherche */
 .search-bar-container {
   position: relative;
   width: 100%;
@@ -106,10 +103,9 @@
   color: #333;
 }
 
-/* SUGGESTIONS CORRIGÉES ET AMÉLIORÉES - Plus de suggestions avec scrolling */
 .search-suggestions {
   position: absolute;
-  top: 100%; /* Juste en dessous de la barre de recherche */
+  top: 100%;
   left: 0;
   right: 0;
   background: white;
@@ -117,18 +113,15 @@
   border-top: 1px solid #e0e0e0;
   border-radius: 0 0 12px 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  z-index: 10000; /* Z-index très élevé pour être au-dessus de tout */
-  max-height: 400px; /* Augmenté de 300px à 400px */
+  z-index: 10000;
+  max-height: 400px;
   overflow-y: auto;
-  margin-top: 0px; /* Pas d'espace entre la barre et les suggestions */
+  margin-top: 0px;
   animation: slideDown 0.3s ease-out;
-  
-  /* Amélioration du scrolling */
   scrollbar-width: thin;
   scrollbar-color: #1976d2 #f0f0f0;
 }
 
-/* Scrollbar personnalisée pour WebKit */
 .search-suggestions::-webkit-scrollbar {
   width: 6px;
 }
@@ -147,7 +140,6 @@
   background: #1565c0;
 }
 
-/* Badge pour indiquer le nombre total de suggestions */
 .suggestions-count {
   position: sticky;
   top: 0;
@@ -161,7 +153,6 @@
   z-index: 1;
 }
 
-/* Amélioration des éléments de suggestion */
 .suggestion-item {
   display: flex;
   align-items: center;
@@ -191,11 +182,10 @@
 .suggestion-item:hover {
   background: linear-gradient(90deg, #f0f7ff, #e3f2fd);
   color: #1976d2;
-  padding-left: 20px; /* Léger décalage au hover */
-  box-shadow: inset 4px 0 0 #1976d2; /* Barre latérale bleue */
+  padding-left: 20px;
+  box-shadow: inset 4px 0 0 #1976d2;
 }
 
-/* Icônes améliorées par type */
 .suggestion-item mat-icon {
   font-size: 20px;
   width: 20px;
@@ -204,7 +194,6 @@
   transition: all 0.2s ease;
 }
 
-/* Couleurs spécifiques par type de suggestion */
 .suggestion-item[data-type="skill"] mat-icon {
   color: #1976d2;
 }
@@ -229,8 +218,8 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 3px; /* Légèrement augmenté */
-  min-width: 0; /* Pour le text-overflow */
+  gap: 3px;
+  min-width: 0;
 }
 
 .suggestion-title {
@@ -249,7 +238,7 @@
 }
 
 .suggestion-type {
-  font-size: 11px; /* Légèrement réduit */
+  font-size: 11px;
   color: #999;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -261,7 +250,6 @@
   color: #1976d2;
 }
 
-/* Séparateurs visuels pour différents types */
 .suggestion-item[data-type="skill"] + .suggestion-item[data-type="category"]::before,
 .suggestion-item[data-type="category"] + .suggestion-item[data-type="producer"]::before,
 .suggestion-item[data-type="producer"] + .suggestion-item[data-type="filter"]::before {
@@ -274,7 +262,6 @@
   background: linear-gradient(90deg, transparent, #e0e0e0, transparent);
 }
 
-/* Message "Voir plus" si tronqué */
 .suggestions-more {
   position: sticky;
   bottom: 0;
@@ -297,7 +284,6 @@
   color: #1565c0;
 }
 
-/* Badge pour les suggestions spéciales */
 .suggestion-badge {
   font-size: 10px;
   font-weight: 600;
@@ -307,7 +293,6 @@
   letter-spacing: 0.5px;
 }
 
-/* Animation d'apparition pour les suggestions */
 @keyframes suggestionFadeIn {
   to {
     opacity: 1;
@@ -315,7 +300,6 @@
   }
 }
 
-/* Bouton toggle filtres */
 .toggle-filters-btn {
   display: flex;
   align-items: center;
@@ -355,7 +339,6 @@
   animation: pulse 2s infinite;
 }
 
-/* Panel de filtres */
 .filters-panel {
   max-height: 0;
   overflow: hidden;
@@ -372,7 +355,6 @@
   border-top: 1px solid #e0e0e0;
 }
 
-/* Grille de filtres */
 .filters-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -408,7 +390,6 @@
   }
 }
 
-/* Groupe de filtre */
 .filter-group {
   display: flex;
   flex-direction: column;
@@ -452,7 +433,6 @@
   z-index: 2;
 }
 
-/* Inputs de prix */
 .price-range-inputs {
   display: flex;
   align-items: center;
@@ -484,7 +464,6 @@
   box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
 }
 
-/* Actions des filtres */
 .filter-actions {
   display: flex;
   justify-content: space-between;
@@ -524,7 +503,6 @@
   font-weight: 500;
 }
 
-/* Tags de filtres actifs */
 .active-filters-tags {
   display: flex;
   flex-wrap: wrap;
@@ -571,7 +549,6 @@
   color: #ff4444;
 }
 
-/* Message aucun résultat */
 .no-results {
   text-align: center;
   padding: 60px 20px;
@@ -612,7 +589,6 @@
   color: #1565c0;
 }
 
-/* Indicateurs sur les cartes */
 .search-match-indicator {
   position: absolute;
   top: -10px;
@@ -665,7 +641,6 @@
    📄 GRILLE DES COMPÉTENCES ET CARTES
    ============================================================================ */
 
-/* 📄 Messages d'erreur et état vide */
 .error-message {
   display: flex;
   align-items: center;
@@ -703,7 +678,6 @@
   opacity: 0.7;
 }
 
-/* 🎴 Grille des compétences */
 .skills-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -711,7 +685,6 @@
   margin-top: 20px;
 }
 
-/* 🃏 Carte de compétence */
 .skill-card {
   position: relative;
   overflow: visible;
@@ -731,7 +704,6 @@
   pointer-events: none;
 }
 
-/* 🖼️ Image de la compétence */
 .skill-image-container {
   position: relative;
   height: 200px;
@@ -745,7 +717,6 @@
   object-fit: cover;
 }
 
-/* 🏷️ Overlay de statut */
 .status-overlay {
   position: absolute;
   top: 12px;
@@ -761,20 +732,28 @@
   animation: chipPulse 2s infinite;
 }
 
-/* 📝 Contenu de la carte */
 .skill-card mat-card-content {
   padding: 20px;
 }
 
+/* FIX APPLIQUÉ - Titre 3 lignes maximum */
 .skill-card h3 {
   margin: 0 0 8px 0;
   font-size: 1.25rem;
   font-weight: 600;
   color: #333;
   line-height: 1.3;
+  /* 3 LIGNES MAXIMUM FORCÉ */
+  display: -webkit-box !important;
+  -webkit-line-clamp: 3 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-height: 3.9em !important; /* 3 lignes × 1.3em */
+  word-wrap: break-word !important;
+  word-break: break-word !important;
 }
 
-/* 🎨 Catégorie */
 .skill-category {
   display: inline-block;
   background-color: #e3f2fd;
@@ -788,15 +767,24 @@
   margin-bottom: 12px;
 }
 
-/* 📄 Description */
+/* FIX APPLIQUÉ - Description 10 lignes maximum */
 .skill-description {
-  color: #666;
-  line-height: 1.5;
-  margin: 12px 0;
-  font-size: 0.9rem;
+  color: #666 !important;
+  line-height: 1.5 !important;
+  margin: 12px 0 !important;
+  font-size: 0.9rem !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  /* 10 LIGNES MAXIMUM FORCÉ */
+  display: -webkit-box !important;
+  -webkit-line-clamp: 10 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-height: 15em !important; /* 10 lignes × 1.5em */
+  min-height: 1.5em !important;
 }
 
-/* 📊 Métadonnées */
 .skill-meta {
   margin: 16px 0;
   border-top: 1px solid #eee;
@@ -835,7 +823,6 @@
   font-size: 1rem;
 }
 
-/* Une seule ligne pour tous les métadonnées - RECEIVER SKILLS */
 .single-meta-row {
   display: flex;
   justify-content: space-between;
@@ -878,7 +865,6 @@
   font-weight: 700 !important;
 }
 
-/* 📊 Sections de statut */
 .exchange-status, 
 .session-status {
   margin: 12px 0;
@@ -905,7 +891,6 @@
   color: #1976d2;
 }
 
-/* ❌ Raison de rejet */
 .rejection-reason {
   margin-top: 8px;
   padding: 8px;
@@ -923,7 +908,6 @@
   color: #d32f2f;
 }
 
-/* 👤 Info producteur */
 .producer-info {
   margin-top: 16px;
   padding-top: 12px;
@@ -950,14 +934,12 @@
   outline-offset: 2px;
 }
 
-/* 🎯 Actions de la carte */
 .skill-card mat-card-actions {
   padding: 16px 20px;
   background-color: #fafafa;
   border-top: 1px solid #eee;
 }
 
-/* 🔘 Bouton réserver */
 .reserve-btn {
   width: 100%;
   height: 44px;
@@ -989,7 +971,6 @@
   height: 20px;
 }
 
-/* 🏷️ Statuts d'action */
 .action-status {
   width: 100%;
   text-align: center;
@@ -1305,7 +1286,7 @@
   }
 }
 
-/* 📱 Responsive Design */
+/* 📱 Responsive Design - AVEC FIX LIGNES */
 @media (max-width: 768px) {
   .skills-container {
     padding: 0px 16px 16px 16px;
@@ -1338,8 +1319,18 @@
     gap: 16px;
   }
   
+  /* TITRE - Reste à 3 lignes en responsive */
   .skill-card h3 {
     font-size: 1.1rem;
+    -webkit-line-clamp: 3 !important;
+    max-height: 3.9em !important;
+  }
+  
+  /* DESCRIPTION - Reste à 10 lignes en responsive */
+  .skill-description {
+    font-size: 0.85rem !important;
+    -webkit-line-clamp: 10 !important;
+    max-height: 15em !important;
   }
   
   .reserve-btn {
@@ -1450,8 +1441,18 @@
     font-size: 0.8rem;
   }
   
+  /* TITRE - Reste à 3 lignes en mobile */
+  .skill-card h3 {
+    font-size: 1rem;
+    -webkit-line-clamp: 3 !important;
+    max-height: 3.6em !important;
+  }
+  
+  /* DESCRIPTION - Reste à 10 lignes en mobile */
   .skill-description {
-    font-size: 0.85rem;
+    font-size: 0.8rem !important;
+    -webkit-line-clamp: 10 !important;
+    max-height: 15em !important;
   }
 
   .single-meta-row {
@@ -1502,7 +1503,7 @@
   }
 }
 
-/* CSS SUPPLÉMENTAIRE pour la navigation clavier et améliorations */
+/* CSS pour la navigation clavier et améliorations */
 .suggestion-item.keyboard-selected {
   background: linear-gradient(90deg, #e3f2fd, #bbdefb) !important;
   color: #1976d2 !important;
@@ -1516,19 +1517,16 @@
   transform: scale(1.15) !important;
 }
 
-/* Amélioration de l'accessibilité */
 .search-input:focus + .search-suggestions {
   border-color: #1976d2;
 }
 
-/* États de focus améliorés */
 .suggestion-item:focus {
   outline: 2px solid #1976d2;
   outline-offset: -2px;
   background: #f0f7ff;
 }
 
-/* Indicateur de scroll dans les suggestions */
 .search-suggestions::before {
   content: '';
   position: sticky;
@@ -1544,7 +1542,6 @@
   opacity: 1;
 }
 
-/* Amélioration des badges de type */
 .suggestion-item[data-type="skill"]::after {
   content: '';
   position: absolute;
@@ -1597,10 +1594,7 @@
   opacity: 0.6;
 }
 
-/* Progress bar styling */
 mat-progress-bar {
   margin-bottom: 20px;
   border-radius: 4px;
 }
-
-/* Fin du fichier CSS */

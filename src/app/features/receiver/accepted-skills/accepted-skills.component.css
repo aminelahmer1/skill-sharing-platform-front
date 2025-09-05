@@ -1,8 +1,8 @@
 /* ============================================================================
-   🛠️ SKILLS.COMPONENT.CSS - VERSION OPTIMISÉE ET RÉDUITE
+   ACCEPTED-SKILLS.COMPONENT.CSS - VERSION CORRIGÉE AVEC FIX LIGNES
    ============================================================================ */
 
-/* 🎯 Container principal */
+/* Container principal */
 .skills-container {
   padding: 0px 20px 20px 20px;
   margin: -40px auto 0 auto;
@@ -13,7 +13,7 @@
   animation: fadeIn 0.8s ease-out;
 }
 
-/* 📋 Header avec filtres */
+/* Header avec filtres */
 .header {
   display: flex;
   flex-direction: column;
@@ -28,7 +28,7 @@
   margin: 0;
 }
 
-/* 🔘 Bouton ajouter */
+/* Bouton ajouter */
 .add-skill-btn {
   border-radius: 20px;
   padding: 0 20px;
@@ -41,7 +41,7 @@
   background-color: #3700b3;
 }
 
-/* 🔍 Filtres */
+/* Filtres */
 .filters-container {
   display: flex;
   justify-content: center;
@@ -75,7 +75,7 @@
   transform: rotate(360deg);
 }
 
-/* 📄 Messages d'erreur et état vide */
+/* Messages d'erreur et état vide */
 .error-message {
   display: flex;
   align-items: center;
@@ -104,7 +104,7 @@
   opacity: 0.7;
 }
 
-/* 🎴 Grille des compétences */
+/* Grille des compétences */
 .skills-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -113,7 +113,7 @@
   align-items: stretch;
 }
 
-/* 🃏 Carte de compétence */
+/* Carte de compétence */
 .skill-card {
   position: relative;
   overflow: visible;
@@ -128,12 +128,13 @@
   box-shadow: 0 8px 25px rgba(0,0,0,0.15);
 }
 
-/* 🖼️ Image de la compétence */
+/* Image de la compétence */
 .skill-image-container {
   position: relative;
   height: 200px;
   overflow: hidden;
   border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
 }
 
 .skill-image {
@@ -142,7 +143,7 @@
   object-fit: cover;
 }
 
-/* 🏷️ Overlays de statut */
+/* Overlays de statut */
 .status-overlay {
   position: absolute;
   top: 12px;
@@ -165,21 +166,33 @@
   letter-spacing: 0.5px;
 }
 
-/* 📝 Contenu de la carte */
+/* Contenu de la carte */
 .skill-card mat-card-content {
   padding: 20px;
   flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
+/* FIX - Titre 3 lignes maximum */
 .skill-card h3 {
   margin: 0 0 8px 0;
   font-size: 1.25rem;
   font-weight: 600;
   color: #333;
   line-height: 1.3;
+  /* 3 LIGNES MAXIMUM FORCÉ */
+  display: -webkit-box !important;
+  -webkit-line-clamp: 3 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-height: 3.9em !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
 }
 
-/* 🎨 Catégorie */
+/* Catégorie */
 .skill-category {
   display: inline-block;
   background-color: #e3f2fd;
@@ -191,14 +204,35 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
+  align-self: flex-start;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* 📄 Description */
+/* FIX - Description 10 lignes maximum */
 .skill-description {
   color: #666;
   line-height: 1.5;
   margin: 12px 0;
   font-size: 0.9rem;
+  flex: 1;
+  position: relative;
+}
+
+.skill-description .description-text {
+  /* 10 LIGNES MAXIMUM FORCÉ */
+  display: -webkit-box !important;
+  -webkit-line-clamp: 10 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-height: 15em !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  line-height: 1.5 !important;
+  min-height: 1.5em !important;
 }
 
 .expand-btn {
@@ -212,22 +246,56 @@
   font-weight: 500 !important;
 }
 
-/* 📊 Métadonnées */
+/* Métadonnées - Une seule ligne style identique */
 .skill-meta {
   margin: 16px 0;
   border-top: 1px solid #eee;
   padding-top: 16px;
+  margin-top: auto;
 }
 
-.meta-row {
+.single-meta-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  width: 100%;
+  gap: 12px;
+  flex-wrap: nowrap;
 }
 
-.meta-row:last-child {
-  margin-bottom: 0;
+.single-meta-row .meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #666;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.single-meta-row .meta-item mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: #999;
+  flex-shrink: 0;
+}
+
+.single-meta-row .meta-item.price {
+  color: #4caf50 !important;
+  font-weight: 700 !important;
+  font-size: 1rem !important;
+}
+
+.single-meta-row .meta-item.price span {
+  color: #4caf50 !important;
+  font-weight: 700 !important;
+}
+
+/* Ancienne meta-row cachée pour compatibilité */
+.meta-row {
+  display: none;
 }
 
 .meta-item {
@@ -251,7 +319,7 @@
   font-size: 1rem;
 }
 
-/* 📊 Statuts */
+/* Statuts */
 .exchange-status, 
 .session-status {
   margin: 12px 0;
@@ -268,7 +336,7 @@
   color: #666;
 }
 
-/* 👤 Info producteur */
+/* Info producteur */
 .producer-info {
   margin-top: 16px;
   padding-top: 12px;
@@ -282,21 +350,29 @@
   cursor: pointer;
   text-decoration: none;
   font-weight: 500;
+  transition: color 0.2s ease;
 }
 
 .producer-link:hover {
   text-decoration: underline;
+  color: #1565c0;
 }
 
-/* 🎯 Actions de la carte */
+.producer-link:focus {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}
+
+/* Actions de la carte */
 .skill-card mat-card-actions {
   padding: 16px 20px;
   background-color: #fafafa;
   border-top: 1px solid #eee;
   margin-top: auto;
+  flex-shrink: 0;
 }
 
-/* 🔘 Boutons d'action */
+/* Boutons d'action */
 .join-livestream-btn {
   width: 100%;
   height: 44px;
@@ -307,6 +383,20 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+  background: #1976d2;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.join-livestream-btn:hover {
+  background: #1565c0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+}
+
+.join-livestream-btn:focus {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
 }
 
 .join-livestream-btn mat-icon {
@@ -315,7 +405,7 @@
   height: 20px;
 }
 
-/* 🏷️ Statuts d'échange */
+/* Statuts d'échange */
 .status-actions {
   width: 100%;
   text-align: center;
@@ -368,7 +458,7 @@
   border: 1px solid #ffab91;
 }
 
-/* ⭐ Section rating (session terminée) */
+/* Section rating (session terminée) */
 .rating-section-bottom {
   order: 999;
   margin: 0;
@@ -401,7 +491,7 @@
   height: 18px;
 }
 
-/* 🎨 Style spécial pour cartes avec session terminée */
+/* Style spécial pour cartes avec session terminée */
 .skill-card:has(.rating-section-bottom) {
   border: 2px solid #e8f5e8;
   background: linear-gradient(135deg, #ffffff 0%, #f8fff8 100%);
@@ -413,7 +503,7 @@
   box-shadow: 0 8px 25px rgba(76, 175, 80, 0.15);
 }
 
-/* 🎯 Animation session LIVE */
+/* Animation session LIVE */
 .session-overlay mat-chip[color="warn"] {
   animation: livePulse 2s infinite;
 }
@@ -445,7 +535,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* 📱 Responsive Design */
+/* Responsive Design - AVEC FIX LIGNES */
 @media (max-width: 768px) {
   .skills-container {
     padding: 0px 16px 16px 16px;
@@ -460,11 +550,19 @@
   .skill-card mat-card-content {
     padding: 16px;
   }
-
-  .meta-row {
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
+  
+  /* TITRE - Reste à 3 lignes en responsive */
+  .skill-card h3 {
+    font-size: 1.1rem;
+    -webkit-line-clamp: 3 !important;
+    max-height: 3.9em !important;
+  }
+  
+  /* DESCRIPTION - Reste à 10 lignes en responsive */
+  .skill-description .description-text {
+    font-size: 0.85rem !important;
+    -webkit-line-clamp: 10 !important;
+    max-height: 15em !important;
   }
 
   .filters-wrapper {
@@ -476,76 +574,7 @@
     min-width: auto;
     max-width: none;
   }
-}
-
-@media (max-width: 480px) {
-  .skills-container {
-    padding: 0px 12px 12px 12px;
-    margin: -20px auto 0 auto;
-  }
-
-  .skill-card h3 {
-    font-size: 1.1rem;
-  }
-
-  .join-livestream-btn {
-    height: 40px;
-    font-size: 0.9rem;
-  }
-
-  .pending-status, 
-  .accepted-status,
-  .in-progress-status, 
-  .completed-status, 
-  .rejected-status,
-  .cancelled-status {
-    padding: 10px;
-    font-size: 0.8rem;
-  }
-}/* AJOUTER CE CSS À accepted-skills.component.css */
-
-/* Une seule ligne pour tous les métadonnées - ACCEPTED SKILLS */
-.single-meta-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  gap: 12px;
-  flex-wrap: nowrap; /* Empêche le retour à la ligne */
-}
-
-.single-meta-row .meta-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
-  color: #666;
-  white-space: nowrap; /* Empêche le texte de se casser */
-  flex-shrink: 0; /* Empêche la compression */
-}
-
-.single-meta-row .meta-item mat-icon {
-  font-size: 18px;
-  width: 18px;
-  height: 18px;
-  color: #999;
-  flex-shrink: 0;
-}
-
-/* Prix en vert et en gras - TND */
-.single-meta-row .meta-item.price {
-  color: #4caf50 !important; /* Même vert que skills */
-  font-weight: 700 !important; /* TND en gras */
-  font-size: 1rem !important; /* Même taille que l'original */
-}
-
-.single-meta-row .meta-item.price span {
-  color: #4caf50 !important;
-  font-weight: 700 !important; /* TND en gras */
-}
-
-/* RESPONSIVE pour accepted skills */
-@media (max-width: 768px) {
+  
   .single-meta-row {
     gap: 8px;
   }
@@ -566,6 +595,40 @@
 }
 
 @media (max-width: 480px) {
+  .skills-container {
+    padding: 0px 12px 12px 12px;
+    margin: -20px auto 0 auto;
+  }
+
+  /* TITRE - Reste à 3 lignes en mobile */
+  .skill-card h3 {
+    font-size: 1rem;
+    -webkit-line-clamp: 3 !important;
+    max-height: 3.6em !important;
+  }
+  
+  /* DESCRIPTION - Reste à 10 lignes en mobile */
+  .skill-description .description-text {
+    font-size: 0.8rem !important;
+    -webkit-line-clamp: 10 !important;
+    max-height: 15em !important;
+  }
+
+  .join-livestream-btn {
+    height: 40px;
+    font-size: 0.9rem;
+  }
+
+  .pending-status, 
+  .accepted-status,
+  .in-progress-status, 
+  .completed-status, 
+  .rejected-status,
+  .cancelled-status {
+    padding: 10px;
+    font-size: 0.8rem;
+  }
+  
   .single-meta-row {
     gap: 6px;
   }
@@ -577,9 +640,4 @@
   .single-meta-row .meta-item.price {
     font-size: 0.8rem !important;
   }
-}
-
-/* Cache les anciennes lignes multiples pour compatibility */
-.meta-row {
-  display: none;
 }

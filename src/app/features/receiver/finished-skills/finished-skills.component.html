@@ -1,18 +1,4 @@
 <div class="skills-container">
-  <div class="header-section">
-    
-    
-    <!-- 📊 Info pagination en haut -->
-    <div *ngIf="!isLoading && !error && totalItems > 0" class="pagination-info">
-      <div class="total-info">
-        <mat-icon>check_circle</mat-icon>
-        <span>{{ totalItems }} compétence(s) terminée(s)</span>
-      </div>
-      <div class="page-info">
-        <span>{{ getCurrentPageInfo() }}</span>
-      </div>
-    </div>
-  </div>
   
   <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
   
@@ -21,14 +7,16 @@
   </div>
   
   <div *ngIf="!isLoading && !error">
-    <div *ngIf="totalItems === 0" class="no-skills">
+    <div *ngIf="skills.length === 0" class="no-skills">
       <img src="assets/images/default-skills.png" alt="Aucune compétence terminée" class="empty-state-img">
       <p>Vous n'avez pas encore de compétences terminées.</p>
-      <small>Les compétences apparaîtront ici après avoir terminé vos sessions livestream</small>
+      <small>Les compétences apparaîtront ici après avoir terminé vos sessions</small>
     </div>
     
     <div class="skills-grid">
-      <mat-card *ngFor="let skill of skills; trackBy: trackBySkillId" class="skill-card">
+      <mat-card *ngFor="let skill of skills; trackBy: trackBySkillId" 
+                class="skill-card" 
+                [class.session-completed]="true">
         <div class="skill-image-container">
           <img [src]="skill.pictureUrl || 'assets/images/default-skills.png'" 
                alt="{{ skill.name }}" 
@@ -36,15 +24,19 @@
           
           <!-- Status chip overlay - Toujours "Terminé" -->
           <div class="status-overlay">
-            <mat-chip [color]="getStatusColor(skill.exchangeStatus)" selected>
-              {{ getStatusLabel(skill.exchangeStatus) }}
+            <mat-chip color="primary" selected>
+              Terminé
             </mat-chip>
           </div>
         </div>
         
         <mat-card-content>
+          <!-- 🔧 FIX - TITRE LIMITÉ À 3 LIGNES -->
           <h3>{{ skill.name }}</h3>
+          
           <span class="skill-category">{{ skill.categoryName }}</span>
+          
+          <!-- 🔧 FIX - DESCRIPTION LIMITÉE À 10 LIGNES AVEC EXPAND/COLLAPSE -->
           <p class="skill-description" 
              [class.expanded]="skill.showFullDescription"
              [class.expandable]="skill.description.length > 100">
@@ -59,83 +51,94 @@
             </button>
           </p>
           
-         <div class="skill-meta">
-  <div class="single-meta-row">
-    <!-- Participants -->
-    <div class="meta-item">
-      <mat-icon>people</mat-icon>
-      <span>{{ skill.nbInscrits }}/{{ skill.availableQuantity }}</span>
-    </div>
+          <!-- Métadonnées sur une seule ligne comme my-livestreams -->
+          <div class="skill-meta">
+            <div class="single-meta-row">
+              <!-- Participants -->
+              <div class="meta-item">
+                <mat-icon>people</mat-icon>
+                <span>{{ skill.nbInscrits }}/{{ skill.availableQuantity }}</span>
+              </div>
 
-    <!-- Date -->
-    <div class="meta-item">
-      <mat-icon>calendar_today</mat-icon>
-      <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
-    </div>
+              <!-- Date -->
+              <div class="meta-item">
+                <mat-icon>calendar_today</mat-icon>
+                <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
+              </div>
 
-    <!-- Heure -->
-    <div class="meta-item">
-      <mat-icon>access_time</mat-icon>
-      <span>{{ skill.streamingTime }}</span>
-    </div>
+              <!-- Heure -->
+              <div class="meta-item">
+                <mat-icon>access_time</mat-icon>
+                <span>{{ skill.streamingTime }}</span>
+              </div>
 
-    <!-- Prix -->
-    <div class="meta-item price">
-      <span>TND {{ skill.price | number:'1.2-2' }}</span>
-    </div>
-  </div>
-</div>
+              <!-- Prix -->
+              <div class="meta-item price">
+                <span>TND {{ skill.price | number:'1.2-2' }}</span>
+              </div>
+            </div>
+          </div>
           
+          <!-- Producer info compacte -->
           <div class="producer-info">
             <span>Proposé par : </span>
             <a (click)="openProducerProfile(skill.userId)" class="producer-link">
               {{ getProducerName(skill.userId) }}
             </a>
+            
+            <!-- Section Rating compacte comme my-livestreams -->
+            <div class="skill-rating-compact" *ngIf="skill.hasRated">
+              <div class="rating-summary">
+                <mat-icon>star</mat-icon>
+                <span class="rating-label">Votre note:</span>
+                <div class="rating-value">
+                  <span class="rating-number" [style.color]="getRatingColor(skill.currentRating!)">
+                    {{ skill.currentRating | number:'1.1-1' }}
+                  </span>
+                  <span class="rating-count">/5</span>
+                  
+                  <!-- Affichage des étoiles mini -->
+                  <div class="stars-mini">
+                    <mat-icon *ngFor="let star of getStarArray(skill.currentRating!)" 
+                              [class.filled]="star"
+                              class="star-icon-mini">
+                      {{ star ? 'star' : 'star_border' }}
+                    </mat-icon>
+                  </div>
+                </div>
+                
+                <!-- Bouton pour voir les détails -->
+                <button mat-stroked-button 
+                        color="primary" 
+                        class="view-rating-btn"
+                        (click)="viewMyRating(skill)">
+                  <mat-icon>visibility</mat-icon>
+                  Voir détails
+                </button>
+              </div>
+            </div>
+            
+            <!-- Prompt d'évaluation compact -->
+            <div class="rating-prompt-compact" *ngIf="!skill.hasRated">
+              <button mat-raised-button 
+                      color="primary" 
+                      class="rate-compact-btn"
+                      (click)="openRatingDialog(skill)">
+                <mat-icon>star_rate</mat-icon>
+                Évaluer
+              </button>
+            </div>
           </div>
         </mat-card-content>
         
-        <!-- 🎯 PAS D'ACTIONS - Compétences terminées uniquement -->
-        <mat-card-actions style="display: none;">
-          <!-- Pas de boutons d'action pour les compétences terminées -->
-        </mat-card-actions>
-
-        <!-- 🎯 RATING DISPLAY - Toujours affiché pour les compétences terminées -->
-        <div class="rating-section-bottom">
-          <!-- Composant de rating EN HAUT -->
-          <app-rating-display 
-            [exchangeId]="skill.exchangeId"
-            [status]="skill.exchangeStatus"
-            [skillName]="skill.name"
-            [producerName]="getProducerName(skill.userId)"
-            (ratingUpdated)="onRatingUpdated(skill)">
-          </app-rating-display>
-          
-          <!-- Badge "Session terminée" EN BAS -->
+        <mat-card-actions>
+          <!-- Badge session terminée centré -->
           <div class="session-completed-badge">
             <mat-icon>check_circle</mat-icon>
             <span>Session terminée</span>
           </div>
-        </div>
+        </mat-card-actions>
       </mat-card>
-    </div>
-    
-    <!-- 📄 Pagination principale en bas -->
-    <div *ngIf="totalItems > 0" class="pagination-bottom">
-      <mat-paginator
-        [length]="totalItems"
-        [pageSize]="pageSize"
-        [pageSizeOptions]="pageSizeOptions"
-        [pageIndex]="currentPage"
-        (page)="onPageChange($event)"
-        showFirstLastButtons>
-      </mat-paginator>
-      
-      <!-- Info supplémentaire -->
-      <div class="pagination-summary">
-        <span>Page {{ currentPage + 1 }} sur {{ getTotalPages() }}</span>
-        <span class="separator">•</span>
-        <span>{{ pageSize }} par page</span>
-      </div>
     </div>
   </div>
 </div>

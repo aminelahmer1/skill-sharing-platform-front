@@ -105,14 +105,16 @@
   animation: float 6s ease-in-out infinite;
 }
 
-/* Skills Grid - IDENTIQUE À MYLIVESTREAMS */
+/* Skills Grid */
 .skills-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 24px;
   margin-top: 0;
+  align-items: stretch;
 }
 
+/* Skill Card */
 .skill-card {
   position: relative;
   overflow: visible;
@@ -122,6 +124,9 @@
   border: 1px solid rgba(0,0,0,0.05);
   box-shadow: 0 5px 20px rgba(0,0,0,0.05);
   animation: scaleIn 0.5s ease-out;
+  display: flex;
+  flex-direction: column;
+  min-height: 450px;
 }
 
 .skill-card:hover {
@@ -135,12 +140,27 @@
 .skill-card:nth-child(3) { animation-delay: 0.3s; }
 .skill-card:nth-child(4) { animation-delay: 0.4s; }
 
-/* Skill Image - IDENTIQUE À MYLIVESTREAMS */
+/* Styles pour les compétences expirées */
+.skill-card.expired-skill {
+  opacity: 0.75;
+  filter: grayscale(0.3);
+  border-color: #e0e0e0;
+  transition: all 0.3s ease;
+}
+
+.skill-card.expired-skill:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border-color: #bdbdbd;
+}
+
+/* Skill Image */
 .skill-image-container {
   position: relative;
   height: 200px;
   overflow: hidden;
   border-radius: 15px 15px 0 0;
+  flex-shrink: 0;
 }
 
 .skill-image {
@@ -154,20 +174,57 @@
   transform: scale(1.05);
 }
 
-/* Card Content - IDENTIQUE À MYLIVESTREAMS */
-.skill-card mat-card-content {
-  padding: 20px;
+/* Badge d'expiration sur l'image */
+.expired-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: linear-gradient(135deg, #fd79a8 0%, #e66797 100%);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 8px rgba(253, 121, 168, 0.4);
+  animation: pulseExpired 2s infinite;
+  z-index: 2;
 }
 
+.expired-badge mat-icon {
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* Card Content */
+.skill-card mat-card-content {
+  padding: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Title */
 .skill-card h3 {
   margin: 0 0 8px 0;
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--dark);
   line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  height: 2.6em;
+  word-wrap: break-word;
+  word-break: break-word;
 }
 
-/* 🎨 CATÉGORIE - Style receiver accepted skills */
+/* Catégorie */
 .skill-category {
   display: inline-block;
   background-color: #e3f2fd;
@@ -180,23 +237,41 @@
   letter-spacing: 0.5px;
   margin-bottom: 12px;
   animation: fadeIn 0.5s ease-out;
+  align-self: flex-start;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* Description - FIXÉ À 6 LIGNES */
 .skill-description {
-  color: #636e72;
-  line-height: 1.5;
-  margin: 12px 0;
-  font-size: 0.9rem;
+  color: #636e72 !important;
+  line-height: 1.5 !important;
+  margin: 12px 0 !important;
+  font-size: 0.9rem !important;
+  flex: 1 !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  /* 6 LIGNES MAXIMUM FORCÉ */
+  display: -webkit-box !important;
+  -webkit-line-clamp: 6 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-height: 9em !important; /* 6 lignes × 1.5em */
+  min-height: 1.5em !important;
 }
 
-/* Skill Meta - IDENTIQUE À MYLIVESTREAMS */
+/* Skill Meta */
 .skill-meta {
   margin: 16px 0;
   border-top: 1px solid #e0e0e0;
   padding-top: 16px;
+  margin-top: auto;
 }
 
-/* Une seule ligne pour tous les métadonnées - IDENTIQUE À MYLIVESTREAMS */
+/* Une seule ligne pour tous les métadonnées */
 .single-meta-row {
   display: flex;
   justify-content: space-between;
@@ -214,6 +289,7 @@
   color: #636e72;
   white-space: nowrap;
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .single-meta-row .meta-item mat-icon {
@@ -235,7 +311,7 @@
   font-weight: 500 !important;
 }
 
-/* Bouton inscrits - IDENTIQUE À MYLIVESTREAMS */
+/* Bouton inscrits */
 .single-meta-row .inscrits-button {
   min-width: auto !important;
   padding: 0 6px !important;
@@ -268,7 +344,7 @@
   font-size: 0.85rem;
 }
 
-/* Card Actions - SIMPLIFIÉES */
+/* Card Actions */
 .skill-card mat-card-actions {
   padding: 16px 20px;
   background-color: var(--light);
@@ -276,6 +352,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .skill-card mat-card-actions button {
@@ -308,162 +385,6 @@
   font-size: 20px;
   width: 20px;
   height: 20px;
-}
-
-/* Animations - IDENTIQUES À MYLIVESTREAMS */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes scaleIn {
-  from { transform: scale(0.8); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
-}
-
-@keyframes slideInLeft {
-  from { transform: translateX(-50px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
-
-@keyframes float {
-  0% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(10deg); }
-  100% { transform: translateY(0) rotate(0deg); }
-}
-
-/* Progress bar styling */
-mat-progress-bar {
-  margin-bottom: 20px;
-  border-radius: 4px;
-}
-
-mat-progress-bar .mat-progress-bar-fill::after {
-  background: linear-gradient(45deg, var(--primary), var(--secondary));
-}
-
-/* Focus states */
-.add-skill-btn:focus,
-.inscrits-button:focus {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-/* Error message icon */
-.error-message mat-icon {
-  font-size: 20px;
-  margin-right: 8px;
-  color: var(--danger);
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .skills-container {
-    padding: 16px;
-  }
-  
-  .skills-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  
-  .skill-card {
-    margin: 0;
-  }
-  
-  .skill-card h3 {
-    font-size: 1.1rem;
-  }
-  
-  .single-meta-row {
-    gap: 8px;
-  }
-  
-  .single-meta-row .meta-item {
-    font-size: 0.8rem;
-  }
-  
-  .single-meta-row .meta-item mat-icon {
-    font-size: 14px;
-    width: 14px;
-    height: 14px;
-  }
-}
-
-@media (max-width: 480px) {
-  .skills-container h2 {
-    font-size: 1.5rem;
-  }
-  
-  .skill-image-container {
-    height: 160px;
-  }
-  
-  .single-meta-row {
-    gap: 6px;
-  }
-  
-  .single-meta-row .meta-item {
-    font-size: 0.75rem;
-  }
-  
-  .single-meta-row .meta-item.price {
-    font-size: 0.8rem;
-  }
-  
-  .skill-description {
-    font-size: 0.85rem;
-  }
-}/* AJOUTEZ CES STYLES À VOTRE CSS EXISTANT */
-
-/* Styles pour les compétences expirées */
-.skill-card.expired-skill {
-  opacity: 0.75;
-  filter: grayscale(0.3);
-  border-color: #e0e0e0;
-  transition: all 0.3s ease;
-}
-
-.skill-card.expired-skill:hover {
-  transform: translateY(-4px); /* Moins d'élévation que les actives */
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  border-color: #bdbdbd;
-}
-
-/* Badge d'expiration sur l'image */
-.expired-badge {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: linear-gradient(135deg, #fd79a8 0%, #e66797 100%);
-  color: white;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  box-shadow: 0 2px 8px rgba(253, 121, 168, 0.4);
-  animation: pulseExpired 2s infinite;
-  z-index: 2;
-}
-
-.expired-badge mat-icon {
-  font-size: 16px !important;
-  width: 16px !important;
-  height: 16px !important;
-}
-
-@keyframes pulseExpired {
-  0%, 100% { 
-    transform: scale(1);
-    box-shadow: 0 2px 8px rgba(253, 121, 168, 0.4);
-  }
-  50% { 
-    transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(253, 121, 168, 0.6);
-  }
 }
 
 /* Bouton modifier désactivé */
@@ -530,6 +451,69 @@ mat-progress-bar .mat-progress-bar-fill::after {
   color: #9e9e9e !important;
 }
 
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-50px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes float {
+  0% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(10deg); }
+  100% { transform: translateY(0) rotate(0deg); }
+}
+
+@keyframes pulseExpired {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(253, 121, 168, 0.4);
+  }
+  50% { 
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(253, 121, 168, 0.6);
+  }
+}
+
+/* Progress bar styling */
+mat-progress-bar {
+  margin-bottom: 20px;
+  border-radius: 4px;
+}
+
+mat-progress-bar .mat-progress-bar-fill::after {
+  background: linear-gradient(45deg, var(--primary), var(--secondary));
+}
+
+/* Focus states */
+.add-skill-btn:focus,
+.inscrits-button:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Error message icon */
+.error-message mat-icon {
+  font-size: 20px;
+  margin-right: 8px;
+  color: var(--danger);
+}
+
+/* Style pour les notifications de compétences expirées */
+.warning-snackbar {
+  background-color: #ff9800 !important;
+  color: white !important;
+}
+
 /* Tooltip pour bouton désactivé */
 .disabled-edit-btn[title]:hover::after {
   content: attr(title);
@@ -560,8 +544,80 @@ mat-progress-bar .mat-progress-bar-fill::after {
   z-index: 1000;
 }
 
-/* Responsive pour les badges d'expiration */
+/* Amélioration de l'accessibilité */
+.disabled-edit-btn:focus {
+  outline: 2px solid #e0e0e0 !important;
+  outline-offset: 2px;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .skills-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+}
+
+@media (max-width: 900px) {
+  .skills-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px;
+  }
+}
+
 @media (max-width: 768px) {
+  .skills-container {
+    padding: 16px;
+  }
+  
+  .skills-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .skill-card {
+    margin: 0;
+    min-height: 400px;
+  }
+  
+  .skill-card h3 {
+    font-size: 1.1rem;
+    -webkit-line-clamp: 2;
+    max-height: 2.6em;
+  }
+  
+  /* Description reste à 6 lignes même en responsive */
+  .skill-description {
+    font-size: 0.85rem !important;
+    -webkit-line-clamp: 6 !important;
+    max-height: 9em !important;
+  }
+  
+  .single-meta-row {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  
+  .single-meta-row .meta-item {
+    font-size: 0.8rem;
+    flex: 0 1 auto;
+  }
+  
+  .single-meta-row .meta-item mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+  
+  .single-meta-row .meta-item.price {
+    flex: 1 1 100%;
+    justify-content: center;
+    order: 1;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #e0e0e0;
+  }
+  
   .expired-badge {
     top: 8px;
     right: 8px;
@@ -577,6 +633,49 @@ mat-progress-bar .mat-progress-bar-fill::after {
 }
 
 @media (max-width: 480px) {
+  .skills-container h2 {
+    font-size: 1.5rem;
+  }
+  
+  .skills-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .skill-image-container {
+    height: 150px;
+  }
+  
+  .skill-card {
+    min-height: 350px;
+  }
+  
+  .skill-card h3 {
+    font-size: 1rem;
+    -webkit-line-clamp: 2;
+    max-height: 2.4em;
+  }
+  
+  /* Description TOUJOURS 6 lignes */
+  .skill-description {
+    font-size: 0.8rem !important;
+    -webkit-line-clamp: 6 !important;
+    max-height: 9em !important;
+    min-height: 1.5em !important;
+  }
+  
+  .single-meta-row {
+    gap: 6px;
+  }
+  
+  .single-meta-row .meta-item {
+    font-size: 0.75rem;
+  }
+  
+  .single-meta-row .meta-item.price {
+    font-size: 0.85rem !important;
+  }
+  
   .expired-badge {
     top: 6px;
     right: 6px;
@@ -588,6 +687,39 @@ mat-progress-bar .mat-progress-bar-fill::after {
     font-size: 12px !important;
     width: 12px !important;
     height: 12px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .skills-container {
+    padding: 12px;
+  }
+  
+  .skills-grid {
+    gap: 10px;
+  }
+  
+  .skill-card {
+    min-height: 320px;
+  }
+  
+  .skill-image-container {
+    height: 130px;
+  }
+  
+  /* Description TOUJOURS 10 lignes même sur très petits écrans */
+  .skill-description {
+    font-size: 0.75rem !important;
+    -webkit-line-clamp: 10 !important;
+    max-height: 15em !important;
+  }
+  
+  .skill-card mat-card-content {
+    padding: 16px;
+  }
+  
+  .skill-card mat-card-actions {
+    padding: 12px 16px;
   }
 }
 
@@ -607,27 +739,7 @@ mat-progress-bar .mat-progress-bar-fill::after {
   }
 }
 
-/* Style pour les notifications de compétences expirées */
-.warning-snackbar {
-  background-color: #ff9800 !important;
-  color: white !important;
-}
-
-/* Amélioration de l'accessibilité */
-.disabled-edit-btn:focus {
-  outline: 2px solid #e0e0e0 !important;
-  outline-offset: 2px;
-}
-
 /* Icône edit_off pour les boutons désactivés */
 .disabled-edit-btn mat-icon[aria-hidden="true"] {
   opacity: 0.6;
-}
-.centered-confirmation-dialog .mat-mdc-dialog-title {
-  text-align: center !important;
-}
-
-.centered-confirmation-dialog .mat-mdc-dialog-actions {
-  justify-content: center !important;
-  gap: 16px !important;
 }

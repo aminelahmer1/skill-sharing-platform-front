@@ -244,10 +244,7 @@ export class ReceiverCalendarComponent implements OnInit, OnDestroy {
   }
 
   viewCompletedSession(event: CalendarEvent): void {
-    if (!event) return;
-    this.router.navigate(['/receiver/finished-skills'], {
-      queryParams: { sessionId: event.id }
-    });
+     console.log('Viewing session details:', event);
   }
 
   refreshCalendar(): void {
