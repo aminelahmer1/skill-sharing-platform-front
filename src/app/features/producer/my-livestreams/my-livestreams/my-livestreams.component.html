@@ -1,6 +1,190 @@
 <div class="livestreams-container">
   <h2>🎥 Mes Livestreams</h2>
   
+  <!-- Section de recherche et filtrage -->
+  <div class="search-filter-section">
+    
+    <!-- Container de recherche -->
+    <div class="search-container">
+      <!-- Barre de recherche principale -->
+      <div class="search-bar-container">
+        <mat-icon class="search-icon">search</mat-icon>
+        <input 
+          type="text" 
+          class="search-input"
+          placeholder="Rechercher une compétence..."
+          [(ngModel)]="searchQuery"
+          (input)="onSearchChange()"
+          (keydown)="onSearchInputKeyDown($event)"
+          #searchInput>
+        <button 
+          *ngIf="searchQuery" 
+          class="clear-search-btn"
+          (click)="clearSearch()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <!-- Suggestions de recherche -->
+      <div class="search-suggestions" *ngIf="showSuggestions && searchSuggestions.length > 0">
+        <div class="suggestions-count" *ngIf="searchSuggestions.length > 5">
+          {{ searchSuggestions.length }} suggestions trouvées
+        </div>
+        
+        <div class="suggestion-item" 
+             *ngFor="let suggestion of searchSuggestions; let i = index"
+             [attr.data-type]="suggestion.type"
+             [class.keyboard-selected]="i === selectedSuggestionIndex"
+             (click)="selectSuggestion(suggestion)">
+          
+          <mat-icon>
+            <ng-container [ngSwitch]="suggestion.type">
+              <span *ngSwitchCase="'skill'">school</span>
+              <span *ngSwitchCase="'category'">category</span>
+              <span *ngSwitchDefault>search</span>
+            </ng-container>
+          </mat-icon>
+          
+          <div class="suggestion-content">
+            <span class="suggestion-title">{{ suggestion.title }}</span>
+            <span class="suggestion-type">{{ suggestion.typeLabel }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bouton pour afficher/masquer les filtres -->
+    <button 
+      class="toggle-filters-btn"
+      [class.active]="showFilters"
+      (click)="toggleFilters()">
+      <mat-icon>{{ showFilters ? 'filter_list_off' : 'filter_list' }}</mat-icon>
+      <span>{{ showFilters ? 'Masquer' : 'Afficher' }} les filtres</span>
+      <span class="filter-badge" *ngIf="activeFiltersCount > 0">
+        {{ activeFiltersCount }}
+      </span>
+    </button>
+
+    <!-- Panel de filtres -->
+    <div class="filters-panel" [class.expanded]="showFilters">
+      <div class="filters-grid">
+        
+        <!-- Filtre par catégorie -->
+        <div class="filter-group">
+          <label class="filter-label">
+            <mat-icon>category</mat-icon>
+            Catégorie
+          </label>
+          <mat-select 
+            [(value)]="selectedCategory"
+            (selectionChange)="applyFilters()"
+            placeholder="Toutes les catégories">
+            <mat-option value="">Toutes les catégories</mat-option>
+            <mat-option *ngFor="let category of categories" [value]="category.id">
+              {{ category.name }}
+            </mat-option>
+          </mat-select>
+        </div>
+
+        <!-- Filtre par date -->
+        <div class="filter-group">
+          <label class="filter-label">
+            <mat-icon>date_range</mat-icon>
+            Période
+          </label>
+          <mat-select 
+            [(value)]="selectedDateRange"
+            (selectionChange)="applyFilters()">
+            <mat-option value="">Toutes les dates</mat-option>
+            <mat-option value="today">Aujourd'hui</mat-option>
+            <mat-option value="tomorrow">Demain</mat-option>
+            <mat-option value="week">Cette semaine</mat-option>
+            <mat-option value="month">Ce mois</mat-option>
+            <mat-option value="past">Dates passées</mat-option>
+          </mat-select>
+        </div>
+
+        <!-- Filtre par statut de session -->
+       <!-- Filtre par statut de session -->
+<div class="filter-group">
+  <label class="filter-label">
+    <mat-icon>live_tv</mat-icon>
+    Statut de session
+  </label>
+  <mat-select 
+    [(value)]="selectedSessionStatus"
+    (selectionChange)="applyFilters()">
+    <mat-option value="">Tous les statuts</mat-option>
+    <mat-option value="live">🔵 Sessions LIVE</mat-option>
+    <mat-option value="scheduled">⚫ Sessions programmées</mat-option>
+    <mat-option value="with-inscriptions">🔴 Avec inscriptions</mat-option>
+    <mat-option value="without-inscriptions">🟡 Sans inscriptions</mat-option>
+    <mat-option value="completed">🟢 Sessions terminées</mat-option>
+  </mat-select>
+</div>
+
+        <!-- Tri -->
+        <div class="filter-group">
+          <label class="filter-label">
+            <mat-icon>sort</mat-icon>
+            Trier par
+          </label>
+          <mat-select 
+            [(value)]="sortBy"
+            (selectionChange)="applySort()">
+            <mat-option value="priority">Priorité (recommandé)</mat-option>
+            <mat-option value="dateAsc">Date (plus proche)</mat-option>
+            <mat-option value="dateDesc">Date (plus lointaine)</mat-option>
+            <mat-option value="inscriptionsDesc">Inscriptions (plus)</mat-option>
+            <mat-option value="inscriptionsAsc">Inscriptions (moins)</mat-option>
+            <mat-option value="nameAsc">Nom (A-Z)</mat-option>
+            <mat-option value="nameDesc">Nom (Z-A)</mat-option>
+          </mat-select>
+        </div>
+      </div>
+
+      <!-- Actions des filtres -->
+      <div class="filter-actions">
+        <button 
+          class="reset-filters-btn"
+          (click)="resetFilters()"
+          [disabled]="activeFiltersCount === 0">
+          <mat-icon>refresh</mat-icon>
+          Réinitialiser
+        </button>
+        <div class="results-count">
+          <span *ngIf="!isLoading">
+            {{ filteredSkills.length }} compétence{{ filteredSkills.length > 1 ? 's' : '' }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tags des filtres actifs -->
+    <div class="active-filters-tags" *ngIf="activeFiltersCount > 0">
+      <span class="filter-tag" *ngIf="searchQuery">
+        <mat-icon>search</mat-icon>
+        "{{ searchQuery }}"
+        <button (click)="clearSearch()">×</button>
+      </span>
+      <span class="filter-tag" *ngIf="selectedCategory">
+        <mat-icon>category</mat-icon>
+        {{ getCategoryName(selectedCategory) }}
+        <button (click)="selectedCategory = null; applyFilters()">×</button>
+      </span>
+      <span class="filter-tag" *ngIf="selectedDateRange">
+        <mat-icon>date_range</mat-icon>
+        {{ getDateRangeLabel(selectedDateRange) }}
+        <button (click)="selectedDateRange = ''; applyFilters()">×</button>
+      </span>
+      <span class="filter-tag" *ngIf="selectedSessionStatus">
+        <mat-icon>live_tv</mat-icon>
+        {{ getSessionStatusFilterLabel(selectedSessionStatus) }}
+        <button (click)="selectedSessionStatus = ''; applyFilters()">×</button>
+      </span>
+    </div>
+  </div>
+  
   <mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
   
   <div *ngIf="error" class="error-message">
@@ -8,16 +192,26 @@
   </div>
   
   <div *ngIf="!isLoading && !error">
-    <div *ngIf="skills.length === 0" class="no-skills">
-      <img src="assets/images/default-livestream.png" alt="Aucun livestream" class="empty-state-img">
-      <p>Vous n'avez pas encore créé de compétences.</p>
-      <button mat-raised-button color="primary" routerLink="/producer/skills">
+    <!-- Message si aucun résultat -->
+    <div *ngIf="filteredSkills.length === 0" class="no-results">
+      <img src="assets/images/no-results.png" alt="Aucun résultat" class="empty-state-img">
+      <h3>Aucun résultat trouvé</h3>
+      <p *ngIf="activeFiltersCount > 0">
+        Essayez de modifier vos critères de recherche ou 
+        <a (click)="resetFilters()" class="reset-link">réinitialiser les filtres</a>
+      </p>
+      <p *ngIf="activeFiltersCount === 0 && originalSkills.length === 0">
+        Vous n'avez pas encore créé de livestreams.
+      </p>
+      <button mat-raised-button color="primary" routerLink="/producer/skills" 
+              *ngIf="activeFiltersCount === 0 && originalSkills.length === 0">
         <mat-icon>add</mat-icon> Créer une compétence
       </button>
     </div>
     
-    <div class="skills-grid">
-      <mat-card *ngFor="let skill of skills" 
+    <!-- Grille des compétences filtrées -->
+    <div class="skills-grid" *ngIf="filteredSkills.length > 0">
+      <mat-card *ngFor="let skill of filteredSkills" 
                 class="skill-card" 
                 [class.session-completed]="skill.isSessionCompleted">
         <div class="skill-image-container">
@@ -25,7 +219,7 @@
                alt="{{ skill.name }}" 
                class="skill-image">
           
-          <!-- Session status chip overlay - MASQUER LE STATUT TERMINÉ -->
+          <!-- Session status chip overlay -->
           <div class="status-overlay" 
                *ngIf="skill.sessionStatus && skill.sessionStatus !== 'none' && skill.sessionStatus !== 'completed'">
             <mat-chip [color]="getSessionStatusColor(skill.sessionStatus)" selected>
@@ -37,45 +231,50 @@
         <mat-card-content>
           <h3>{{ skill.name }}</h3>
           <span class="skill-category">{{ skill.categoryName }}</span>
-          <p class="skill-description">
-            {{ (skill.description.length > 100) ? (skill.description | slice:0:100) + '...' : skill.description }}
-          </p>
           
-          <!-- REMPLACER la section skill-meta dans le template HTML -->
-<div class="skill-meta">
-  <div class="single-meta-row">
-    <!-- Participants -->
-    <div class="meta-item">
-      <mat-icon>people</mat-icon>
-      <button 
-        mat-button 
-        color="primary" 
-        class="inscrits-button"
-        (click)="showAcceptedReceivers(skill.id)"
-        [attr.aria-label]="'Voir les ' + skill.nbInscrits + ' participants'">
-        {{ skill.nbInscrits }}
-      </button>
-      <span class="capacity-text">/{{ skill.availableQuantity }}</span>
-    </div>
+          <div class="skill-description-wrapper">
+            <p class="skill-description" 
+               [class.expanded]="skill.showFullDescription">
+              {{ skill.description }}
+            </p>
+            <button *ngIf="skill.description && skill.description.length > 200" 
+                    mat-button 
+                    class="toggle-description-btn"
+                    (click)="toggleDescription(skill)">
+              {{ skill.showFullDescription ? 'Voir moins' : 'Voir plus' }}
+            </button>
+          </div>
+          
+          <div class="skill-meta">
+            <div class="single-meta-row">
+              <div class="meta-item">
+                <mat-icon>people</mat-icon>
+                <button 
+                  mat-button 
+                  color="primary" 
+                  class="inscrits-button"
+                  (click)="showAcceptedReceivers(skill.id)"
+                  [attr.aria-label]="'Voir les ' + skill.nbInscrits + ' participants'">
+                  {{ skill.nbInscrits }}
+                </button>
+                <span class="capacity-text">/{{ skill.availableQuantity }}</span>
+              </div>
 
-    <!-- Date -->
-    <div class="meta-item">
-      <mat-icon>calendar_today</mat-icon>
-      <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
-    </div>
+              <div class="meta-item">
+                <mat-icon>calendar_today</mat-icon>
+                <span>{{ skill.streamingDate | date:'dd/MM/yy' }}</span>
+              </div>
 
-    <!-- Heure -->
-    <div class="meta-item">
-      <mat-icon>access_time</mat-icon>
-      <span>{{ skill.streamingTime }}</span>
-    </div>
+              <div class="meta-item">
+                <mat-icon>access_time</mat-icon>
+                <span>{{ skill.streamingTime }}</span>
+              </div>
 
-    <!-- Prix -->
-    <div class="meta-item price">
-      <span>TND {{ skill.price | number:'1.2-2' }}</span>
-    </div>
-  </div>
-</div>
+              <div class="meta-item price">
+                <span>TND {{ skill.price | number:'1.2-2' }}</span>
+              </div>
+            </div>
+          </div>
 
           <!-- Section Rating pour les sessions complétées -->
           <div class="skill-rating" *ngIf="skill.sessionStatus === 'completed' || skill.isSessionCompleted">
@@ -88,7 +287,6 @@
                 </span>
                 <span class="rating-count">({{ skillRatings[skill.id].totalRatings }} avis)</span>
                 
-                <!-- Affichage des étoiles -->
                 <div class="stars-mini">
                   <mat-icon *ngFor="let star of getStarArray(skillRatings[skill.id].averageRating)" 
                             [class.filled]="star"
@@ -102,7 +300,6 @@
               </div>
             </div>
             
-            <!-- Bouton pour voir les détails des évaluations -->
             <button mat-stroked-button 
                     color="primary" 
                     class="view-ratings-btn"
@@ -113,7 +310,6 @@
             </button>
           </div>
 
-          <!-- Session Status Display - MASQUER LE STATUT TERMINÉ -->
           <div class="session-status" 
                *ngIf="skill.sessionStatus && skill.sessionStatus !== 'none' && skill.sessionStatus !== 'completed'">
             <div class="status-info">
@@ -126,54 +322,53 @@
         </mat-card-content>
         
         <mat-card-actions>
-          <!-- Afficher les actions seulement si la session n'est pas terminée -->
-          <ng-container *ngIf="!skill.isSessionCompleted">
-            <!-- Create Session Buttons -->
-            <div class="livestream-actions" *ngIf="canCreateSession(skill)">
-              <button mat-raised-button 
-                      color="warn"
-                      (click)="createLivestreamSession(skill, true)"
-                      class="action-btn immediate-btn"
-                      [attr.aria-label]="'Démarrer livestream pour ' + skill.name">
-                <mat-icon>live_tv</mat-icon>
-                Démarrer maintenant
-              </button>
-              
-              <button mat-stroked-button 
-                      color="primary"
-                      (click)="createLivestreamSession(skill, false)"
-                      class="action-btn schedule-btn"
-                      [attr.aria-label]="'Programmer livestream pour ' + skill.name">
-                <mat-icon>schedule</mat-icon>
-                Programmer
-              </button>
-            </div>
+  <ng-container *ngIf="!skill.isSessionCompleted">
+    <!-- Create Session Buttons -->
+    <div class="livestream-actions" *ngIf="canCreateSession(skill)">
+      <button mat-raised-button 
+              color="warn"
+              (click)="createLivestreamSession(skill, true)"
+              class="action-btn immediate-btn"
+              [attr.aria-label]="'Démarrer livestream pour ' + skill.name">
+        <mat-icon>live_tv</mat-icon>
+        Démarrer maintenant
+      </button>
+      
+      <button mat-stroked-button 
+              color="primary"
+              (click)="createLivestreamSession(skill, false)"
+              class="action-btn schedule-btn"
+              [attr.aria-label]="'Programmer livestream pour ' + skill.name">
+        <mat-icon>schedule</mat-icon>
+        Programmer
+      </button>
+    </div>
 
-            <!-- Join Existing Session -->
-            <div class="session-actions" *ngIf="canJoinSession(skill)">
-              <button mat-raised-button 
-                      color="primary"
-                      (click)="joinExistingSession(skill)"
-                      class="join-session-btn"
-                      [attr.aria-label]="'Rejoindre session pour ' + skill.name">
-                <mat-icon>{{ skill.sessionStatus === 'live' ? 'live_tv' : 'play_arrow' }}</mat-icon>
-                {{ skill.sessionStatus === 'live' ? 'Rejoindre Live' : 'Démarrer Session' }}
-              </button>
-            </div>
+    <!-- Join Existing Session -->
+    <div class="session-actions" *ngIf="canJoinSession(skill)">
+      <button mat-raised-button 
+              color="primary"
+              (click)="joinExistingSession(skill)"
+              class="join-session-btn"
+              [attr.aria-label]="'Rejoindre session pour ' + skill.name">
+        <mat-icon>{{ skill.sessionStatus === 'live' ? 'live_tv' : 'play_arrow' }}</mat-icon>
+        {{ skill.sessionStatus === 'live' ? 'Rejoindre Live' : 'Démarrer Session' }}
+      </button>
+    </div>
 
-            <!-- No participants message -->
-            <div class="no-participants" *ngIf="!canCreateSession(skill) && !canJoinSession(skill)">
-              <mat-icon color="warn">people_outline</mat-icon>
-              <span>{{ getNoSessionMessage(skill) }}</span>
-            </div>
-          </ng-container>
-         
-          <!-- 🎯 BADGE SESSION TERMINÉE CENTRÉ avec style receiver accepted skills -->
-          <div *ngIf="skill.isSessionCompleted" class="session-completed-badge">
-            <mat-icon>check_circle</mat-icon>
-            <span>Session terminée</span>
-          </div>
-        </mat-card-actions>
+    <!-- No participants message -->
+    <div class="no-participants" *ngIf="!canCreateSession(skill) && !canJoinSession(skill)">
+      <mat-icon color="warn">people_outline</mat-icon>
+      <span>{{ getNoSessionMessage(skill) }}</span>
+    </div>
+  </ng-container>
+ 
+  <!-- Badge session terminée centré -->
+  <div *ngIf="skill.isSessionCompleted" class="session-completed-badge">
+    <mat-icon>check_circle</mat-icon>
+    <span>Session terminée</span>
+  </div>
+</mat-card-actions>
       </mat-card>
     </div>
   </div>
