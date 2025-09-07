@@ -22,32 +22,65 @@
     </div>
   </div>
 
-  <!-- Session en direct ou prochaine -->
+  <!-- Sessions du jour -->
   <div class="live-section" *ngIf="todayEvents.length > 0">
-    <div class="live-card" *ngFor="let event of todayEvents">
-      <div class="live-indicator" *ngIf="event.status === 'IN_PROGRESS'">
-        <span class="pulse-dot"></span>
-        EN DIRECT
+    <div class="section-subtitle">Sessions d'aujourd'hui</div>
+    
+    <div class="live-card" 
+         *ngFor="let event of todayEvents"
+         [class.completed-card]="event.status === 'COMPLETED'"
+         [class.live-card-active]="event.status === 'IN_PROGRESS'">
+      
+      <!-- Indicateur de statut -->
+      <div class="status-indicator"
+           [ngClass]="{
+             'live-indicator': event.status === 'IN_PROGRESS',
+             'completed-indicator': event.status === 'COMPLETED',
+             'scheduled-indicator': event.status === 'SCHEDULED' || event.status === 'ACCEPTED'
+           }">
+        <span class="pulse-dot" *ngIf="event.status === 'IN_PROGRESS'"></span>
+        <span class="status-icon" *ngIf="event.status === 'COMPLETED'">✅</span>
+        <span class="status-icon" *ngIf="event.status === 'SCHEDULED' || event.status === 'ACCEPTED'">🕐</span>
+        {{ getEventStatusLabel(event) }}
       </div>
+      
+      <!-- Contenu de la session -->
       <div class="session-content">
-        <h3>{{ event.skillName }}</h3>
+        <h3 [class.completed-title]="event.status === 'COMPLETED'">
+          {{ event.skillName }}
+        </h3>
         <p class="session-trainer">
           <span class="trainer-icon">👨‍🏫</span>
           {{ event.producerName }}
         </p>
         <div class="session-time">
           <span class="time-icon">⏰</span>
-          {{ event.streamingTime }}
+          <span [class.time-crossed]="isEarlyCompleted(event)">
+            {{ event.streamingTime }}
+          </span>
+          <span class="early-completed-badge" *ngIf="isEarlyCompleted(event)">
+            Terminé plus tôt
+          </span>
         </div>
       </div>
-      <button 
-        class="btn-join-session"
-        *ngIf="event.status === 'IN_PROGRESS'"
-        (click)="joinLiveSession(event)">
-        Rejoindre maintenant
-      </button>
-      <div class="time-until" *ngIf="event.status !== 'IN_PROGRESS'">
-        {{ getTimeRemaining(event.streamingDate) }}
+      
+      <!-- Actions -->
+      <div class="session-actions">
+        <button 
+          class="btn-join-session"
+          *ngIf="event.status === 'IN_PROGRESS'"
+          (click)="joinLiveSession(event)">
+          Rejoindre maintenant
+        </button>
+        
+        <div class="completed-status" *ngIf="event.status === 'COMPLETED'">
+          <span class="completed-text">Session terminée</span>
+        </div>
+        
+        <div class="time-until" 
+             *ngIf="event.status === 'SCHEDULED' || event.status === 'ACCEPTED'">
+          {{ getTimeRemaining(event.streamingDate) }}
+        </div>
       </div>
     </div>
   </div>
@@ -67,7 +100,7 @@
   <div class="calendar-main" *ngIf="!loading && !error">
     <app-calendar-base
       [userRole]="'RECEIVER'"
-      [events]="events"
+      [events]="processedEvents"
       (eventClick)="onEventClick($event)"
       (dateClick)="onDateClick($event)"
       (viewChange)="onViewChange($event)">
