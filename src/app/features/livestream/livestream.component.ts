@@ -108,7 +108,7 @@ export class LivestreamComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('messageInput') messageInput!: ElementRef;
 
   private exchangeId?: number;
-private skillName?: string;
+public  skillName?: string;
 private producerName?: string;
 private sessionEndedByProducer = false;
 
@@ -3602,40 +3602,58 @@ private logProducerTracksInfo(): void {
   // ============================================================================
   // ===== INITIALISATION ET SETUP =====
   // ============================================================================
+private async initializeSession(): Promise<void> {
+  this.sessionId = Number(this.route.snapshot.paramMap.get('sessionId'));
+  if (isNaN(this.sessionId)) {
+    throw new Error('Invalid session ID');
+  }
+  
+  const [currentUser, session] = await Promise.all([
+    firstValueFrom(this.userService.getCurrentUserProfile()),
+    firstValueFrom(this.livestreamService.getSession(this.sessionId))
+  ]);
 
-  private async initializeSession(): Promise<void> {
-    this.sessionId = Number(this.route.snapshot.paramMap.get('sessionId'));
-    if (isNaN(this.sessionId)) {
-      throw new Error('Invalid session ID');
+  if (!currentUser || !session) {
+    throw new Error('Failed to load session data');
+  }
+  
+  this.session = session;
+  this.currentUserId = currentUser.id;
+  this.currentUsername = currentUser.username || `${currentUser.firstName} ${currentUser.lastName}`;
+  this.isHost = currentUser.id === session.producerId;
+  
+  // AJOUTER : Charger le nom de la compétence
+  if (session.skillId) {
+    try {
+      const exchanges = await firstValueFrom(
+        this.exchangeService.getExchangesBySkillId(session.skillId)
+      );
+      
+      if (exchanges && exchanges.length > 0) {
+        this.skillName = exchanges[0].skillName;
+        console.log('Skill name loaded:', this.skillName);
+      }
+    } catch (error) {
+      console.log('Could not load skill name:', error);
+      // Fallback : utiliser roomName si pas de skillName
+      this.skillName = session.roomName;
     }
-    
-    const [currentUser, session] = await Promise.all([
-      firstValueFrom(this.userService.getCurrentUserProfile()),
-      firstValueFrom(this.livestreamService.getSession(this.sessionId))
-    ]);
+  }
+  
+  console.log('Session initialized:', {
+    sessionId: session.id,
+    skillName: this.skillName, // Ajouter pour debug
+    status: session.status,
+    isHost: this.isHost,
+    userId: currentUser.id,
+    producerId: session.producerId
+  });
 
-    if (!currentUser || !session) {
-      throw new Error('Failed to load session data');
-    }
-    
-    this.session = session;
-    this.currentUserId = currentUser.id;
-    this.currentUsername = currentUser.username || `${currentUser.firstName} ${currentUser.lastName}`;
-    this.isHost = currentUser.id === session.producerId;
-    
-    console.log('Session initialized:', {
-      sessionId: session.id,
-      status: session.status,
-      isHost: this.isHost,
-      userId: currentUser.id,
-      producerId: session.producerId
-    });
-
-    this.validateSessionAccess(session);
-    if (!this.isHost) {
+  this.validateSessionAccess(session);
+  if (!this.isHost) {
     this.listenForSessionEnd();
   }
-  }
+}
 
   private validateSessionAccess(session: LivestreamSession): void {
     if (this.isHost) {

@@ -78,7 +78,7 @@
     <header class="stream-header">
       <div class="stream-info">
         <div class="stream-title-section">
-          <h2 class="stream-title">{{ session?.skillName || session?.roomName || 'Diffusion en direct' }}</h2>
+          <h2 class="stream-title">{{ skillName  || session?.roomName || 'Diffusion en direct' }}</h2>
           <div class="stream-status-badge" [class.live]="isConnected" [class.offline]="!isConnected">
             <mat-icon>{{ isConnected ? 'radio_button_checked' : 'radio_button_unchecked' }}</mat-icon>
             <span>{{ isConnected ? 'EN DIRECT' : 'HORS LIGNE' }}</span>
