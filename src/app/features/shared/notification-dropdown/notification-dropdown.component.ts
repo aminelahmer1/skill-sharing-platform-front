@@ -1,7 +1,9 @@
 import { Component, ChangeDetectorRef, OnDestroy, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { NotificationService } from '../../../core/services/notification/notification.service';
 import { Notification } from '../../../models/Notification/notification.model';
+import { KeycloakService } from '../../../core/services/keycloak.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -19,14 +21,26 @@ export class NotificationDropdownComponent implements OnInit, OnDestroy {
   error: string | null = null;
   private subscriptions = new Subscription();
   private isDestroyed = false;
+  private userRoles: string[] = [];
 
   constructor(
     private notificationService: NotificationService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private router: Router,
+    private keycloakService: KeycloakService
   ) {}
 
   ngOnInit(): void {
     this.loadNotifications();
+    this.getUserRoles();
+  }
+
+  private async getUserRoles(): Promise<void> {
+    try {
+      this.userRoles = await this.keycloakService.getRoles();
+    } catch (error) {
+      console.error('Erreur lors de la récupération des rôles:', error);
+    }
   }
 
   loadNotifications(): void {
@@ -59,7 +73,14 @@ export class NotificationDropdownComponent implements OnInit, OnDestroy {
 
   markAsRead(notification: Notification, event: Event): void {
     event.stopPropagation();
-    if (!notification || notification.read) return;
+    
+    // Vérifier si c'est une notification de demande non lue pour un producer
+    const shouldRedirect = this.shouldRedirectToRequests(notification);
+    
+    if (!notification || notification.read) {
+      // Si déjà lue, ne pas rediriger
+      return;
+    }
 
     this.subscriptions.add(
       this.notificationService.markAsRead(notification.id).subscribe({
@@ -67,6 +88,11 @@ export class NotificationDropdownComponent implements OnInit, OnDestroy {
           notification.read = true;
           if (!this.isDestroyed) {
             this.cdr.markForCheck();
+          }
+          
+          // Rediriger vers la page des demandes si c'est une notification EXCHANGE_CREATED pour un producer
+          if (shouldRedirect) {
+            this.router.navigate(['/producer/requests']);
           }
         },
         error: (err) => {
@@ -78,6 +104,16 @@ export class NotificationDropdownComponent implements OnInit, OnDestroy {
         }
       })
     );
+  }
+
+  private shouldRedirectToRequests(notification: Notification): boolean {
+    // Rediriger seulement si:
+    // 1. L'utilisateur est un PRODUCER
+    // 2. La notification est de type EXCHANGE_CREATED
+    // 3. La notification n'est pas encore lue
+    return this.userRoles.includes('PRODUCER') && 
+           notification.type === 'EXCHANGE_CREATED' && 
+           !notification.read;
   }
 
   markAllAsRead(event: Event): void {
@@ -134,14 +170,6 @@ export class NotificationDropdownComponent implements OnInit, OnDestroy {
       default: return 'default';
     }
   }
-
-  // Suppression de formatMessage - affichage du message complet
-  // formatMessage(notification: Notification): string {
-  //   if (notification.message.length > 100) {
-  //     return notification.message.substring(0, 97) + '...';
-  //   }
-  //   return notification.message;
-  // }
 
   getTimeAgo(dateString: string): string {
     const date = new Date(dateString);
