@@ -3642,7 +3642,7 @@ private async initializeSession(): Promise<void> {
   
   console.log('Session initialized:', {
     sessionId: session.id,
-    skillName: this.skillName, // Ajouter pour debug
+    skillName: this.skillName, 
     status: session.status,
     isHost: this.isHost,
     userId: currentUser.id,

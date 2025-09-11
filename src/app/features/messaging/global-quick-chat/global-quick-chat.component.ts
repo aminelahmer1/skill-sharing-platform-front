@@ -1061,6 +1061,7 @@ export class GlobalQuickChatComponent implements OnInit, OnDestroy {
    private autoScrollEnabled = new Map<number, boolean>();
   private scrollTimeouts = new Map<number, any>();
 
+private activeWindows = new Set<number>();
 
   chatWindows: QuickChatWindow[] = [];
   currentUserId?: number;
@@ -1082,6 +1083,7 @@ export class GlobalQuickChatComponent implements OnInit, OnDestroy {
 private audioDurations = new Map<string, string>();
 
 private shouldProcessRecording = false;
+private readTimeouts = new Map<number, any>();
 
   constructor(
     private messagingService: MessagingService,
@@ -1098,7 +1100,100 @@ private shouldProcessRecording = false;
   this.subscribeToOnlineUsers();
   this.setupClickOutside();
   this.setupReadStateSynchronization();
+  this.subscribeToReadReceipts();
+  this.setupWindowClickListener();
+  
+    this.subscribeToWebSocketReadReceipts();
+  
 
+}
+
+// AJOUTER après ngOnInit()
+private subscribeToWebSocketReadReceipts() {
+  // Accéder au client STOMP via le service
+  const stompClient = (this.messagingService as any).stompClient;
+  
+  if (!stompClient || !stompClient.connected) {
+    // Réessayer après connexion
+    setTimeout(() => this.subscribeToWebSocketReadReceipts(), 1000);
+    return;
+  }
+
+  // S'abonner aux receipts de lecture pour l'utilisateur
+  stompClient.subscribe(`/user/${this.currentUserId}/queue/read-receipts`, (message: any) => {
+    const receipt = JSON.parse(message.body);
+    this.handleRealTimeReadReceipt(receipt);
+  });
+
+  // S'abonner aux mises à jour de statut de message
+  stompClient.subscribe('/user/queue/message-status-update', (message: any) => {
+    const statusUpdate = JSON.parse(message.body);
+    this.handleMessageStatusUpdate(statusUpdate);
+  });
+}
+
+// AJOUTER: Gestionnaire pour les receipts en temps réel
+private handleRealTimeReadReceipt(receipt: any) {
+  this.chatWindows.forEach(window => {
+    if (window.conversation.id === receipt.conversationId) {
+      // Mettre à jour IMMÉDIATEMENT le statut des messages
+      let hasChanges = false;
+      
+      window.messages.forEach(msg => {
+        // Si c'est notre message et qu'il vient d'être lu par l'autre
+        if (msg.senderId === this.currentUserId && 
+            receipt.readByUserId !== this.currentUserId &&
+            msg.status !== 'READ') {
+          msg.status = 'READ';
+          hasChanges = true;
+          console.log(`✅ Message ${msg.id} marqué comme READ en temps réel`);
+        }
+      });
+      
+      if (hasChanges) {
+        // Forcer la mise à jour immédiate de l'affichage
+        this.cdr.detectChanges();
+      }
+    }
+  });
+}
+
+// AJOUTER: Gestionnaire pour les mises à jour de statut
+private handleMessageStatusUpdate(update: any) {
+  const window = this.chatWindows.find(w => w.conversation.id === update.conversationId);
+  if (!window) return;
+  
+  const message = window.messages.find(m => m.id === update.messageId);
+  if (message && message.status !== update.newStatus) {
+    message.status = update.newStatus;
+    console.log(`📨 Statut message ${update.messageId}: ${update.newStatus}`);
+    this.cdr.detectChanges();
+  }
+}
+private subscribeToReadReceipts() {
+  this.messagingService.readReceipts$
+    .pipe(takeUntil(this.destroy$))
+    .subscribe(receipts => {
+      receipts.forEach(receipt => {
+        // Trouver la fenêtre correspondante
+        const window = this.chatWindows.find(w => 
+          w.conversation.id === receipt.conversationId
+        );
+        
+        if (window) {
+          // Mettre à jour le statut des messages
+          window.messages.forEach(msg => {
+            if (msg.senderId === this.currentUserId && 
+                msg.id && 
+                msg.id <= receipt.lastReadMessageId) {
+              msg.status = 'READ';
+            }
+          });
+          
+          this.cdr.detectChanges();
+        }
+      });
+    });
 }
 private setupReadStateSynchronization() {
   // Écouter les événements globaux de lecture
@@ -1117,6 +1212,10 @@ private setupReadStateSynchronization() {
 }
 
   ngOnDestroy() {
+
+    this.activeWindows.forEach(conversationId => {
+    this.notifyConversationActive(conversationId, false);
+  });
     this.destroy$.next();
     this.destroy$.complete();
     this.cleanupRecording();
@@ -1292,7 +1391,22 @@ private subscribeToMessages() {
             .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
 
           if (conversationMessages.length > 0) {
+             if (!window.isMinimized && this.isWindowActive(window)) {
+            this.processIncomingMessagesForAutoRead(window, conversationMessages);
+          }
             const previousMessageCount = window.messages.length;
+                      if (!window.isMinimized && this.activeWindows.has(window.conversation.id)) {
+            const hasNewMessagesFromOthers = conversationMessages.some(m => 
+              m.senderId !== this.currentUserId && 
+              m.status !== 'READ'
+            );
+            
+            if (hasNewMessagesFromOthers) {
+              this.markMessagesAsReadInWindow(window);
+            }
+          }
+        
+
             
             // CAS 1: Première charge de messages
             if (window.messages.length === 0) {
@@ -1349,8 +1463,50 @@ private subscribeToMessages() {
         }
       });
   }
+  private isWindowActive(window: QuickChatWindow): boolean {
+  return !window.isMinimized && 
+         this.activeWindows.has(window.conversation.id) &&
+         document.hasFocus(); // Vérifier aussi le focus du document
+}
+ private processIncomingMessagesForAutoRead(window: QuickChatWindow, messages: Message[]) {
+  let hasUnreadFromOthers = false;
+
+  messages.forEach(msg => {
+    if (msg.senderId !== this.currentUserId && msg.status !== 'READ' && !window.isMinimized) {
+      hasUnreadFromOthers = true;
+    }
+  });
+
+  if (hasUnreadFromOthers) {
+    this.messagingService.markAsRead(window.conversation.id).subscribe();
+  }
+}
+private sendInstantReadReceipt(conversationId: number) {
+  this.messagingService.markAsRead(conversationId).subscribe({
+    next: () => {
+      console.log(`⚡ Read receipt sent instantly for ${conversationId}`);
+    }
+  });
+}
   
-  
+ private markMessagesAsReadInWindow(window: QuickChatWindow) {
+  // Marquer localement
+  window.messages.forEach(msg => {
+    if (msg.senderId !== this.currentUserId && msg.status !== 'READ') {
+      msg.status = 'READ';
+    }
+  });
+
+  // Appel serveur sans délai
+  if (!window.isMinimized) {
+    this.messagingService.markAsRead(window.conversation.id).subscribe({
+      next: () => {
+        console.log(`✅ Messages marked as read for conversation ${window.conversation.id}`);
+        window.conversation.unreadCount = 0;
+      }
+    });
+  }
+}
   
   
   private isUserAtBottom(window: QuickChatWindow): boolean {
@@ -1615,30 +1771,44 @@ private shouldRefreshMessages(window: QuickChatWindow): boolean {
 
   // Marquer comme lu dès l'ouverture
   this.markConversationAsRead(conversation);
+
+  // Marquer la fenêtre comme active
+  this.activeWindows.add(conversation.id);
+  
+  // Notifier le backend que la conversation est active
+  this.notifyConversationActive(conversation.id, true);
+}
+private notifyConversationActive(conversationId: number, isActive: boolean) {
+  if (isActive) {
+    this.activeWindows.add(conversationId);
+  } else {
+    this.activeWindows.delete(conversationId);
+  }
+  
+  // Envoyer le statut via WebSocket
+  this.messagingService.sendConversationActiveStatus(conversationId, isActive);
 }
 
 private markAsReadOnOpen(chatWindow: QuickChatWindow) {
   if (chatWindow.conversation.unreadCount > 0) {
     console.log(`📂 Marking as read on quick chat open: ${chatWindow.conversation.id}`);
-    
-    // Mise à jour locale
+
+    // Mise à jour locale immédiate
     chatWindow.conversation.unreadCount = 0;
-    
-    // Appel serveur avec délai pour éviter les conflits
-    setTimeout(() => {
-      this.messagingService.markAsRead(chatWindow.conversation.id).subscribe({
-        next: () => {
-          window.dispatchEvent(new CustomEvent('conversationMarkedAsRead', {
-            detail: {
-              conversationId: chatWindow.conversation.id,
-              source: 'quick-chat-open',
-              timestamp: new Date(),
-              unreadCount: 0
-            }
-          }));
-        }
-      });
-    }, 500);
+
+    // Appel serveur sans délai
+    this.messagingService.markAsRead(chatWindow.conversation.id).subscribe({
+      next: () => {
+        window.dispatchEvent(new CustomEvent('conversationMarkedAsRead', {
+          detail: {
+            conversationId: chatWindow.conversation.id,
+            source: 'quick-chat-open',
+            timestamp: new Date(),
+            unreadCount: 0
+          }
+        }));
+      }
+    });
   }
 }
 
@@ -1725,14 +1895,13 @@ private markAsReadOnOpen(chatWindow: QuickChatWindow) {
 private markAsReadOnSend(chatWindow: QuickChatWindow) {
   if (chatWindow.conversation.unreadCount > 0) {
     console.log(`📤 Marking as read on message send: ${chatWindow.conversation.id}`);
-    
+
     // Mise à jour locale immédiate
     chatWindow.conversation.unreadCount = 0;
-    
-    // Appel serveur
+
+    // Appel serveur sans délai
     this.messagingService.markAsRead(chatWindow.conversation.id).subscribe({
       next: () => {
-        // Émettre événement global
         window.dispatchEvent(new CustomEvent('conversationMarkedAsRead', {
           detail: {
             conversationId: chatWindow.conversation.id,
@@ -1801,7 +1970,14 @@ private markAsReadOnSend(chatWindow: QuickChatWindow) {
 
 onTyping(chatWindow: QuickChatWindow) {
   this.messagingService.sendTypingIndicator(chatWindow.conversation.id, true);
+   if (chatWindow.conversation.unreadCount > 0 || this.hasUnreadMessages(chatWindow)) {
+    this.markMessagesAsReadInWindow(chatWindow);
+  }
+  if (!chatWindow.isMinimized && this.hasUnreadMessages(chatWindow)) {
+    this.sendInstantReadReceipt(chatWindow.conversation.id);
+  }
   
+
   // SUPPRIMER cette ligne :
   // this.markAsReadOnActivity(chatWindow);
   
@@ -1813,6 +1989,13 @@ onTyping(chatWindow: QuickChatWindow) {
       timestamp: new Date()
     }
   }));
+}
+
+private hasUnreadMessages(window: QuickChatWindow): boolean {
+  return window.messages.some(m => 
+    m.senderId !== this.currentUserId && 
+    m.status !== 'READ'
+  );
 }
   // Marquer une conversation comme lue
   private markConversationAsRead(conversation: Conversation) {
@@ -2249,51 +2432,65 @@ private getAudioDuration(audioUrl: string): Promise<string> {
 onScroll(event: Event, chatWindow: QuickChatWindow) {
   const element = event.target as HTMLElement;
   
-  // Chargement de messages plus anciens
   if (element.scrollTop < 100 && chatWindow.hasMoreMessages && !chatWindow.isLoading) {
     this.loadMoreMessages(chatWindow);
   }
   
-  // Vérifier si l'utilisateur a scrollé vers le haut manuellement
   const isAtBottom = this.isUserAtBottom(chatWindow);
   if (!isAtBottom) {
     this.autoScrollEnabled.set(chatWindow.conversation.id, false);
   } else {
     this.autoScrollEnabled.set(chatWindow.conversation.id, true);
-  }
-  
-  // SUPPRIMER cette ligne :
-  // this.markAsReadOnActivity(chatWindow);
-  
-  // Garder seulement l'événement de scroll
-  window.dispatchEvent(new CustomEvent('quickChatActivity', {
-    detail: { 
-      conversationId: chatWindow.conversation.id, 
-      type: 'scroll',
-      timestamp: new Date()
+    
+    // AJOUTER: Si on scroll en bas, marquer comme lu instantanément
+    if (this.hasUnreadMessages(chatWindow)) {
+      this.sendInstantReadReceipt(chatWindow.conversation.id);
     }
-  }));
+  }
 }
 
 
+private setupWindowClickListener() {
+  document.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    const chatWindow = target.closest('.chat-window');
+    
+    if (chatWindow) {
+      const windowIndex = Array.from(document.querySelectorAll('.chat-window')).indexOf(chatWindow as Element);
+      if (windowIndex >= 0 && windowIndex < this.chatWindows.length) {
+        const window = this.chatWindows[windowIndex];
+        if (!window.isMinimized && this.hasUnreadMessages(window)) {
+          this.sendInstantReadReceipt(window.conversation.id);
+        }
+      }
+    }
+  });
+}
 
-
-  // Modifier toggleMinimize() :
-toggleMinimize(chatWindow: QuickChatWindow) {
+ toggleMinimize(chatWindow: QuickChatWindow) {
   const wasMinimized = chatWindow.isMinimized;
   chatWindow.isMinimized = !chatWindow.isMinimized;
-  chatWindow.showEmojiPicker = false;
   
-  // Si on agrandit la fenêtre, scroll vers le bas après un délai
   if (wasMinimized && !chatWindow.isMinimized) {
-    setTimeout(() => {
-      this.scrollToBottomSmooth(chatWindow, 300);
-      // SUPPRIMER : this.markAsReadOnActivity(chatWindow);
-    }, 350);
+    // Fenêtre agrandie, marquer comme active et lu
+    this.activeWindows.add(chatWindow.conversation.id);
+    this.notifyConversationActive(chatWindow.conversation.id, true);
+    
+    if (this.hasUnreadMessages(chatWindow)) {
+      this.markMessagesAsReadInWindow(chatWindow);
+    }
+    
+    setTimeout(() => this.scrollToBottomSmooth(chatWindow, 300), 350);
+  } else if (!wasMinimized && chatWindow.isMinimized) {
+    // Fenêtre minimisée, marquer comme inactive
+    this.activeWindows.delete(chatWindow.conversation.id);
+    this.notifyConversationActive(chatWindow.conversation.id, false);
   }
 }
 
   closeChat(window: QuickChatWindow) {
+    this.activeWindows.delete(window.conversation.id);
+  this.notifyConversationActive(window.conversation.id, false);
     const index = this.chatWindows.indexOf(window);
     if (index > -1) {
       this.chatWindows.splice(index, 1);
