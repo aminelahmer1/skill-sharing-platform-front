@@ -1,52 +1,199 @@
-
 <section class="hero">
-    <div class="hero-content">
-      <h1 class="hero-title">Espace <span>Producteur</span></h1>
-      <p class="hero-subtitle">
-        Gérer vos compétences, planifiez des sessions et connectez-vous avec des apprenants.
-      </p>
-      <div class="producer-dashboard">
-        <h2>Bienvenue, {{ userProfile?.firstName || 'Producteur' }}</h2>
-        <div class="dashboard-stats">
-          <div class="stat-card">
-            <h3>Sessions à venir</h3>
-            <p>{{ sessions.length }}</p>
-          </div>
-          <div class="stat-card">
-            <h3>Compétences offertes</h3>
-            <p>2</p>
-          </div>
+  <div class="hero-content">
+    <h1 class="hero-title">Espace <span>Producteur</span></h1>
+    <p class="hero-subtitle">
+     Créez des sessions d'apprentissage interactives en livestream, connectez-vous avec des apprenants passionnés et construisez votre réputation d'expert dans votre domaine.
+    </p>
+    <h2 class="welcome-message">Bienvenue, {{ userProfile?.firstName || 'Producteur' }}</h2>
+<br>
+
+     <div class="stats-container" [class.loading-shimmer]="isLoading && !hasDataLoaded">
+    <div class="stat-item">
+      <span class="stat-number">{{ upcomingSessions || 0 }}</span>
+      <span class="stat-label">Sessions à venir</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-number">{{ skillsCount || 0 }}</span>
+      <span class="stat-label">Compétences offertes</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-number">{{ getStarDisplay() }}</span>
+      <span class="stat-label">Note moyenne</span>
+    </div>
+    
+  </div>
+  </div>
+   
+  <div class="hero-image">
+    <svg class="hero-illustration" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
+      <rect width="600" height="400" fill="#f5f6fa" />
+      <circle cx="150" cy="200" r="50" fill="#fd79a8" />
+      <circle cx="140" cy="190" r="5" fill="#2d3436" />
+      <circle cx="160" cy="190" r="5" fill="#2d3436" />
+      <path d="M130 220 Q150 240 170 220" stroke="#2d3436" stroke-width="3" fill="none" />
+      <rect x="100" y="250" width="100" height="20" rx="10" fill="#74b9ff" />
+      <text x="150" y="265" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle" fill="white">LIVE</text>
+      <circle cx="450" cy="200" r="50" fill="#74b9ff" />
+      <circle cx="440" cy="190" r="5" fill="#2d3436" />
+      <circle cx="460" cy="190" r="5" fill="#2d3436" />
+      <path d="M430 220 Q450 230 470 220" stroke="#2d3436" stroke-width="3" fill="none" />
+      <rect x="400" y="250" width="100" height="20" rx="10" fill="#fd79a8" />
+      <text x="450" y="265" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle" fill="white">APPRENDRE</text>
+      <path d="M200 200 Q300 100 400 200" stroke="#6c5ce7" stroke-width="4" fill="none" stroke-dasharray="10,5" />
+      <circle cx="300" cy="100" r="15" fill="#a29bfe" />
+      <text x="300" y="105" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle" fill="white">💡</text>
+      <circle cx="50" cy="50" r="10" fill="#6c5ce7" opacity="0.6" />
+      <circle cx="550" cy="80" r="15" fill="#fd79a8" opacity="0.6" />
+      <circle cx="100" cy="350" r="12" fill="#74b9ff" opacity="0.6" />
+      <circle cx="500" cy="320" r="8" fill="#6c5ce7" opacity="0.6" />
+    </svg>
+    <div class="floating-icons">
+      <div class="floating-icon" style="top: 20%; left: 10%; font-size: 2rem;">📚</div>
+      <div class="floating-icon" style="top: 70%; left: 15%; font-size: 1.5rem;">💻</div>
+      <div class="floating-icon" style="top: 30%; right: 15%; font-size: 2.5rem;">🎨</div>
+      <div class="floating-icon" style="top: 80%; right: 10%; font-size: 1.8rem;">📱</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- Section Statistiques - Version simplifiée -->
+<section class="additional-section">
+  <!-- Loading overlay seulement pour la première fois -->
+  <div *ngIf="isLoading && !hasDataLoaded" class="loading-overlay">
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Chargement des statistiques...</p>
+    </div>
+  </div>
+
+  <!-- Error state avec possibilité de retry -->
+  <div *ngIf="error && !hasDataLoaded" class="error-section">
+    <div class="error-content">
+      <p class="error-message">{{ error }}</p>
+      <button (click)="refreshStats()" class="btn btn-primary">Réessayer</button>
+    </div>
+  </div>
+
+<!-- Section Fonctionnalités -->
+<!-- Section Fonctionnalités -->
+<div class="features-preview">
+  <div class="section-header">
+    <h2 class="section-title">Plateforme Complète pour Producteurs</h2>
+    <p class="section-subtitle">
+      Découvrez tous les outils essentiels pour partager vos compétences en livestream et créer des sessions d'apprentissage interactives.
+    </p>
+   
+  </div>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon">🎥</div>
+        <div>
+          <h3 class="feature-title">Sessions Livestream</h3>
         </div>
       </div>
+      <p class="feature-description">
+        Créez et diffusez vos sessions d'apprentissage en direct avec une qualité professionnelle pour transmettre efficacement vos compétences.
+      </p>
+      <ul class="feature-benefits">
+        <li>Streaming en haute définition avec audio clair</li>
+        <li>Partage d'écran pour vos démonstrations</li>
+        <li>Diffusion en temps réel sans interruption</li>
+        <li>Interface simple et intuitive</li>
+      </ul>
     </div>
-    <div class="hero-image">
-      <svg class="hero-illustration" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
-        <rect width="600" height="400" fill="#f5f6fa" />
-        <circle cx="150" cy="200" r="50" fill="#fd79a8" />
-        <circle cx="140" cy="190" r="5" fill="#2d3436" />
-        <circle cx="160" cy="190" r="5" fill="#2d3436" />
-        <path d="M130 220 Q150 240 170 220" stroke="#2d3436" stroke-width="3" fill="none" />
-        <rect x="100" y="250" width="100" height="20" rx="10" fill="#74b9ff" />
-        <text x="150" y="265" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle" fill="white">LIVE</text>
-        <circle cx="450" cy="200" r="50" fill="#74b9ff" />
-        <circle cx="440" cy="190" r="5" fill="#2d3436" />
-        <circle cx="460" cy="190" r="5" fill="#2d3436" />
-        <path d="M430 220 Q450 230 470 220" stroke="#2d3436" stroke-width="3" fill="none" />
-        <rect x="400" y="250" width="100" height="20" rx="10" fill="#fd79a8" />
-        <text x="450" y="265" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle" fill="white">APPRENDRE</text>
-        <path d="M200 200 Q300 100 400 200" stroke="#6c5ce7" stroke-width="4" fill="none" stroke-dasharray="10,5" />
-        <circle cx="300" cy="100" r="15" fill="#a29bfe" />
-        <text x="300" y="105" font-family="system-ui, sans-serif" font-size="12" text-anchor="middle" fill="white">💡</text>
-        <circle cx="50" cy="50" r="10" fill="#6c5ce7" opacity="0.6" />
-        <circle cx="550" cy="80" r="15" fill="#fd79a8" opacity="0.6" />
-        <circle cx="100" cy="350" r="12" fill="#74b9ff" opacity="0.6" />
-        <circle cx="500" cy="320" r="8" fill="#6c5ce7" opacity="0.6" />
-      </svg>
-      <div class="floating-icons">
-        <div class="floating-icon" style="top: 20%; left: 10%; font-size: 2rem;">📚</div>
-        <div class="floating-icon" style="top: 70%; left: 15%; font-size: 1.5rem;">💻</div>
-        <div class="floating-icon" style="top: 30%; right: 15%; font-size: 2.5rem;">🎨</div>
-        <div class="floating-icon" style="top: 80%; right: 10%; font-size: 1.8rem;">📱</div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon">💬</div>
+        <div>
+          <h3 class="feature-title">Interaction Temps Réel</h3>
+        </div>
       </div>
+      <p class="feature-description">
+        Communiquez directement avec vos apprenants grâce à la messagerie instantanée intégrée et créez une véritable connexion.
+      </p>
+      <ul class="feature-benefits">
+        <li>Chat en direct pendant les sessions</li>
+        <li>Messagerie privée avec les apprenants</li>
+        <li>Notifications en temps réel</li>
+        <li>Historique des conversations synchronisé</li>
+      </ul>
     </div>
-  </section>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon">📅</div>
+        <div>
+          <h3 class="feature-title">Gestion des Sessions</h3>
+        </div>
+      </div>
+      <p class="feature-description">
+        Organisez facilement vos sessions d'apprentissage avec notre système de planification intégré et automatisé.
+      </p>
+      <ul class="feature-benefits">
+        <li>Calendrier intégré pour la planification</li>
+        <li>Création de sessions récurrentes</li>
+        <li>Rappels automatiques pour vous et vos apprenants</li>
+        <li>Gestion des participants et inscriptions</li>
+      </ul>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon">⭐</div>
+        <div>
+          <h3 class="feature-title">Système de Notation</h3>
+        </div>
+      </div>
+      <p class="feature-description">
+        Construisez votre réputation de producteur grâce aux évaluations des apprenants et améliorez continuellement vos sessions.
+      </p>
+      <ul class="feature-benefits">
+        <li>Évaluations après chaque session</li>
+        <li>Système de notation transparent</li>
+        <li>Feedback détaillé des apprenants</li>
+        <li>Suivi de votre progression et réputation</li>
+      </ul>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon">🎯</div>
+        <div>
+          <h3 class="feature-title">Gestion des Compétences</h3>
+        </div>
+      </div>
+      <p class="feature-description">
+        Organisez et validez vos compétences par catégories pour aider les apprenants à trouver exactement ce qu'ils recherchent.
+      </p>
+      <ul class="feature-benefits">
+        <li>Ajout et organisation de vos compétences</li>
+        <li>Catégorisation (techniques, langues, créatives)</li>
+        <li>Validation et certification des compétences</li>
+        <li>Mise à jour dynamique de votre profil</li>
+      </ul>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-header">
+        <div class="feature-icon">🔍</div>
+        <div>
+          <h3 class="feature-title">Visibilité et Découverte</h3>
+        </div>
+      </div>
+      <p class="feature-description">
+        Augmentez votre visibilité sur la plateforme et permettez aux apprenants de découvrir facilement vos sessions et compétences.
+      </p>
+      <ul class="feature-benefits">
+        <li>Profil producteur optimisé pour la recherche</li>
+        <li>Système de filtres pour vos sessions</li>
+        <li>Recommandations automatiques aux apprenants</li>
+        <li>Statistiques de vos sessions et participants</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</section>
