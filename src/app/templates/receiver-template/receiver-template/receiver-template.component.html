@@ -20,28 +20,7 @@
   </app-hero-receiver>
 
   <section class="section content-section">
-    <div *ngIf="isHomeRoute()" class="home-content">
-      <section class="features-section">
-        <h2 class="section-title">Mes sessions à venir</h2>
-        <div class="features-grid">
-          <div *ngFor="let session of sessions" class="feature-card">
-            <h3 class="feature-title">{{ session.title }}</h3>
-            <p class="feature-desc">
-              Date: {{ session.date }} à {{ session.time }}<br />
-              Durée: {{ session.duration }} min<br />
-              Producteur: {{ session.producer }}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section class="calendar-section">
-        <h2 class="section-title">Mon calendrier</h2>
-        <div class="calendar-container">
-          <p>Intégration du calendrier à venir...</p>
-        </div>
-      </section>
-    </div>
+    
 
     <router-outlet></router-outlet>
   </section>
