@@ -2,6 +2,13 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, BehaviorSubject, firstValueFrom } from 'rxjs';
 import { KeycloakService } from '../keycloak.service';
+export interface GroupedRecordings {
+  [skillKey: string]: RecordingResponse[];
+}
+
+export interface SkillRecordingsMap {
+  [skillId: number]: RecordingResponse[];
+}
 
 export interface RecordingStatus {
   isRecording: boolean;
@@ -748,4 +755,114 @@ async emergencyStopRecording(sessionId: number): Promise<void> {
     console.error('Emergency stop failed:', error);
   }
 }
+
+// Ajouter ces méthodes au RecordingService existant (recording.service.ts)
+
+// Interfaces additionnelles
+
+// ========== MÉTHODES POUR PRODUCTEURS ==========
+
+async getProducerRecordings(): Promise<GroupedRecordings> {
+  const headers = await this.getHeaders();
+  
+  return firstValueFrom(
+    this.http.get<GroupedRecordings>(
+      `${this.API_URL}/recordings/producer`,
+      { headers }
+    )
+  );
+}
+
+// ========== MÉTHODES POUR RECEIVERS ==========
+
+async getReceiverRecordings(): Promise<GroupedRecordings> {
+  const headers = await this.getHeaders();
+  
+  return firstValueFrom(
+    this.http.get<GroupedRecordings>(
+      `${this.API_URL}/recordings/receiver`,
+      { headers }
+    )
+  );
+}
+
+// ========== MÉTHODES POUR COMPÉTENCES SPÉCIFIQUES ==========
+
+async getSkillRecordings(skillId: number): Promise<RecordingResponse[]> {
+  const headers = await this.getHeaders();
+  
+  return firstValueFrom(
+    this.http.get<RecordingResponse[]>(
+      `${this.API_URL}/recordings/skill/${skillId}`,
+      { headers }
+    )
+  );
+}
+
+// ========== MÉTHODES POUR COMPÉTENCES TERMINÉES ==========
+
+async getFinishedSkillsRecordings(): Promise<SkillRecordingsMap> {
+  const headers = await this.getHeaders();
+  
+  return firstValueFrom(
+    this.http.get<SkillRecordingsMap>(
+      `${this.API_URL}/recordings/finished-skills`,
+      { headers }
+    )
+  );
+}
+
+// ========== MÉTHODE POUR STATISTIQUES ==========
+
+async getRecordingStats(): Promise<any> {
+  const headers = await this.getHeaders();
+  
+  return firstValueFrom(
+    this.http.get<any>(
+      `${this.API_URL}/recordings/stats`,
+      { headers }
+    )
+  );
+}
+
+// ========== MÉTHODE POUR DÉTERMINER LE RÔLE ==========
+
+async isUserProducer(): Promise<boolean> {
+  const token = await this.keycloakService.getToken();
+  
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.realm_access?.roles?.includes('PRODUCER') || 
+             payload.resource_access?.['backend-service']?.roles?.includes('PRODUCER');
+    } catch (e) {
+      console.error('Error parsing token:', e);
+    }
+  }
+  
+  return false;
+}
+
+// ========== MÉTHODE POUR GROUPER LES ENREGISTREMENTS ==========
+
+groupRecordingsBySkill(recordings: RecordingResponse[]): Map<string, RecordingResponse[]> {
+  const grouped = new Map<string, RecordingResponse[]>();
+  
+  recordings.forEach(recording => {
+    const skillKey = recording.skillName || 'Sans nom';
+    if (!grouped.has(skillKey)) {
+      grouped.set(skillKey, []);
+    }
+    grouped.get(skillKey)!.push(recording);
+  });
+  
+  // Trier les enregistrements dans chaque groupe
+  grouped.forEach((recs, key) => {
+    recs.sort((a, b) => (a.recordingNumber || 0) - (b.recordingNumber || 0));
+  });
+  
+  return grouped;
+}
+
+
 }

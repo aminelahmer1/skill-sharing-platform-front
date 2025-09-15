@@ -1,50 +1,76 @@
-<!-- mes-enregistrements.component.html -->
+
 <div class="recordings-container">
+  <!-- Header avec statistiques -->
   <div class="header">
-    <h1>Mes Enregistrements</h1>
-    <div *ngIf="!isLoading" class="stats-chips">
+    <h1>{{ isProducer ? 'Mes Enregistrements' : 'Mes Archives' }}</h1>
+    <div *ngIf="!isLoading && recordingGroups.length > 0" class="stats-chips">
       <mat-chip-set>
+        <mat-chip color="primary" selected>
+          <mat-icon>video_library</mat-icon>
+          {{ totalRecordings }} enregistrement(s)
+        </mat-chip>
+         <mat-chip-set>
         <mat-chip color="primary" selected>
           {{ recordingGroups.length }} compétence(s)
         </mat-chip>
       </mat-chip-set>
+
+        
+      </mat-chip-set>
     </div>
   </div>
 
+  <!-- Loading state -->
   <div *ngIf="isLoading" class="loading-container">
     <mat-progress-spinner mode="indeterminate" diameter="50"></mat-progress-spinner>
     <p>Chargement des enregistrements...</p>
   </div>
 
+  <!-- Empty state -->
   <div *ngIf="!isLoading && recordingGroups.length === 0" class="empty-state">
     <mat-icon>videocam_off</mat-icon>
     <h2>Aucun enregistrement</h2>
     <p>Vous n'avez pas encore d'enregistrements disponibles</p>
   </div>
 
+  <!-- Recordings grid -->
   <div *ngIf="!isLoading && recordingGroups.length > 0" class="recordings-grid">
     <mat-card *ngFor="let group of recordingGroups" class="skill-group">
       <mat-card-header>
-        <mat-card-title>{{ group.skillName }}</mat-card-title>
-        <mat-card-subtitle>{{ group.recordings.length }} enregistrement(s)</mat-card-subtitle>
+        <mat-card-title>
+          <mat-icon>school</mat-icon>
+          {{ group.skillName }}
+        </mat-card-title>
+        <mat-card-subtitle>
+          <span class="group-stats">
+            {{ group.recordings.length }} enregistrement(s) • 
+            {{ formatDuration(group.totalDuration) }} • 
+            {{ formatFileSize(group.totalSize) }}
+          </span>
+        </mat-card-subtitle>
       </mat-card-header>
 
       <mat-card-content>
         <div class="recordings-list">
-          <div *ngFor="let recording of group.recordings" class="recording-item">
+          <div *ngFor="let recording of group.recordings" 
+               class="recording-item"
+               [class.recording-completed]="recording.status === 'COMPLETED'"
+               [class.recording-failed]="recording.status === 'FAILED'">
+            
             <div class="recording-info">
               <div class="recording-header">
-                <span class="recording-number">Enregistrement #{{ recording.recordingNumber }}</span>
-                <mat-chip-set>
-                  <mat-chip [ngClass]="getStatusClass(recording.status)">
+                <div class="recording-title">
+                  <mat-icon class="file-icon">movie</mat-icon>
+                  <span class="recording-number">Enregistrement #{{ recording.recordingNumber }}</span>
+                  <mat-chip [ngClass]="getStatusClass(recording.status)" class="status-chip">
                     {{ getStatusLabel(recording.status) }}
                   </mat-chip>
-                </mat-chip-set>
+                </div>
               </div>
               
               <div class="recording-details">
-                <span class="detail-item">
-                  <mat-icon>schedule</mat-icon>
+                <span class="detail-item" *ngIf="recording.startTime">
+                  <mat-icon>calendar_today</mat-icon>
                   {{ formatDate(recording.startTime) }}
                 </span>
                 <span class="detail-item" *ngIf="recording.duration">
@@ -55,6 +81,10 @@
                   <mat-icon>storage</mat-icon>
                   {{ formatFileSize(recording.fileSize) }}
                 </span>
+              </div>
+              
+              <div class="recording-filename" *ngIf="recording.fileName">
+                <small>{{ recording.fileName }}</small>
               </div>
             </div>
 
@@ -89,163 +119,3 @@
     </mat-card>
   </div>
 </div>
-
-<style>
-.recordings-container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-}
-
-.header h1 {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 500;
-}
-
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 300px;
-  gap: 20px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: rgba(0, 0, 0, 0.54);
-}
-
-.empty-state mat-icon {
-  font-size: 80px;
-  width: 80px;
-  height: 80px;
-  margin: 0 auto 20px;
-  opacity: 0.3;
-}
-
-.recordings-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
-  gap: 20px;
-}
-
-.skill-group {
-  margin-bottom: 20px;
-}
-
-.recordings-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.recording-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px;
-  background: #f5f5f5;
-  border-radius: 8px;
-  transition: background 0.3s;
-}
-
-.recording-item:hover {
-  background: #eeeeee;
-}
-
-.recording-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.recording-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.recording-number {
-  font-weight: 500;
-  font-size: 16px;
-}
-
-.recording-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 15px;
-  color: rgba(0, 0, 0, 0.6);
-  font-size: 14px;
-}
-
-.detail-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.detail-item mat-icon {
-  font-size: 16px;
-  width: 16px;
-  height: 16px;
-}
-
-.recording-actions {
-  display: flex;
-  gap: 5px;
-}
-
-/* Status chip styles */
-.status-recording {
-  background-color: #ff5722 !important;
-  color: white !important;
-}
-
-.status-completed {
-  background-color: #4caf50 !important;
-  color: white !important;
-}
-
-.status-failed {
-  background-color: #f44336 !important;
-  color: white !important;
-}
-
-.status-processing {
-  background-color: #ff9800 !important;
-  color: white !important;
-}
-
-.status-default {
-  background-color: #9e9e9e !important;
-  color: white !important;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .recordings-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .recording-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-
-  .recording-actions {
-    align-self: flex-end;
-  }
-}
-</style>

@@ -1,4 +1,4 @@
-// mes-enregistrements.component.ts
+// mes-enregistrements.component.ts - Version améliorée
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
@@ -6,16 +6,21 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { RecordingService, RecordingResponse } from '../../core/services/Recording/recording.service';
+import { RecordingService, RecordingResponse, GroupedRecordings } from '../../core/services/Recording/recording.service';
 import { VideoPlayerDialogComponent } from '../video-player-dialog/video-player-dialog.component';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatBadgeModule } from '@angular/material/badge';
 
 interface RecordingGroup {
   skillName: string;
+  skillId: number;
   recordings: RecordingResponse[];
+  totalDuration: number;
+  totalSize: number;
 }
 
 @Component({
@@ -31,7 +36,9 @@ interface RecordingGroup {
     MatSnackBarModule,
     MatChipsModule,
     MatDividerModule,
-    MatTooltipModule
+    MatTooltipModule,
+    MatTabsModule,
+    MatBadgeModule
   ],
   templateUrl: './mes-enregistrements.component.html',
   styleUrls: ['./mes-enregistrements.component.css']
@@ -40,6 +47,9 @@ export class MesEnregistrementsComponent implements OnInit {
   recordingGroups: RecordingGroup[] = [];
   isLoading = true;
   isProducer = false;
+  totalRecordings = 0;
+  totalDuration = 0;
+  totalSize = 0;
 
   constructor(
     private recordingService: RecordingService,
@@ -47,16 +57,34 @@ export class MesEnregistrementsComponent implements OnInit {
     private snackBar: MatSnackBar
   ) {}
 
-  ngOnInit() {
-    this.loadRecordings();
-    this.checkUserRole();
+  async ngOnInit() {
+    await this.checkUserRole();
+    await this.loadRecordings();
+  }
+
+  async checkUserRole() {
+    this.isProducer = await this.recordingService.isUserProducer();
   }
 
   async loadRecordings() {
     try {
       this.isLoading = true;
-      const recordings = await this.recordingService.getUserRecordings();
-      this.groupRecordingsBySkill(recordings);
+      
+      // Charger les enregistrements selon le rôle
+      const recordings = this.isProducer 
+        ? await this.recordingService.getProducerRecordings()
+        : await this.recordingService.getReceiverRecordings();
+      
+      this.processRecordings(recordings);
+      
+      // Charger les statistiques
+      const stats = await this.recordingService.getRecordingStats();
+      if (stats) {
+        this.totalRecordings = stats.totalRecordings || 0;
+        this.totalDuration = stats.totalDuration || 0;
+        this.totalSize = stats.totalSize || 0;
+      }
+      
     } catch (error) {
       console.error('Error loading recordings:', error);
       this.snackBar.open('Erreur lors du chargement des enregistrements', 'Fermer', {
@@ -68,46 +96,41 @@ export class MesEnregistrementsComponent implements OnInit {
     }
   }
 
-  private groupRecordingsBySkill(recordings: RecordingResponse[]) {
-    const groups = new Map<string, RecordingGroup>();
+  private processRecordings(groupedRecordings: GroupedRecordings) {
+    this.recordingGroups = [];
     
-    recordings.forEach(recording => {
-      const key = recording.skillName || 'Sans nom';
-      if (!groups.has(key)) {
-        groups.set(key, {
-          skillName: key,
-          recordings: []
-        });
-      }
-      groups.get(key)!.recordings.push(recording);
+    Object.entries(groupedRecordings).forEach(([skillKey, recordings]) => {
+      // Extraire le nom et l'ID de la compétence
+      const parts = skillKey.split('_');
+      const skillId = parseInt(parts[parts.length - 1], 10);
+      const skillName = parts.slice(0, -1).join(' ');
+      
+      // Calculer les totaux pour ce groupe
+      let totalDuration = 0;
+      let totalSize = 0;
+      
+      recordings.forEach(rec => {
+        totalDuration += rec.duration || 0;
+        totalSize += rec.fileSize || 0;
+      });
+      
+      // Trier les enregistrements par numéro
+      recordings.sort((a, b) => (a.recordingNumber || 0) - (b.recordingNumber || 0));
+      
+      this.recordingGroups.push({
+        skillName: skillName || 'Sans nom',
+        skillId: skillId || 0,
+        recordings,
+        totalDuration,
+        totalSize
+      });
     });
-
+    
     // Trier les groupes par nom de compétence
-    this.recordingGroups = Array.from(groups.values())
-      .sort((a, b) => a.skillName.localeCompare(b.skillName));
-    
-    // Trier les enregistrements dans chaque groupe par numéro
-    this.recordingGroups.forEach(group => {
-      group.recordings.sort((a, b) => (a.recordingNumber || 0) - (b.recordingNumber || 0));
-    });
-  }
-
-  private checkUserRole() {
-    // Utiliser Keycloak pour obtenir les rôles
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        this.isProducer = payload.realm_access?.roles?.includes('PRODUCER') || 
-                         payload.resource_access?.['backend-service']?.roles?.includes('PRODUCER');
-      } catch (e) {
-        console.error('Error parsing token:', e);
-      }
-    }
+    this.recordingGroups.sort((a, b) => a.skillName.localeCompare(b.skillName));
   }
 
   playRecording(recording: RecordingResponse) {
-    // Vérifier si le fichier est prêt
     if (recording.status !== 'COMPLETED') {
       this.snackBar.open('Cet enregistrement est encore en cours de traitement', 'OK', {
         duration: 3000,
@@ -128,7 +151,6 @@ export class MesEnregistrementsComponent implements OnInit {
 
   async downloadRecording(recording: RecordingResponse) {
     try {
-      // Convertir recordingId string en number
       const recordingId = parseInt(recording.recordingId, 10);
       
       if (isNaN(recordingId)) {
@@ -163,7 +185,6 @@ export class MesEnregistrementsComponent implements OnInit {
     
     if (confirm(confirmMessage)) {
       try {
-        // Convertir recordingId string en number
         const recordingId = parseInt(recording.recordingId, 10);
         
         if (isNaN(recordingId)) {

@@ -9,6 +9,7 @@ import { QuickChatComponent } from '../../../features/messaging/quick-chat/quick
 import { NotificationService } from '../../../core/services/notification/notification.service';
 import { Subscription } from 'rxjs';
 import { GlobalQuickChatComponent } from "../../../features/messaging/global-quick-chat/global-quick-chat.component";
+import { MatIcon } from "@angular/material/icon";
 
 @Component({
   selector: 'app-navbar-producer',
@@ -19,8 +20,9 @@ import { GlobalQuickChatComponent } from "../../../features/messaging/global-qui
     NotificationDropdownComponent,
     MessageNotificationBadgeComponent,
     QuickChatComponent,
-    GlobalQuickChatComponent
-  ],
+    GlobalQuickChatComponent,
+    MatIcon
+],
   templateUrl: './navbar-producer.component.html',
   styleUrls: ['./navbar-producer.component.css'],
 })

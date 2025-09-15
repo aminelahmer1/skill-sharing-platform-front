@@ -23,6 +23,7 @@ import { RatingDialogComponent } from '../../RatingDialog/rating-dialog/rating-d
 // RxJS imports pour performance
 import { forkJoin, of } from 'rxjs';
 import { map, catchError, tap } from 'rxjs/operators';
+import { RecordingsDialogComponent } from '../../recordings-dialog/recordings-dialog.component';
 
 interface SkillWithExchange extends SkillResponse {
   exchangeStatus: string;
@@ -194,6 +195,13 @@ interface SkillWithExchange extends SkillResponse {
                 <mat-icon>check_circle</mat-icon>
                 <span>Session terminée</span>
               </div>
+              <button mat-stroked-button 
+            color="primary" 
+            class="archives-btn"
+            (click)="openRecordingsDialog(skill)">
+      <mat-icon>video_library</mat-icon>
+      Voir Archives
+    </button>
             </mat-card-actions>
           </mat-card>
         </div>
@@ -795,6 +803,38 @@ interface SkillWithExchange extends SkillResponse {
         min-height: 1.3em;
       }
     }
+    .actions-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+}
+
+.archives-btn {
+  font-size: 0.85rem;
+  height: 36px;
+  font-weight: 500;
+  border-radius: 8px;
+  background: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #90caf9;
+  transition: all 0.3s ease;
+}
+
+.archives-btn:hover {
+  background: #1976d2;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.2);
+}
+
+.archives-btn mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+}
   `]
 })
 export class FinishedSkillsComponent implements OnInit {
@@ -866,7 +906,22 @@ export class FinishedSkillsComponent implements OnInit {
       }
     });
   }
+openRecordingsDialog(skill: SkillWithExchange): void {
+  const dialogRef = this.dialog.open(RecordingsDialogComponent, {
+    width: '800px',
+    maxWidth: '90vw',
+    data: {
+      sessionId: null, // On utilisera skillId à la place
+      skillId: skill.id,
+      skillName: skill.name,
+      isFinishedSkill: true
+    }
+  });
 
+  dialogRef.afterClosed().subscribe(result => {
+    console.log('Dialog closed');
+  });
+}
   private loadAdditionalData(): void {
     // Charger les noms des producteurs et les statuts de rating
     const userIds = [...new Set(this.skills.map(skill => skill.userId))];

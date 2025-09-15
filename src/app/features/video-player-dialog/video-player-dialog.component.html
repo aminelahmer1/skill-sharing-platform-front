@@ -1,1 +1,67 @@
-<p>video-player-dialog works!</p>
+
+<div class="video-player-container">
+  <div mat-dialog-title class="video-header">
+    <button mat-icon-button (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <mat-dialog-content class="video-content">
+    <div class="video-wrapper">
+      <video
+        #videoPlayer
+        controls
+        autoplay
+        [src]="videoUrl"
+        (loadstart)="onLoadStart()"
+        (loadeddata)="onLoadedData()"
+        (error)="onError($event)"
+        class="video-element">
+        Votre navigateur ne supporte pas la lecture vidéo.
+      </video>
+
+      <div *ngIf="isLoading" class="loading-overlay">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>Chargement de la vidéo...</p>
+      </div>
+
+      <div *ngIf="hasError" class="error-overlay">
+        <mat-icon>error_outline</mat-icon>
+        <p>Erreur lors du chargement de la vidéo</p>
+        <button mat-stroked-button (click)="retry()">
+          <mat-icon>refresh</mat-icon>
+          Réessayer
+        </button>
+      </div>
+    </div>
+
+    <div class="video-info" *ngIf="data.recording">
+      <div class="info-item">
+        <mat-icon>video_file</mat-icon>
+        <span>{{ data.recording.skillName }}</span>
+      </div>
+      <div class="info-item" *ngIf="data.recording.duration">
+        <mat-icon>schedule</mat-icon>
+        <span>Durée: {{ formatDuration(data.recording.duration) }}</span>
+      </div>
+      <div class="info-item" *ngIf="data.recording.fileSize">
+        <mat-icon>storage</mat-icon>
+        <span>Taille: {{ formatFileSize(data.recording.fileSize) }}</span>
+      </div>
+      <div class="info-item" *ngIf="data.recording.startTime">
+        <mat-icon>calendar_today</mat-icon>
+        <span>Date: {{ formatDate(data.recording.startTime) }}</span>
+      </div>
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button (click)="download()" color="primary">
+      <mat-icon>download</mat-icon>
+      Télécharger
+    </button>
+    <button mat-raised-button (click)="close()" color="primary">
+      Fermer
+    </button>
+  </mat-dialog-actions>
+</div>

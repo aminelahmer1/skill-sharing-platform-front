@@ -90,13 +90,7 @@
         </div>
       </div>
 
-      <div class="detail-item" *ngIf="data.address?.city || data.address?.country">
-        <mat-icon>location_on</mat-icon>
-        <div class="detail-content">
-          <span class="detail-label">Localisation</span>
-          <span class="detail-value">{{ getFullAddress() }}</span>
-        </div>
-      </div>
+      
 
       <div class="detail-item" *ngIf="data.bio">
         <mat-icon>description</mat-icon>

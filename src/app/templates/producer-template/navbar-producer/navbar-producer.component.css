@@ -1206,4 +1206,28 @@ body {
       font-weight: 600;
     }
   }
+}.nav-link-recordings {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.nav-link-recordings:hover {
+  background: rgba(108, 92, 231, 0.1);
+  transform: translateX(5px);
+}
+
+.nav-link-recordings.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 600;
+}
+
+.nav-link-recordings mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
 }
