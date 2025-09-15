@@ -1107,6 +1107,16 @@ public forceProducerCameraToSidebar(): void {
     this.destroy$.next();
     this.destroy$.complete();
     
+     if (this.isHost && this.recordingStatus.isRecording) {
+      console.log('Component destroying with active recording - emergency stop');
+      try {
+        // Utiliser emergency stop pour garantir l'arrêt
+        await this.recordingService.emergencyStopRecording(this.sessionId);
+      } catch (error) {
+        console.error('Emergency stop failed:', error);
+      }
+    }
+    
     // Nettoyer les miniatures receivers
     this.clearAllReceiverThumbnails();
     
@@ -4901,8 +4911,18 @@ private participantHasScreenShare(participantInfo: ParticipantInfo): boolean {
   }
 
   // Navigation and notifications
-  navigateToSkillsPage(): void {
-  // Ne PAS appeler endSession ici - juste naviguer
+ async navigateToSkillsPage(): Promise<void> {
+  // Si c'est le producteur et qu'un enregistrement est en cours, l'arrêter
+  if (this.isHost && this.recordingStatus.isRecording) {
+    console.log('Producer leaving with active recording - stopping it...');
+    try {
+      await this.recordingService.stopRecording(this.sessionId);
+      console.log('Recording stopped before leaving');
+    } catch (error) {
+      console.error('Failed to stop recording before leaving:', error);
+    }
+  }
+  
   console.log('User leaving session (not ending it)');
   this.router.navigate([this.isHost ? '/producer/livestreams' : '/receiver/finished-skills']);
 }
@@ -4958,24 +4978,44 @@ private participantHasScreenShare(participantInfo: ParticipantInfo): boolean {
   }
 
   // Recording methods
- async toggleRecording(): Promise<void> {
+async toggleRecording(): Promise<void> {
   if (!this.isHost || this.isRecordingProcessing) return;
   
   this.isRecordingProcessing = true;
   
   try {
     if (this.recordingStatus.isRecording) {
-      // Remove firstValueFrom since stopRecording now returns Promise<void>
+      console.log('Livestream: Stopping recording...');
+      
+      // Appel direct sans firstValueFrom
       await this.recordingService.stopRecording(this.sessionId);
+      
       this.showNotification('Enregistrement arrêté', 'success');
     } else {
-      // Remove firstValueFrom since startRecording now returns Promise<RecordingResponse>
+      console.log('Livestream: Starting recording...');
+      
+      // Appel direct sans firstValueFrom  
       await this.recordingService.startRecording(this.sessionId);
+      
       this.showNotification('Enregistrement démarré', 'success');
     }
   } catch (error) {
     console.error('Recording toggle failed:', error);
-    this.showNotification('Erreur lors de l\'enregistrement', 'error');
+    
+    let errorMessage = 'Erreur lors de l\'enregistrement';
+    
+    if (error instanceof Error) {
+      if (error.message.includes('No active recording')) {
+        errorMessage = 'Aucun enregistrement actif à arrêter';
+      } else if (error.message.includes('already in progress')) {
+        errorMessage = 'Un enregistrement est déjà en cours';
+      } else {
+        errorMessage = `Erreur: ${error.message}`;
+      }
+    }
+    
+    this.showNotification(errorMessage, 'error');
+    
   } finally {
     this.isRecordingProcessing = false;
   }
@@ -4988,6 +5028,22 @@ private participantHasScreenShare(participantInfo: ParticipantInfo): boolean {
   
   try {
     console.log('🔴 PRODUCER: Ending session for everyone...');
+    
+    // Arrêter l'enregistrement s'il est actif AVANT de terminer la session
+    if (this.recordingStatus.isRecording) {
+      console.log('📹 Stopping active recording before ending session...');
+      try {
+        await this.recordingService.stopRecording(this.sessionId);
+        console.log('✅ Recording stopped successfully');
+        
+        // Attendre que l'enregistrement soit complètement arrêté
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.error('❌ Failed to stop recording:', error);
+        // Continuer même si l'arrêt de l'enregistrement échoue
+        // pour ne pas bloquer la fin de session
+      }
+    }
     
     // Marquer la session comme terminée dans la base de données
     await firstValueFrom(this.livestreamService.endSession(this.sessionId));
@@ -5014,10 +5070,19 @@ private participantHasScreenShare(participantInfo: ParticipantInfo): boolean {
     
   } catch (error) {
     console.error('Error ending session:', error);
+    
+    // En cas d'erreur, essayer quand même d'arrêter l'enregistrement
+    if (this.recordingStatus.isRecording) {
+      try {
+        await this.recordingService.emergencyStopRecording(this.sessionId);
+      } catch (emergencyError) {
+        console.error('Emergency stop also failed:', emergencyError);
+      }
+    }
+    
     this.showNotification('Erreur lors de la fin de session', 'error');
   }
 }
-
 
 
   // Chat accessibility methods
