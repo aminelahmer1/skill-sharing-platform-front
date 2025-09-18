@@ -160,7 +160,7 @@ interface QuickChatWindow {
                       (ended)="onAudioEnded($event)">
                     </audio>
                     <div class="audio-info">
-                      <span class="audio-name">{{ message.content || 'Message vocal' }}</span>
+                      <span class="audio-name">{{ 'Message vocal' }}</span>
                       <span class="audio-duration">{{ formatAudioDuration(message.attachmentUrl) }}</span>
                     </div>
                   </div>

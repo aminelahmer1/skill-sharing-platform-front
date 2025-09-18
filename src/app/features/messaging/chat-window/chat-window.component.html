@@ -99,7 +99,7 @@
   </div>
 
   <!-- INPUT FIXE EN BAS -->
-  <div class="chat-input">
+ <div class="chat-input">
     
     <!-- Input désactivé -->
     <div *ngIf="!canSendMessages()" class="input-disabled">
@@ -109,13 +109,15 @@
       </span>
     </div>
 
-    <!-- Input actif -->
+    <!-- NOUVEAU: Input avec support vocal -->
     <app-message-input
       *ngIf="canSendMessages()"
       (sendMessage)="onSendMessage($event)"
       (fileSelected)="onFileSelect($event)"
+      (voiceMessageSent)="onVoiceMessageReceived($event)"
       (typing)="onTyping()">
     </app-message-input>
+    
     
   </div>
 

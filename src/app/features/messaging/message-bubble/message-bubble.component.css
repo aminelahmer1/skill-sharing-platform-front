@@ -1,202 +1,715 @@
+/* message-bubble.component.css - VERSION AVEC LARGEURS AUGMENTÉES POUR MESSAGES REÇUS */
+
+/* ============ STRUCTURE PRINCIPALE ============ */
 .message-bubble-container {
   display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
+  gap: 12px;
+  margin-bottom: 16px;
   animation: fadeIn 0.3s ease;
+  width: 100%;
+  position: relative;
 }
 
 .message-bubble-container.own-message {
   flex-direction: row-reverse;
+  justify-content: flex-start;
 }
 
+/* ============ AVATAR ============ */
 .message-avatar {
   flex-shrink: 0;
+  align-self: flex-end;
+  margin-bottom: 4px;
 }
 
 .message-avatar img {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid white;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background-color: #e9ecef;
+  transition: all 0.2s ease;
 }
 
+.message-avatar img:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ============ WRAPPER DE CONTENU ============ */
 .message-content-wrapper {
-  max-width: 70%;
-  min-width: 100px;
+  flex: 1;
+  /* AUGMENTATION SUPPLÉMENTAIRE: Largeur maximale pour messages reçus */
+  max-width: 80%; /* Augmenté de 75% à 80% */
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
 }
 
 .own-message .message-content-wrapper {
   align-items: flex-end;
+  max-width: 72%; /* Maintenu pour messages envoyés */
 }
 
+/* Ajustement spécifique pour les messages texte */
+.message-bubble.text-message {
+  min-width: 120px;
+  max-width: 100%;
+}
+
+/* ============ EN-TÊTE DU MESSAGE ============ */
 .message-header {
   margin-bottom: 4px;
   padding-left: 12px;
 }
 
 .sender-name {
-  font-size: 0.75rem;
-  color: #636e72;
+  font-size: 0.8rem;
+  color: #6c757d;
   font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
+/* ============ BULLE PRINCIPALE ============ */
 .message-bubble {
   position: relative;
-  padding: 10px 15px;
   border-radius: 18px;
-  background: #e9ecef;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
   word-wrap: break-word;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  min-width: 80px;
 }
 
+/* Messages envoyés */
 .own-message .message-bubble {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border-bottom-right-radius: 4px;
+  border: none;
+  border-bottom-right-radius: 6px;
+  box-shadow: 0 3px 12px rgba(102, 126, 234, 0.3);
 }
 
+/* Messages reçus */
 .message-bubble-container:not(.own-message) .message-bubble {
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: 6px;
 }
 
 .message-bubble:hover {
   transform: translateY(-1px);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
-.deleted-message {
-  font-style: italic;
-  opacity: 0.6;
+.own-message .message-bubble:hover {
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
 }
 
-.text-content {
-  font-size: 0.95rem;
-  line-height: 1.4;
-  white-space: pre-wrap;
+/* Ajustement spécifique pour les messages texte longs */
+.message-bubble.text-message {
+  min-width: 100px;
+  /* AUGMENTATION SUPPLÉMENTAIRE: Largeur maximale pour tous les messages texte */
+  max-width: 600px; /* Augmenté de 550px à 600px */
 }
 
-.media-content {
-  margin: -10px -15px;
+/* Messages courts */
+.message-bubble.text-message:has(.message-text:only-child) {
+  min-width: 60px;
 }
 
-.media-content img,
-.media-content video {
-  width: 100%;
-  max-width: 300px;
-  border-radius: 18px;
-  cursor: pointer;
-  display: block;
-}
-
-.media-caption {
-  display: block;
-  padding: 10px 15px 5px;
-  font-size: 0.9rem;
-}
-
-.audio-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.audio-content audio {
-  width: 250px;
-}
-
-.audio-name {
-  font-size: 0.85rem;
-  opacity: 0.8;
-}
-
-.file-content {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.file-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  color: inherit;
-  padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 12px;
-  transition: all 0.2s ease;
-}
-
-.own-message .file-link {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-}
-
-.file-link:hover {
-  background: rgba(0, 0, 0, 0.1);
-}
-
-.own-message .file-link:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.file-icon {
-  font-size: 1.5rem;
-}
-
-.file-name {
-  font-size: 0.9rem;
-  text-decoration: underline;
-}
-
+/* ============ OPTIONS DU MESSAGE ============ */
 .message-options {
   position: absolute;
-  top: -30px;
-  right: 10px;
+  top: -35px;
+  right: 12px;
   display: flex;
-  gap: 5px;
+  gap: 6px;
   background: white;
   border-radius: 20px;
-  padding: 4px 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  padding: 6px 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   animation: slideDown 0.2s ease;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  z-index: 10;
 }
 
 .option-btn {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1rem;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-size: 1.1rem;
+  padding: 4px 8px;
+  border-radius: 6px;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .option-btn:hover {
-  background: #f0f2f5;
+  background: #f8f9fa;
   transform: scale(1.1);
 }
 
+/* ============ MESSAGE SUPPRIMÉ ============ */
+.deleted-message {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-style: italic;
+  opacity: 0.6;
+  color: #6c757d;
+}
+
+.deleted-icon {
+  font-size: 1.2rem;
+}
+
+/* ============ CONTENU TEXTE INTELLIGENT ============ */
+.text-content {
+  padding: 12px 16px;
+  min-width: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  display: flex;
+  flex-direction: column;
+}
+
+.message-text {
+  font-size: 0.95rem;
+  line-height: 1.45;
+  margin: 0;
+  display: block;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Classes spécifiques selon la longueur du message */
+.text-content.message-short {
+  padding: 10px 14px;
+  min-width: auto;
+}
+
+.text-content.message-short .message-text {
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  min-width: auto;
+  max-width: none;
+  line-height: 1.3;
+  font-size: 0.95rem;
+}
+
+.text-content.message-medium {
+  padding: 11px 15px;
+  /* AUGMENTATION SUPPLÉMENTAIRE: Largeur maximale pour messages moyens */
+  max-width: 420px; /* Augmenté de 380px à 420px */
+}
+
+.text-content.message-medium .message-text {
+  white-space: normal;
+  line-height: 1.4;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.text-content.message-long {
+  padding: 12px 16px;
+  /* AUGMENTATION SUPPLÉMENTAIRE: Largeur maximale pour messages longs */
+  max-width: 520px; /* Augmenté de 480px à 520px */
+}
+
+.text-content.message-long .message-text {
+  white-space: normal;
+  line-height: 1.5;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Ajustements pour les messages de producteurs */
+.message-bubble.producer-message .text-content {
+  /* AUGMENTATION: Largeur pour producteurs */
+  max-width: 480px; /* Augmenté de 380px à 480px */
+}
+
+.message-bubble.producer-message .text-content.message-short .message-text {
+  /* AUGMENTATION: Messages courts producteurs */
+  max-width: 400px; /* Augmenté de 300px à 400px */
+}
+
+/* NOUVELLE SECTION: Ajustements spécifiques pour messages reçus (non own-message) */
+.message-bubble-container:not(.own-message) .text-content {
+  /* Largeur de base augmentée pour tous les messages reçus */
+  max-width: 520px; /* Augmenté de 480px à 520px */
+}
+
+.message-bubble-container:not(.own-message) .text-content.message-short {
+  /* AUGMENTATION SUPPLÉMENTAIRE: Messages courts reçus */
+  max-width: 400px; /* Augmenté de 350px à 400px */
+}
+
+.message-bubble-container:not(.own-message) .text-content.message-short .message-text {
+  /* Permettre plus de caractères sur une ligne pour messages courts reçus */
+  max-width: 400px;
+  overflow: visible;
+}
+
+.message-bubble-container:not(.own-message) .text-content.message-medium {
+  /* AUGMENTATION SUPPLÉMENTAIRE: Messages moyens reçus */
+  max-width: 480px; /* Augmenté de 420px à 480px */
+}
+
+.message-bubble-container:not(.own-message) .text-content.message-long {
+  /* AUGMENTATION SUPPLÉMENTAIRE: Messages longs reçus */
+  max-width: 560px; /* Augmenté de 500px à 560px */
+}
+
+/* Ajustements pour les messages de receivers */
+.message-bubble.receiver-message .text-content {
+  /* AUGMENTATION: Largeur pour receivers */
+  max-width: 450px; /* Augmenté de 320px à 450px */
+}
+
+.message-bubble.receiver-message .text-content.message-short .message-text {
+  /* AUGMENTATION: Messages courts receivers */
+  max-width: 350px; /* Augmenté de 250px à 350px */
+}
+
+/* Optimisation pour les très courts messages (émojis, "ok", etc.) */
+.text-content.message-short .message-text:only-child {
+  min-width: auto;
+  width: fit-content;
+  padding: 0;
+}
+
+/* Messages d'une seule ligne - éviter les cassures */
+.message-text[style*="nowrap"] {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+}
+
+/* NOUVELLE SECTION: Ajustements pour améliorer la lisibilité des messages longs reçus */
+.message-bubble-container:not(.own-message) .message-text {
+  /* Amélioration de la lisibilité pour messages reçus */
+  line-height: 1.5; /* Légèrement augmenté pour plus d'aération */
+  letter-spacing: 0.01em; /* Espacement subtil des lettres */
+}
+
+/* Ajustement spécial pour les messages reçus très longs */
+.message-bubble-container:not(.own-message) .text-content.message-long .message-text {
+  line-height: 1.55; /* Encore plus d'aération pour les longs messages */
+  word-spacing: 0.05em; /* Espacement léger entre les mots */
+}
+
+/* ============ CONTENU IMAGE ============ */
+.image-content {
+  position: relative;
+  /* AUGMENTATION: Largeur maximale pour images */
+  max-width: 500px; /* Augmenté de 400px à 500px */
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.image-wrapper {
+  position: relative;
+  cursor: pointer;
+}
+
+.message-image {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  min-height: 150px;
+  object-fit: cover;
+  display: block;
+  transition: all 0.3s ease;
+}
+
+.image-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  cursor: pointer;
+}
+
+.image-wrapper:hover .image-overlay {
+  opacity: 1;
+}
+
+.zoom-icon {
+  font-size: 2rem;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.image-caption {
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.own-message .image-caption {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.image-caption p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* ============ CONTENU VIDÉO ============ */
+.video-content {
+  /* AUGMENTATION: Largeur maximale pour vidéos */
+  max-width: 500px; /* Augmenté de 400px à 500px */
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.video-wrapper {
+  position: relative;
+  background: #000;
+}
+
+.message-video {
+  width: 100%;
+  height: auto;
+  max-height: 300px;
+  min-height: 180px;
+  display: block;
+}
+
+.video-caption {
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.own-message .video-caption {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.video-caption p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* ============ CONTENU AUDIO ============ */
+.audio-content {
+  padding: 0;
+  min-width: 340px;
+  /* AUGMENTATION: Largeur maximale pour audio */
+  max-width: 650px; /* Augmenté de 280px à 350px */
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.audio-player {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 12px 16px;
+  border-radius: 20px;
+  position: relative;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.own-message .audio-player {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.audio-play-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 3px 12px rgba(102, 126, 234, 0.3);
+  position: relative;
+  margin-right: 12px;
+}
+
+
+
+.audio-play-btn::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0;
+  transform: scale(1);
+  transition: all 0.3s ease;
+}
+
+.audio-play-btn:hover::before {
+  opacity: 0.3;
+  transform: scale(1.15);
+}
+
+.audio-play-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+}
+
+.audio-play-btn.playing {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+  box-shadow: 0 3px 12px rgba(255, 107, 107, 0.3);
+  animation: pulse 2s infinite;
+}
+
+.own-message .audio-play-btn {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+  color: #667eea;
+  box-shadow: 0 3px 12px rgba(255, 255, 255, 0.25);
+}
+
+.own-message .audio-play-btn.playing {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.8) 100%);
+  color: #ff6b6b;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1.05);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.audio-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* AUGMENTATION: Largeur maximale pour info audio */
+  max-width: 250px; /* Augmenté de 180px à 250px */
+}
+
+.audio-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2d3436;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.audio-name::before {
+  content: '🎤';
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.own-message .audio-name {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.audio-duration {
+  font-size: 0.7rem;
+  color: #636e72;
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.3px;
+}
+
+.own-message .audio-duration {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.audio-progress {
+  width: 100%;
+  height: 4px;
+  background: rgba(102, 126, 234, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 2px;
+  position: relative;
+  cursor: pointer;
+}
+
+.own-message .audio-progress {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 2px;
+  transition: width 0.2s ease;
+  position: relative;
+}
+
+.progress-bar::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.audio-progress:hover .progress-bar::after {
+  opacity: 1;
+}
+
+.own-message .progress-bar {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.6) 100%);
+}
+
+/* Animation des ondes sonores */
+.audio-play-btn.playing::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border: 1px solid;
+  border-color: inherit;
+  border-radius: 50%;
+  opacity: 0.4;
+  animation: soundWave 1.5s infinite;
+}
+
+@keyframes soundWave {
+  0% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+/* ============ CONTENU FICHIER ============ */
+.file-content {
+  padding: 16px 18px;
+  min-width: 200px;
+  /* AUGMENTATION: Largeur maximale pour fichiers */
+  max-width: 420px; /* Augmenté de 350px à 420px */
+}
+
+.file-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.own-message .file-link {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.file-link:hover {
+  background: rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.own-message .file-link:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.file-icon-wrapper {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 8px;
+}
+
+.own-message .file-icon-wrapper {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.file-icon {
+  font-size: 1.5rem;
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-size {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.download-icon {
+  flex-shrink: 0;
+  font-size: 1.2rem;
+  opacity: 0.7;
+}
+
+/* ============ MÉTADONNÉES ============ */
 .message-meta {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 4px;
-  font-size: 0.7rem;
-  opacity: 0.7;
+  gap: 6px;
+  padding: 8px 18px 12px;
+  font-size: 0.75rem;
+  opacity: 0.8;
 }
 
 .own-message .message-meta {
@@ -205,27 +718,44 @@
 }
 
 .message-time {
-  font-size: 0.7rem;
+  font-weight: 500;
 }
 
 .message-status {
-  display: inline-flex;
-  gap: 1px;
+  display: flex;
+  align-items: center;
+  margin-left: 4px;
 }
 
-.message-status .read {
-  color: #4fc3f7;
+.status-icon {
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.status-icon.status-sent {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.status-icon.status-delivered {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.status-icon.status-read {
+  color: #ffffff;
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
 }
 
 .edited-indicator {
   font-style: italic;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
+  opacity: 0.6;
 }
 
+/* ============ ANIMATIONS ============ */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(15px);
   }
   to {
     opacity: 1;
@@ -233,18 +763,144 @@
   }
 }
 
-/* Responsive */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ============ RESPONSIVE ============ */
 @media (max-width: 768px) {
   .message-content-wrapper {
+    /* AUGMENTATION SUPPLÉMENTAIRE: Largeur pour tablette */
+    max-width: 88%; /* Augmenté de 85% à 88% */
+    min-width: 100px;
+  }
+  
+  .own-message .message-content-wrapper {
     max-width: 85%;
   }
   
-  .media-content img,
-  .media-content video {
-    max-width: 250px;
+  .message-bubble.text-message {
+    min-width: 80px;
+    /* AUGMENTATION SUPPLÉMENTAIRE: Largeur maximale pour mobile/tablette */
+    max-width: 460px; /* Augmenté de 420px à 460px */
   }
   
-  .audio-content audio {
-    width: 200px;
+  .text-content {
+    padding: 10px 14px;
+  }
+  
+  .message-text {
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+  
+  .image-content,
+  .video-content {
+    /* AUGMENTATION: Largeur maximale pour média sur tablette */
+    max-width: 400px; /* Augmenté de 300px à 400px */
+  }
+  
+  .message-image,
+  .message-video {
+    max-height: 200px;
+    min-height: 120px;
+  }
+  
+  .audio-content {
+    min-width: 200px;
+    /* AUGMENTATION: Largeur maximale pour audio sur tablette */
+    max-width: 320px; /* Augmenté de 260px à 320px */
+  }
+  
+  .file-content {
+    min-width: 150px;
+    /* AUGMENTATION: Largeur maximale pour fichiers sur tablette */
+    max-width: 320px; /* Augmenté de 260px à 320px */
+  }
+  
+  .audio-play-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .message-bubble-container {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .message-avatar img {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .message-content-wrapper {
+    /* AUGMENTATION SUPPLÉMENTAIRE: Largeur pour mobile */
+    max-width: 92%; /* Augmenté de 90% à 92% */
+    min-width: 80px;
+  }
+  
+  .own-message .message-content-wrapper {
+    max-width: 90%;
+  }
+  
+  .message-bubble.text-message {
+    min-width: 60px;
+    /* AUGMENTATION SUPPLÉMENTAIRE: Largeur maximale pour mobile */
+    max-width: 360px; /* Augmenté de 320px à 360px */
+  }
+  
+  .text-content {
+    padding: 8px 12px;
+  }
+  
+  .message-text {
+    font-size: 0.88rem;
+    line-height: 1.35;
+  }
+  
+  .image-content,
+  .video-content {
+    /* AUGMENTATION: Largeur maximale pour média sur mobile */
+    max-width: 300px; /* Augmenté de 250px à 300px */
+  }
+  
+  .message-image,
+  .message-video {
+    max-height: 150px;
+    min-height: 100px;
+  }
+  
+  .audio-content {
+    min-width: 180px;
+    /* AUGMENTATION: Largeur maximale pour audio sur mobile */
+    max-width: 280px; /* Augmenté de 240px à 280px */
+  }
+  
+  .file-content {
+    min-width: 120px;
+    /* AUGMENTATION: Largeur maximale pour fichiers sur mobile */
+    max-width: 280px; /* Augmenté de 220px à 280px */
+    padding: 10px 12px;
+  }
+  
+  .message-meta {
+    padding: 6px 12px 8px;
+    font-size: 0.7rem;
+  }
+  
+  .audio-play-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 0.95rem;
   }
 }

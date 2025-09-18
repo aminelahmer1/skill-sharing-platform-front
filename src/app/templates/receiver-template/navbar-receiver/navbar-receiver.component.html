@@ -1,50 +1,56 @@
-<!-- Fichier : src/app/templates/receiver-template/receiver-template/receiver-template.component.html (navbar mise à jour) -->
-
 <nav class="navbar">
   <div class="logo">
     <span class="logo-icon">💡</span>
     SkillShare<span>Live</span>
   </div>
+  
   <div class="nav-links" [class.active]="isMenuActive">
-    <a routerLink="/receiver" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">Accueil</a>
-    <a routerLink="profile" [routerLinkActive]="['active']">Profil</a>
-    <a routerLink="skills" [routerLinkActive]="['active']">Compétences recherchées</a>
-    <a routerLink="accepted-skills" [routerLinkActive]="['active']">Mes compétences acceptées</a>
-    <a routerLink="finished-skills" [routerLinkActive]="['active']">Mes compétences terminées</a>
-    <a routerLink="calendarR" [routerLinkActive]="['active']">Calendrier</a>
-    <!-- NOUVEAU: Lien vers Messenger -->
+    <a routerLink="/receiver" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
+      🏠 Accueil
+    </a>
+    <a routerLink="profile" [routerLinkActive]="['active']">
+      👤 Profil
+    </a>
+    <a routerLink="skills" [routerLinkActive]="['active']">
+      🔍 Découvrir
+    </a>
+    <a routerLink="accepted-skills" [routerLinkActive]="['active']">
+      ▶️ Actifs
+    </a>
+    <a routerLink="finished-skills" [routerLinkActive]="['active']">
+      ✅ Terminés
+    </a>
+    <a routerLink="calendarR" [routerLinkActive]="['active']">
+      📅 Planning
+    </a>
     <a routerLink="/receiver/messenger" [routerLinkActive]="['active']" class="messenger-link">
-      💬 Messages
+      💬 Messagerie
     </a>
   </div>
+  
   <div class="auth-buttons">
-    <!-- NOUVEAU: Badge de notification pour les messages -->
     <app-message-notification-badge></app-message-notification-badge>
     
-    <!-- Notifications normales -->
     <div class="notification-container">
-      <div 
-        class="notification-icon" 
-        (click)="toggleNotificationDropdown($event)" 
-        role="button" 
-        aria-label="Notifications" 
-        tabindex="0">
+      <div class="notification-icon"
+           (click)="toggleNotificationDropdown($event)"
+           role="button"
+           aria-label="Notifications"
+           tabindex="0">
         🔔
         <span *ngIf="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
       </div>
       
       <div class="notifications-wrapper">
-        <app-notification-dropdown 
+        <app-notification-dropdown
           *ngIf="showNotificationDropdown"
           [userId]="userId">
         </app-notification-dropdown>
       </div>
     </div>
     
-    <button
-      class="btn btn-primary"
-      (click)="handleLogout()"
-    >
+    <button class="btn btn-primary"
+            (click)="handleLogout()">
       {{ logoutButtonText }}
     </button>
   </div>

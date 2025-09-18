@@ -3,25 +3,37 @@
     <span class="logo-icon">💡</span>
     SkillShare<span>Live</span>
   </div>
+  
   <div class="nav-links" [class.active]="isMenuActive">
-    <a routerLink="/producer" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">Accueil</a>
-    <a routerLink="profile" [routerLinkActive]="['active']">Profil</a>
-    <a routerLink="/producer/skills" [routerLinkActive]="['active']">Mes compétences</a>
-    <a routerLink="/producer/livestreams" [routerLinkActive]="['active']">🎥 Mes Livestreams</a>
-    <a routerLink="requests" [routerLinkActive]="['active']">Demandes</a>
+    <a routerLink="/producer" [routerLinkActive]="['active']" [routerLinkActiveOptions]="{ exact: true }">
+      🏠 Accueil
+    </a>
+    <a routerLink="profile" [routerLinkActive]="['active']">
+      👤 Profil
+    </a>
+    <a routerLink="/producer/skills" [routerLinkActive]="['active']">
+      💡 Expertises
+    </a>
+    <a routerLink="/producer/livestreams" [routerLinkActive]="['active']">
+      📡 Direct
+    </a>
+    <a routerLink="requests" [routerLinkActive]="['active']">
+      📬 Demandes
+    </a>
     <a routerLink="/producer/enregistrements" [routerLinkActive]="['active']">
-  📹 Mes Enregistrements
-</a>
-    <a routerLink="calendarP" [routerLinkActive]="['active']">Calendrier</a>
+      📹 Archives
+    </a>
+    <a routerLink="calendarP" [routerLinkActive]="['active']">
+      📅 Planning
+    </a>
     <a routerLink="/producer/messenger" [routerLinkActive]="['active']" class="messenger-link">
-      💬 Messages
+      💬 Messagerie
     </a>
   </div>
+  
   <div class="auth-buttons">
-    <!-- Badge de notification pour les messages -->
     <app-message-notification-badge></app-message-notification-badge>
-        
-    <!-- AMÉLIORÉ: Structure similaire à receiver pour plus de fluidité -->
+    
     <div class="notification-container">
       <div class="notification-icon"
            [class.disabled]="!userId"
@@ -33,7 +45,6 @@
         <span *ngIf="unreadCount > 0" class="notification-badge">{{ unreadCount }}</span>
       </div>
       
-      <!-- NOUVEAU: Wrapper pour le dropdown comme receiver -->
       <div class="notifications-wrapper">
         <app-notification-dropdown
           *ngIf="showNotifications && userId"
@@ -41,13 +52,11 @@
         </app-notification-dropdown>
       </div>
     </div>
-        
-    <button
-      class="btn btn-primary"
-      (mouseover)="onLogoutHover()"
-      (mouseout)="onLogoutHoverOut()"
-      (click)="handleLogout()"
-    >
+    
+    <button class="btn btn-primary"
+            (mouseover)="onLogoutHover()"
+            (mouseout)="onLogoutHoverOut()"
+            (click)="handleLogout()">
       {{ logoutButtonText }}
     </button>
   </div>

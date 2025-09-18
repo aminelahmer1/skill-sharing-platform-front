@@ -128,14 +128,17 @@ body {
 
 .nav-links a {
     text-decoration: none;
-    color: var(--dark, #2d3436);
+    color: #2d3436;
     font-weight: 600;
+    font-size: 0.9rem; /* Taille de police légèrement réduite */
     transition: all 0.3s ease;
-    position: relative;
-    padding: 0.5rem 1rem;
+    padding: 0.4rem 0.8rem; /* Padding réduit */
     border-radius: 50px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
 }
-
 .nav-links a:hover {
     color: #ffffff;
     background-color: var(--primary, #6c5ce7);

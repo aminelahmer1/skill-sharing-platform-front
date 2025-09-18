@@ -24,15 +24,7 @@
         <span class="type-desc">Conversation privée avec une personne</span>
       </button>
       
-      <button 
-        class="type-btn"
-        [class.active]="conversationType === 'group'"
-        (click)="conversationType = 'group'; onConversationTypeChange()"
-        [disabled]="isCreating">
-        <span class="type-icon">👥</span>
-        <span class="type-label">Groupe</span>
-        <span class="type-desc">Conversation avec plusieurs participants</span>
-      </button>
+    
       
       <button 
         class="type-btn"

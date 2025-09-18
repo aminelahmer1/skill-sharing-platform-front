@@ -117,12 +117,16 @@ body {
 
 .nav-links a {
     text-decoration: none;
-    color: var(--dark, #2d3436);
+    color: #2d3436;
     font-weight: 600;
     transition: all 0.3s ease;
     position: relative;
     padding: 0.5rem 1rem;
     border-radius: 50px;
+    display: inline-flex; /* Important : flex en ligne */
+    align-items: center; /* Centre verticalement */
+    gap: 5px; /* Espace entre emoji et texte */
+    white-space: nowrap; /* Empêche le retour à la ligne */
 }
 
 .nav-links a:hover {

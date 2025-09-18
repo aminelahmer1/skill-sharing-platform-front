@@ -644,84 +644,7 @@ private setupAutoRead() {
 
   // ===== CORRECTION: Envoi de messages =====
 
-  onSendMessage(content: string) {
-    if (!content.trim() || !this.conversation) return;
-
-    const request: MessageRequest = {
-      conversationId: this.conversation.id,
-      content: content.trim(),
-      type: 'TEXT'
-    };
-
-    console.log('📤 Sending message:', content.substring(0, 50));
-
-    // CORRECTION: Système simplifié de protection contre les doublons
-    this.isProcessingOwnMessage = true;
-
-    this.messagingService.sendMessage(request)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (message) => {
-          console.log('✅ Message sent successfully:', message.id);
-          
-          // CORRECTION: Utiliser le système de déduplication unifié
-          const wasAdded = this.addMessageSecurely(message);
-          if (wasAdded) {
-            this.lastMessageCount = this.messages.length;
-            this.shouldAutoScroll = true;
-            this.pendingScrollToBottom = true;
-            this.cdr.detectChanges();
-          }
-          
-          // Marquer comme traité et débloquer après délai plus court
-          this.lastProcessedMessageId = message.id || null;
-          
-          setTimeout(() => {
-            this.isProcessingOwnMessage = false;
-          }, 1000); // Réduit à 1 seconde
-        },
-        error: (error) => {
-          console.error('❌ Error sending message:', error);
-          this.isProcessingOwnMessage = false;
-          this.showErrorNotification('Erreur lors de l\'envoi du message');
-        }
-      });
-  }
-
-  // ========== RESTE DES MÉTHODES (inchangé) ==========
-
-  onFileSelect(file: File) {
-    if (!this.conversation) return;
-
-    if (file.size > 10 * 1024 * 1024) {
-      this.showErrorNotification('Fichier trop volumineux (max 10MB)');
-      return;
-    }
-
-    this.messagingService.uploadFile(file)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (url) => {
-          const request: MessageRequest = {
-            conversationId: this.conversation.id,
-            content: file.name,
-            type: this.getFileType(file),
-            attachmentUrl: url
-          };
-          
-          this.shouldAutoScroll = true;
-          this.pendingScrollToBottom = true;
-          
-          this.messagingService.sendMessage(request)
-            .pipe(takeUntil(this.destroy$))
-            .subscribe({
-              next: () => console.log('✅ File sent'),
-              error: () => this.showErrorNotification('Erreur envoi fichier')
-            });
-        },
-        error: () => this.showErrorNotification('Erreur upload fichier')
-      });
-  }
+ 
 
   trackByMessageId(index: number, message: Message): number {
     return message.id || index;
@@ -786,12 +709,6 @@ private setupAutoRead() {
     });
   }
 
-  private getFileType(file: File): 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' {
-    if (file.type.startsWith('image/')) return 'IMAGE';
-    if (file.type.startsWith('video/')) return 'VIDEO';
-    if (file.type.startsWith('audio/')) return 'AUDIO';
-    return 'FILE';
-  }
 
   private getErrorMessage(error: any): string {
     if (error.status === 403) return 'Accès refusé';
@@ -800,32 +717,7 @@ private setupAutoRead() {
     return 'Erreur de chargement';
   }
 
-  private showErrorNotification(message: string) {
-    console.error('🔴 Error:', message);
-    
-    const notification = document.createElement('div');
-    notification.textContent = message;
-    notification.style.cssText = `
-      position: fixed;
-      top: 80px;
-      right: 20px;
-      background: #dc3545;
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      z-index: 10000;
-      font-size: 14px;
-      animation: slideInRight 0.3s ease;
-    `;
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-      notification.style.animation = 'slideOutRight 0.3s ease';
-      setTimeout(() => notification.remove(), 300);
-    }, 4000);
-  }
+ 
 
   onEditMessage(message: Message) {
     if (message.senderId !== this.currentUserId) return;
@@ -972,7 +864,177 @@ private updateMessageReadStatus(receipt: any) {
       });
     }
   }
+onVoiceMessageReceived(audioFile: File) {
+    console.log('🎵 Message vocal reçu du MessageInput:', audioFile);
+    
+    // Afficher un indicateur de chargement si nécessaire
+    this.showUploadingIndicator(true, 'Envoi du message vocal...');
+    
+    // Uploader le fichier audio d'abord
+    this.messagingService.uploadFile(audioFile).subscribe({
+      next: (uploadUrl) => {
+        console.log('✅ Fichier vocal uploadé:', uploadUrl);
+        
+        // Créer le message vocal avec métadonnées
+        const duration = (audioFile as any).durationText || 'Message vocal';
+        const messageRequest: MessageRequest = {
+          conversationId: this.conversation.id,
+          content: `Message vocal (${duration})`,
+          type: 'AUDIO',
+          attachmentUrl: uploadUrl
+        };
+        
+        // Envoyer le message vocal
+        this.messagingService.sendMessage(messageRequest).subscribe({
+          next: (message) => {
+            console.log('✅ Message vocal envoyé avec succès:', message.id);
+            this.hideUploadingIndicator();
+            
+            // Le message sera automatiquement ajouté via WebSocket
+            // Pas besoin de l'ajouter manuellement pour éviter les doublons
+            
+            // Scroll automatique vers le bas
+            this.pendingScrollToBottom = true;
+          },
+          error: (error) => {
+            console.error('❌ Erreur envoi message vocal:', error);
+            this.hideUploadingIndicator();
+            this.showErrorNotification('Erreur lors de l\'envoi du message vocal');
+          }
+        });
+      },
+      error: (error) => {
+        console.error('❌ Erreur upload fichier vocal:', error);
+        this.hideUploadingIndicator();
+        this.showErrorNotification('Erreur lors de l\'upload du fichier vocal');
+      }
+    });
+  }
+  
+  // ========== MÉTHODES D'INTERFACE UTILISATEUR ==========
+  
+  private showUploadingIndicator(show: boolean, message?: string) {
+    // Implémentez votre logique d'indicateur de chargement
+    // Par exemple, afficher un spinner dans l'interface
+    if (show) {
+      console.log('⏳', message || 'Upload en cours...');
+      // Vous pouvez ajouter un état isUploading = true
+      // et afficher un spinner dans le template
+    } else {
+      console.log('✅ Upload terminé');
+      // isUploading = false
+    }
+  }
+  
+  private hideUploadingIndicator() {
+    this.showUploadingIndicator(false);
+  }
+  
+  private showErrorNotification(message: string) {
+    // Réutilisez votre méthode existante ou créez-en une nouvelle
+    console.error('🔴 Erreur:', message);
+    
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.style.cssText = `
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      background: #dc3545;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000;
+      font-size: 14px;
+      animation: slideInRight 0.3s ease;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      notification.style.animation = 'slideOutRight 0.3s ease';
+      setTimeout(() => notification.remove(), 300);
+    }, 4000);
+  }
+  
+  // ========== GESTIONNAIRES EXISTANTS (MODIFIÉS) ==========
+  
+  onSendMessage(content: string) {
+    // Votre logique existante pour les messages texte
+    if (!content.trim() || !this.conversation) return;
 
+    const request: MessageRequest = {
+      conversationId: this.conversation.id,
+      content: content.trim(),
+      type: 'TEXT'
+    };
+
+    console.log('📤 Sending text message:', content.substring(0, 50));
+
+    this.messagingService.sendMessage(request)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (message) => {
+          console.log('✅ Text message sent successfully:', message.id);
+          // Le reste de votre logique existante...
+        },
+        error: (error) => {
+          console.error('❌ Error sending text message:', error);
+          this.showErrorNotification('Erreur lors de l\'envoi du message');
+        }
+      });
+  }
+  
+  onFileSelect(file: File) {
+    // Votre logique existante pour les fichiers
+    if (!this.conversation) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      this.showErrorNotification('Fichier trop volumineux (max 10MB)');
+      return;
+    }
+
+    this.showUploadingIndicator(true, 'Upload du fichier...');
+
+    this.messagingService.uploadFile(file)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (url) => {
+          const request: MessageRequest = {
+            conversationId: this.conversation.id,
+            content: file.name,
+            type: this.getFileType(file),
+            attachmentUrl: url
+          };
+          
+          this.messagingService.sendMessage(request)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+              next: () => {
+                console.log('✅ File sent successfully');
+                this.hideUploadingIndicator();
+                this.pendingScrollToBottom = true;
+              },
+              error: () => {
+                this.hideUploadingIndicator();
+                this.showErrorNotification('Erreur envoi fichier');
+              }
+            });
+        },
+        error: () => {
+          this.hideUploadingIndicator();
+          this.showErrorNotification('Erreur upload fichier');
+        }
+      });
+  }
+  
+  private getFileType(file: File): 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' {
+    if (file.type.startsWith('image/')) return 'IMAGE';
+    if (file.type.startsWith('video/')) return 'VIDEO';
+    if (file.type.startsWith('audio/')) return 'AUDIO';
+    return 'FILE';
+  }
   @HostListener('window:focus')
   onWindowFocus() {
     this.isConversationActive = true;

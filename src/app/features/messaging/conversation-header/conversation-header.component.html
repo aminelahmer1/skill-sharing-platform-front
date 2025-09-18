@@ -19,12 +19,7 @@
   </div>
 
   <div class="header-actions">
-    <button class="action-btn" (click)="onVoiceCall()" title="Appel vocal">
-      📞
-    </button>
-    <button class="action-btn" (click)="onVideoCall()" title="Appel vidéo">
-      📹
-    </button>
+   
     <button class="action-btn" (click)="toggleInfo()" title="Informations">
       ℹ️
     </button>
@@ -38,10 +33,7 @@
     </div>
     
     <div class="info-content">
-      <div class="info-section">
-        <h5>Type de conversation</h5>
-        <p>{{ getConversationTypeText() }}</p>
-      </div>
+     
       
       <div class="info-section" *ngIf="conversation.skillId">
         <h5>Compétence liée</h5>

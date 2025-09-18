@@ -1,4 +1,4 @@
-// message-input.component.ts - VERSION CORRIGÉE SANS ERREUR D'ANIMATION
+// message-input.component.ts - VERSION AVEC ENREGISTREMENT VOCAL COMPLET
 import { 
   Component, 
   Output, 
@@ -21,14 +21,21 @@ export class MessageInputComponent implements OnDestroy {
   @Output() sendMessage = new EventEmitter<string>();
   @Output() fileSelected = new EventEmitter<File>();
   @Output() typing = new EventEmitter<void>();
+  @Output() voiceMessageSent = new EventEmitter<File>(); // NOUVEAU: Émission pour message vocal
+  
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('messageTextarea') messageTextarea!: ElementRef<HTMLTextAreaElement>;
 
   messageContent = '';
   showEmojiPicker = false;
+  
+  // NOUVEAU: Variables pour l'enregistrement vocal
   isRecording = false;
+  recordingDuration = 0;
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
+  private recordingTimer: any;
+  private shouldProcessRecording = false;
 
   // Emojis populaires groupés
   emojiGroups = {
@@ -48,11 +55,10 @@ export class MessageInputComponent implements OnDestroy {
   }
 
   ngOnDestroy() {
-    // Nettoyer les ressources audio si nécessaire
-    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-      this.mediaRecorder.stop();
-    }
+    this.cleanupRecording();
   }
+
+  // ========== MÉTHODES EXISTANTES ==========
 
   onSend() {
     const content = this.messageContent.trim();
@@ -65,7 +71,6 @@ export class MessageInputComponent implements OnDestroy {
   }
 
   onKeyPress(event: KeyboardEvent) {
-    // Enter pour envoyer, Shift+Enter pour nouvelle ligne
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       this.onSend();
@@ -82,12 +87,10 @@ export class MessageInputComponent implements OnDestroy {
     if (input.files && input.files[0]) {
       const file = input.files[0];
       
-      // Validation basique du fichier
       if (this.validateFile(file)) {
         this.fileSelected.emit(file);
       }
       
-      // Reset l'input pour permettre de sélectionner le même fichier
       input.value = '';
     }
   }
@@ -120,10 +123,11 @@ export class MessageInputComponent implements OnDestroy {
     this.fileInput.nativeElement.click();
   }
 
+  // ========== MÉTHODES EMOJI ==========
+
   toggleEmojiPicker() {
     this.showEmojiPicker = !this.showEmojiPicker;
     
-    // Focus sur le textarea si on ferme le picker
     if (!this.showEmojiPicker && this.messageTextarea) {
       setTimeout(() => this.messageTextarea.nativeElement.focus(), 0);
     }
@@ -139,13 +143,10 @@ export class MessageInputComponent implements OnDestroy {
     const end = textarea.selectionEnd;
     const text = this.messageContent;
     
-    // Insérer l'emoji à la position du curseur
     this.messageContent = text.substring(0, start) + emoji + text.substring(end);
     
-    // Fermer le picker et focus
     this.closeEmojiPicker();
     
-    // Restaurer le focus et placer le curseur après l'emoji
     setTimeout(() => {
       textarea.focus();
       const newPosition = start + emoji.length;
@@ -154,15 +155,14 @@ export class MessageInputComponent implements OnDestroy {
     }, 0);
   }
 
+  // ========== MÉTHODES TEXTAREA ==========
+
   private adjustTextareaHeight() {
     if (!this.messageTextarea) return;
     
     const textarea = this.messageTextarea.nativeElement;
     
-    // Reset height pour calculer la vraie hauteur
     textarea.style.height = 'auto';
-    
-    // Calculer la nouvelle hauteur (max 120px)
     const newHeight = Math.min(textarea.scrollHeight, 120);
     textarea.style.height = `${newHeight}px`;
   }
@@ -174,64 +174,197 @@ export class MessageInputComponent implements OnDestroy {
     textarea.style.height = 'auto';
   }
 
-  async toggleRecording() {
-    if (!this.isRecording) {
-      await this.startRecording();
-    } else {
-      this.stopRecording();
-    }
-  }
+  // ========== NOUVELLES MÉTHODES POUR L'ENREGISTREMENT VOCAL ==========
 
-  private async startRecording() {
+  async startRecording() {
+    if (this.isRecording) return;
+
+    console.log('🎤 Démarrage de l\'enregistrement vocal...');
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      this.mediaRecorder = new MediaRecorder(stream);
-      this.audioChunks = [];
+      this.mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
       
+      this.audioChunks = [];
+      this.isRecording = true;
+      this.recordingDuration = 0;
+      this.shouldProcessRecording = false; // Réinitialiser le flag
+
       this.mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           this.audioChunks.push(event.data);
         }
       };
-      
+
       this.mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-        this.handleAudioRecording(audioBlob);
+        // Vérifier le flag avant de traiter
+        if (this.shouldProcessRecording) {
+          this.handleRecordingStop();
+        } else {
+          console.log('🚫 Enregistrement annulé - pas de traitement');
+          this.cleanupRecordingData();
+        }
         
-        // Arrêter tous les tracks
+        // Toujours nettoyer le stream
         stream.getTracks().forEach(track => track.stop());
       };
-      
+
       this.mediaRecorder.start();
-      this.isRecording = true;
       
-      console.log('🎤 Enregistrement audio démarré');
+      // Timer pour la durée d'enregistrement
+      this.recordingTimer = setInterval(() => {
+        this.recordingDuration++;
+        
+        // Arrêt automatique après 5 minutes (300 secondes)
+        if (this.recordingDuration >= 300) {
+          this.sendRecording();
+        }
+      }, 1000);
+
+      console.log('✅ Enregistrement vocal démarré');
+
     } catch (error) {
       console.error('❌ Erreur accès microphone:', error);
-      alert('Impossible d\'accéder au microphone');
+      alert('Impossible d\'accéder au microphone. Vérifiez les permissions.');
+      this.isRecording = false;
     }
   }
 
-  async stopRecording() {
+  stopRecording() {
+    if (!this.isRecording || !this.mediaRecorder) return;
+
+    console.log('⏹️ Arrêt de l\'enregistrement pour envoi...');
+    
+    // Marquer que l'enregistrement doit être traité
+    this.shouldProcessRecording = true;
+    this.isRecording = false;
+    
+    if (this.recordingTimer) {
+      clearInterval(this.recordingTimer);
+    }
+
+    if (this.mediaRecorder.state !== 'inactive') {
+      this.mediaRecorder.stop();
+    }
+  }
+
+  cancelRecording() {
+    if (!this.isRecording) return;
+
+    console.log('🚫 Annulation de l\'enregistrement');
+    
+    // Marquer que l'enregistrement NE doit PAS être traité
+    this.shouldProcessRecording = false;
+    this.isRecording = false;
+    
+    if (this.recordingTimer) {
+      clearInterval(this.recordingTimer);
+    }
+
+    // Arrêter le MediaRecorder sans traiter les données
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
       this.mediaRecorder.stop();
-      this.isRecording = false;
-      console.log('⏹️ Enregistrement audio arrêté');
     }
+    
+    // Nettoyer immédiatement les données
+    this.cleanupRecordingData();
   }
 
-  private handleAudioRecording(audioBlob: Blob) {
-    // Créer un fichier à partir du blob audio
-    const audioFile = new File([audioBlob], `audio-${Date.now()}.webm`, {
+  sendRecording() {
+    if (!this.isRecording || !this.mediaRecorder) {
+      console.warn('⚠️ Aucun enregistrement en cours');
+      return;
+    }
+
+    console.log('📤 Préparation de l\'envoi de l\'enregistrement...');
+    
+    // Arrêter l'enregistrement et déclencher le traitement
+    this.stopRecording();
+  }
+
+  private handleRecordingStop() {
+    if (this.audioChunks.length === 0) {
+      console.warn('⚠️ Aucune donnée audio à traiter');
+      return;
+    }
+
+    console.log('🎵 Traitement de l\'enregistrement vocal...');
+
+    const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+    const recordedDuration = this.recordingDuration;
+    const durationText = this.formatRecordingTime(recordedDuration);
+    
+    // Créer un fichier audio avec métadonnées
+    const audioFile = new File([audioBlob], `vocal-${Date.now()}.webm`, {
       type: 'audio/webm'
     });
-    
-    // Émettre le fichier audio
-    this.fileSelected.emit(audioFile);
+
+    // Ajouter des propriétés personnalisées pour les métadonnées
+    (audioFile as any).duration = recordedDuration;
+    (audioFile as any).durationText = durationText;
+
+    console.log('✅ Message vocal créé:', {
+      size: audioFile.size,
+      duration: durationText,
+      type: audioFile.type
+    });
+
+    // Émettre le fichier audio vers le composant parent
+    this.voiceMessageSent.emit(audioFile);
+
+    // Nettoyer les données d'enregistrement
+    this.cleanupRecordingData();
   }
 
-  // Méthode pour gérer le clic en dehors (optionnel)
+  private cleanupRecordingData() {
+    this.recordingDuration = 0;
+    this.audioChunks = [];
+    this.shouldProcessRecording = false;
+    
+    console.log('🧹 Données d\'enregistrement nettoyées');
+  }
+
+  private cleanupRecording() {
+    if (this.recordingTimer) {
+      clearInterval(this.recordingTimer);
+    }
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      this.mediaRecorder.stop();
+    }
+    this.cleanupRecordingData();
+  }
+
+  // ========== MÉTHODES UTILITAIRES ==========
+
+  formatRecordingTime(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  canSend(): boolean {
+    return this.messageContent.trim().length > 0 && !this.isRecording;
+  }
+
+  getRecordingTooltip(): string {
+    return this.isRecording ? 'Arrêter l\'enregistrement' : 'Message vocal';
+  }
+
+  getEmojiButtonTooltip(): string {
+    return this.showEmojiPicker ? 'Fermer les emojis' : 'Ajouter un emoji';
+  }
+
+  getVoiceButtonTooltip(): string {
+    if (this.isRecording) {
+      return 'Enregistrement en cours...';
+    }
+    return 'Maintenir pour enregistrer un message vocal';
+  }
+
+  // Méthode pour gérer le clic en dehors des éléments
   onDocumentClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
     const emojiPicker = document.querySelector('.emoji-picker');
@@ -243,18 +376,4 @@ export class MessageInputComponent implements OnDestroy {
         !emojiButton?.contains(target)) {
       this.closeEmojiPicker();
     }
-  }
-
-  // Helpers pour le template
-  canSend(): boolean {
-    return this.messageContent.trim().length > 0;
-  }
-
-  getRecordingTooltip(): string {
-    return this.isRecording ? 'Arrêter l\'enregistrement' : 'Message vocal';
-  }
-
-  getEmojiButtonTooltip(): string {
-    return this.showEmojiPicker ? 'Fermer les emojis' : 'Ajouter un emoji';
-  }
-}
+  }}

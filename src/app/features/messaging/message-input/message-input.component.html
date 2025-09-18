@@ -1,7 +1,7 @@
-<!-- message-input.component.html - VERSION SANS ANIMATION -->
+<!-- message-input.component.html - VERSION AVEC ENREGISTREMENT VOCAL COMPLET -->
 <div class="message-input-container">
   
-  <!-- Emoji Picker (sans animation @slideUp) -->
+  <!-- Emoji Picker -->
   <div class="emoji-picker" *ngIf="showEmojiPicker">
     <div class="emoji-header">
       <span class="emoji-title">Emojis</span>
@@ -20,8 +20,26 @@
     </div>
   </div>
 
-  <!-- Input Wrapper -->
-  <div class="input-wrapper">
+  <!-- Indicateur d'enregistrement vocal - NOUVELLE SECTION -->
+  <div class="recording-indicator" *ngIf="isRecording">
+    <div class="recording-animation">
+      <div class="recording-dot"></div>
+      <span class="recording-text">
+        Enregistrement en cours... {{ formatRecordingTime(recordingDuration) }}
+      </span>
+    </div>
+    <div class="recording-actions">
+      <button class="cancel-recording" (click)="cancelRecording()">
+        ✕ Annuler
+      </button>
+      <button class="send-recording" (click)="sendRecording()">
+        📤 Envoyer
+      </button>
+    </div>
+  </div>
+
+  <!-- Input Wrapper - Masqué pendant l'enregistrement -->
+  <div class="input-wrapper" *ngIf="!isRecording">
     
     <!-- Actions à gauche -->
     <div class="input-actions-left">
@@ -68,14 +86,18 @@
         😊
       </button>
       
+      <!-- NOUVEAU: Bouton vocal avec maintien -->
       <button 
-        class="action-btn mic-button" 
-        (click)="toggleRecording()" 
+        class="action-btn voice-btn" 
+        (mousedown)="startRecording()"
+        (mouseup)="stopRecording()"
+        (touchstart)="startRecording()"
+        (touchend)="stopRecording()"
         [class.recording]="isRecording"
-        [title]="getRecordingTooltip()"
+        [title]="getVoiceButtonTooltip()"
         type="button">
         <span *ngIf="!isRecording">🎤</span>
-        <span *ngIf="isRecording" class="recording-indicator">⏺️</span>
+        <span *ngIf="isRecording" class="recording-pulse">⏺️</span>
       </button>
 
       <button 
@@ -89,12 +111,583 @@
     </div>
     
   </div>
-
-  <!-- Indicateur d'enregistrement -->
-  <div class="recording-status" *ngIf="isRecording">
-    <span class="recording-dot"></span>
-    <span class="recording-text">Enregistrement en cours...</span>
-    <button class="recording-cancel" (click)="stopRecording()">Annuler</button>
-  </div>
   
 </div>
+
+<style>
+/* ==========================================
+   CONTENEUR PRINCIPAL
+   ========================================== */
+
+.message-input-container {
+  position: relative;
+  width: 100%;
+}
+
+/* ==========================================
+   INDICATEUR D'ENREGISTREMENT - NOUVEAU
+   ========================================== */
+
+.recording-indicator {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: white;
+  padding: 15px 20px;
+  border-radius: 20px;
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+  animation: slideUpRecording 0.3s ease;
+}
+
+@keyframes slideUpRecording {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.recording-animation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.recording-dot {
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 50%;
+  animation: recordingPulse 1s infinite;
+}
+
+@keyframes recordingPulse {
+  0%, 100% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.3;
+    transform: scale(1.2);
+  }
+}
+
+.recording-text {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.recording-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.cancel-recording, .send-recording {
+  background: rgba(255, 255, 255, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  padding: 10px 18px;
+  border-radius: 25px;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.cancel-recording:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.send-recording {
+  background: rgba(255, 255, 255, 0.9);
+  color: #e74c3c;
+  font-weight: 700;
+  border: 2px solid white;
+}
+
+.send-recording:hover {
+  background: white;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* ==========================================
+   EMOJI PICKER
+   ========================================== */
+
+.emoji-picker {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  max-width: 320px;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 15px;
+  box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.15);
+  margin-bottom: 10px;
+  z-index: 1000;
+  max-height: 280px;
+  display: flex;
+  flex-direction: column;
+  animation: slideUpFade 0.3s ease;
+  transform-origin: bottom;
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.emoji-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  border-bottom: 1px solid #e9ecef;
+  background: #f8f9fa;
+  border-radius: 15px 15px 0 0;
+}
+
+.emoji-title {
+  font-weight: 600;
+  color: #495057;
+  font-size: 0.9rem;
+}
+
+.emoji-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6c757d;
+  font-size: 1.2rem;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.emoji-close:hover {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  padding: 10px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.emoji-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.emoji-grid::-webkit-scrollbar-track {
+  background: #f1f3f5;
+  border-radius: 3px;
+}
+
+.emoji-grid::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 3px;
+}
+
+.emoji-grid::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+.emoji-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.emoji-item:hover {
+  background: #f0f2f5;
+  transform: scale(1.2);
+}
+
+.emoji-item:active {
+  transform: scale(1.1);
+}
+
+/* ==========================================
+   INPUT WRAPPER
+   ========================================== */
+
+.input-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 25px;
+  padding: 8px 12px;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.input-wrapper:focus-within {
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* ==========================================
+   ACTIONS (BOUTONS)
+   ========================================== */
+
+.input-actions-left,
+.input-actions-right {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.action-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  position: relative;
+  user-select: none;
+}
+
+.action-btn:hover {
+  background: rgba(102, 126, 234, 0.1);
+  transform: scale(1.1);
+}
+
+.action-btn:active {
+  transform: scale(0.95);
+}
+
+.action-btn.active {
+  background: rgba(102, 126, 234, 0.15);
+}
+
+/* NOUVEAU: Bouton microphone en enregistrement */
+.voice-btn.recording {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  color: white;
+  animation: voiceRecordingPulse 1.5s infinite;
+  box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7);
+}
+
+.recording-pulse {
+  animation: pulseIcon 1s infinite;
+}
+
+@keyframes voiceRecordingPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 107, 107, 0);
+    transform: scale(1.05);
+  }
+}
+
+@keyframes pulseIcon {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+/* ==========================================
+   ZONE DE TEXTE
+   ========================================== */
+
+.input-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.message-textarea {
+  width: 100%;
+  border: none;
+  background: transparent;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  max-height: 100px;
+  min-height: 24px;
+  overflow-y: auto;
+  padding: 4px 8px;
+  color: #2d3436;
+  caret-color: #667eea;
+}
+
+.message-textarea::placeholder {
+  color: #6c757d;
+  opacity: 0.7;
+}
+
+.message-textarea::-webkit-scrollbar {
+  width: 4px;
+}
+
+.message-textarea::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 2px;
+}
+
+/* ==========================================
+   BOUTON ENVOYER
+   ========================================== */
+
+.send-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.send-btn:hover:not(:disabled) {
+  transform: scale(1.1) rotate(-5deg);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.send-btn:active:not(:disabled) {
+  transform: scale(1.05);
+}
+
+.send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #6c757d;
+  box-shadow: none;
+}
+
+.send-icon {
+  font-size: 1.2rem;
+  transform: rotate(-45deg);
+  transition: transform 0.3s ease;
+}
+
+.send-btn:hover:not(:disabled) .send-icon {
+  transform: rotate(-45deg) translateX(2px);
+}
+
+/* ==========================================
+   FOCUS ET ACCESSIBILITÉ
+   ========================================== */
+
+.action-btn:focus-visible,
+.send-btn:focus-visible,
+.emoji-close:focus-visible,
+.cancel-recording:focus-visible,
+.send-recording:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* ==========================================
+   TOOLTIPS
+   ========================================== */
+
+.action-btn::before,
+.send-btn::before {
+  content: attr(title);
+  position: absolute;
+  bottom: 110%;
+  left: 50%;
+  transform: translateX(-50%) scale(0);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: transform 0.2s ease;
+  z-index: 1000;
+}
+
+.action-btn:hover::before,
+.send-btn:hover::before {
+  transform: translateX(-50%) scale(1);
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 768px) {
+  .emoji-picker {
+    left: 10px;
+    right: 10px;
+    max-width: none;
+  }
+  
+  .emoji-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  
+  .input-wrapper {
+    gap: 6px;
+    padding: 6px 10px;
+  }
+  
+  .action-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 1.1rem;
+  }
+  
+  .send-btn {
+    width: 34px;
+    height: 34px;
+  }
+  
+  .message-textarea {
+    font-size: 0.9rem;
+  }
+
+  .recording-indicator {
+    padding: 12px 15px;
+    margin-bottom: 10px;
+  }
+
+  .recording-text {
+    font-size: 0.9rem;
+  }
+
+  .cancel-recording, .send-recording {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    min-width: 85px;
+  }
+}
+
+@media (max-width: 480px) {
+  .emoji-picker {
+    left: 5px;
+    right: 5px;
+    max-height: 240px;
+  }
+  
+  .emoji-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
+  }
+  
+  .emoji-item {
+    width: 30px;
+    height: 30px;
+    font-size: 1.1rem;
+  }
+  
+  .input-wrapper {
+    gap: 4px;
+    padding: 5px 8px;
+  }
+  
+  .action-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 1rem;
+  }
+  
+  .send-btn {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .send-icon {
+    font-size: 1rem;
+  }
+  
+  .message-textarea {
+    font-size: 0.85rem;
+    padding: 3px 6px;
+  }
+
+  .recording-indicator {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .recording-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .cancel-recording, .send-recording {
+    flex: 1;
+    max-width: 45%;
+  }
+}
+
+/* ==========================================
+   MODE RÉDUIT DE MOUVEMENT
+   ========================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
